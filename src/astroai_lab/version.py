@@ -1,7 +1,7 @@
 """Package version plus the git commit when installed from a git URL.
 
 Images and in-session ``upgrade-cadc-tools.sh`` install
-``astroai-lab @ git+https://github.com/astroai/lab.git@<sha>``.
+``astroai-lab @ git+https://github.com/astroai/canfar-lab.git@<sha>``.
 PEP 610 ``direct_url.json`` records that commit, so ``astroai --version``
 can distinguish two builds that still share the same marketing number.
 """
@@ -13,7 +13,7 @@ from importlib.metadata import PackageNotFoundError, distribution
 from typing import Any
 
 # Marketing / pyproject version. Bump when the CLI contract changes.
-PACKAGE_VERSION = "0.4.0"
+PACKAGE_VERSION = "0.5.0"
 __version__ = PACKAGE_VERSION
 
 

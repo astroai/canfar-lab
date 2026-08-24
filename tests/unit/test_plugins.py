@@ -76,7 +76,7 @@ def test_canfar_ray_skill_points_at_workload_run() -> None:
     text = (bundled_skill_src("canfar-ray") / "SKILL.md").read_text(encoding="utf-8")
     assert "astroai run" in text
     assert "Do not call `ray job submit`" in text
-    assert "cluster start --autoscaling" in text
+    assert "cluster start" in text
 
 
 def test_load_plugins_empty_dir(tmp_path: Path) -> None:

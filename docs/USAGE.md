@@ -10,7 +10,7 @@ It does project environments (`init` / `save` / `resume`), the Ray cluster
 |------|------|
 | [`canfar`](https://github.com/opencadc/canfar) | Auth, session lifecycle, `canfar data` |
 | CADC clients (`cadcget`, `vcp`, …) | Archive and VOSpace I/O |
-| [Session images](https://github.com/astroai/astroai-containers) | `webterm`, `notebook`, `vscode`, `marimo`, Ray |
+| [Session images](https://github.com/astroai/canfar-containers) | `webterm`, `notebook`, `vscode`, `marimo`, Ray |
 
 | Doc | Scope |
 |-----|--------|
@@ -68,7 +68,7 @@ flowchart TB
 Images ship `astroai` on PATH (`/opt/astroai/venv/cadc`).
 
 ```bash
-uv tool install git+https://github.com/astroai/lab.git
+uv tool install git+https://github.com/astroai/canfar-lab.git
 uv sync --all-extras && uv run astroai --help
 ./scripts/ci.sh
 ```
@@ -126,26 +126,24 @@ Usual path: one autoscaling manager, then a job with `--cpus`. Same as
 AstroAI hub **Start batch compute**.
 
 ```bash
-astroai cluster start --autoscaling
+astroai cluster start                # autoscaling head; Ray adds workers on demand
 export ASTROAI_RAY_JOBS_ADDRESS=…    # printed by start; skip inside the manager
-astroai run train.py --cpus 2
-astroai cluster check
+astroai run train.py --cpus 2        # --cpus is what makes a worker appear
+astroai cluster status
 ```
 
-`--workers N` is a fixed pool. Do not mix it with `--autoscaling` on the
-same manager. `astroai status` is this session’s quota, not the cluster.
+Size the ceiling with `--min-workers` / `--max-workers` / `--cores` / `--ram`
+/ `--gpus`. `astroai status` is this session's quota, not the cluster.
 
 ```bash
-astroai cluster start --workers 2
-astroai cluster scale 0              # stop workers, keep the manager
-astroai cluster stop
+astroai cluster stop                 # destroys workers AND the manager
 astroai cluster dashboard            # Ray Dashboard URL
 astroai jobs list
 ```
 
 Do not use `ray job submit`. The job command is `astroai run`.
 Manager memory **≥8 GiB**. Shared data on `/arc`; `/scratch` is per-pod.
-More: [containers RAY.md](https://github.com/astroai/astroai-containers/blob/main/docs/RAY.md).
+More: [containers RAY.md](https://github.com/astroai/canfar-containers/blob/main/docs/RAY.md).
 
 ---
 
@@ -176,13 +174,16 @@ vls vos:…
 | Restore env | `astroai resume NAME` |
 | This session’s quota | `astroai status` |
 | Free home space | `astroai clean` |
-| Start Ray cluster | `astroai cluster start --autoscaling` |
-| Is the cluster up? | `astroai cluster check` |
+| Start Ray cluster | `astroai cluster start` |
+| Is the cluster up? | `astroai cluster status` |
 | Run a job | `astroai run SCRIPT --cpus N` |
 | Jupyter kernel | `astroai kernel ensure` |
 | Agents | `astroai agent setup` / `install` / `verify` |
 
 Flags: [cli.md](cli.md).
+
+Two sessions share `/arc/home` — what is safe to run concurrently and where
+agent runtimes live: [concurrency.md](concurrency.md).
 
 ---
 
@@ -214,7 +215,7 @@ Upgrade lab in a running session (no image rebuild):
 
 ```bash
 uv pip install --python /opt/astroai/venv/cadc \
-  "git+https://github.com/astroai/lab.git@main"
+  "git+https://github.com/astroai/canfar-lab.git@main"
 hash -r
 ```
 
@@ -226,7 +227,7 @@ hash -r
 |---------|-------------|
 | Paths / caches under `$HOME` | `astroai env export` in a login shell (`bash -l`) |
 | Env save failed | `astroai status` (quota) |
-| Cluster not up | `astroai cluster check`, then `cluster start --autoscaling` |
+| Cluster not up | `astroai cluster status`, then `cluster start` |
 | Kernel missing | `astroai kernel ensure` |
 | `canfar` unknown | You are not on an AstroAI image |
 | All help | `astroai help` |
@@ -235,5 +236,5 @@ hash -r
 
 ## See also
 
-- [astroai-containers USAGE](https://github.com/astroai/astroai-containers/blob/main/docs/USAGE.md)
+- [astroai-containers USAGE](https://github.com/astroai/canfar-containers/blob/main/docs/USAGE.md)
 - [CANFAR client docs](https://opencadc.github.io/canfar/)

@@ -126,12 +126,32 @@ def read_persisted_connect_url() -> str | None:
 
 def persist_connect_url(cluster_id: str, connect_url: str) -> Path:
     """Record a manager connect URL so later dashboard resolution finds it."""
+    from astroai_lab.utils.json_utils import atomic_write_text
     from astroai_workload.state_store import cluster_state_dir
 
     path = cluster_state_dir(cluster_id) / "connect-url"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(connect_url.rstrip("/") + "/", encoding="utf-8")
+    atomic_write_text(path, connect_url.rstrip("/") + "/")
     return path
+
+
+def clear_persisted_connect_urls() -> int:
+    """Delete every persisted ``connect-url`` file. Returns how many were removed.
+
+    Called on cluster teardown so resolution never points at a dead manager.
+    """
+    clusters = Path.home() / ".astroai" / "ray" / "clusters"
+    if not clusters.is_dir():
+        return 0
+    removed = 0
+    for root in clusters.iterdir():
+        path = root / "connect-url" if root.is_dir() else None
+        if path and path.is_file():
+            try:
+                path.unlink()
+                removed += 1
+            except OSError:
+                continue
+    return removed
 
 
 def dashboard_iframe_html(url: str, *, height: int = 900) -> str:

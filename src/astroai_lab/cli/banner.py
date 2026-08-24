@@ -72,7 +72,5 @@ def show_banner(*, json_output: bool = False) -> None:
     else:
         ui.print_hint("  notebook path: `astroai kernel ensure` then open starter.ipynb")
         ui.print_hint("  project path:  `astroai init mylab`  ·  `astroai clone owner/repo`")
-    ui.print_hint(
-        "  cluster: `astroai cluster start --autoscaling`  ·  `astroai run train.py --cpus 2`"
-    )
+    ui.print_hint("  cluster: `astroai cluster start`  ·  `astroai run train.py --cpus 2`")
     ui.print_hint("  help: `astroai help`  ·  overview: `astroai status`")

@@ -2,7 +2,7 @@
 
 Train a tiny CNN with `astroai run` on a CANFAR `ray-manager` cluster.
 
-1. AstroAI hub: **Start batch compute** (or `astroai cluster start --autoscaling`)
+1. AstroAI hub: **Start batch compute** (or `astroai cluster start`)
 2. Then the job:
 
 ```bash

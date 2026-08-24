@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import contextlib
 import json
 import os
-import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
@@ -14,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 from astroai_lab.agent.bundle_path import bundle_root
-from astroai_lab.errors import LabError
 
 GIT_TIMEOUT_SEC = int(os.environ.get("ASTROAI_LAB_AGENT_GIT_TIMEOUT", "120"))
 # Self-bootstrapping installers (hermes bootstraps its own uv/python/node and
@@ -86,9 +83,11 @@ def record_setup_ok(home: Path | None = None, *, mode: str = "install") -> None:
     version_file = bundle_root() / "VERSION"
     if version_file.is_file():
         ver = version_file.read_text(encoding="utf-8").strip()
-    stamp_path(home).write_text(
+    from astroai_lab.utils.json_utils import atomic_write_text
+
+    atomic_write_text(
+        stamp_path(home),
         datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") + f" bundle={ver} mode={mode}\n",
-        encoding="utf-8",
     )
     failed_path(home).unlink(missing_ok=True)
 
@@ -108,7 +107,9 @@ def record_setup_failed(
         + (f" {detail}" if detail else "")
         + "\n"
     )
-    failed_path(home).write_text(line, encoding="utf-8")
+    from astroai_lab.utils.json_utils import atomic_write_text
+
+    atomic_write_text(failed_path(home), line)
 
 
 def append_setup_log(home: Path | None, text: str) -> None:
@@ -127,43 +128,16 @@ def agent_setup_lock(
     *,
     timeout: float | None = None,
 ) -> Iterator[None]:
-    """Exclusive lock for agent setup / wizard actions."""
+    """Exclusive lock for agent setup / wizard actions (shared lock family)."""
+    from astroai_lab.core.pathlock import path_lock
+
     home = home or Path.home()
-    timeout = LOCK_TIMEOUT_SEC if timeout is None else timeout
-    path = lock_path(home)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    deadline = time.monotonic() + timeout
-    fd: int | None = None
-    my_pid = os.getpid()
-    while True:
-        try:
-            fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
-            os.write(fd, f"{my_pid} {time.time()}\n".encode())
-            break
-        except FileExistsError:
-            if time.monotonic() >= deadline:
-                if _lock_is_stale(path):
-                    path.unlink(missing_ok=True)
-                    continue
-                raise LabError(
-                    "Another agent setup is already running",
-                    hint=f"Wait or remove stale lock: {path}",
-                )
-            time.sleep(0.25)
-    try:
+    with path_lock(
+        lock_path(home),
+        timeout=LOCK_TIMEOUT_SEC if timeout is None else timeout,
+        busy_hint="Another agent setup is already running",
+    ):
         yield
-    finally:
-        # Only remove the lock if we still own it (avoid deleting a stealer's lock).
-        try:
-            text = path.read_text(encoding="utf-8").strip()
-            owner = text.split()[0] if text else ""
-            if owner == str(my_pid):
-                path.unlink(missing_ok=True)
-        except OSError:
-            pass
-        if fd is not None:
-            with contextlib.suppress(OSError):
-                os.close(fd)
 
 
 def _lock_holder_alive(path: Path) -> bool:

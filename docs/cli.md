@@ -5,7 +5,7 @@ use **`canfar`** — [opencadc.github.io/canfar](https://opencadc.github.io/canf
 
 `astroai` is the in-session CLI: project env (`init` / `save` / `resume`),
 Ray cluster and jobs (`cluster` / `run` / `jobs`), agents, kernels, and
-session status. `astroai status` is this session’s quota. `astroai cluster check`
+session status. `astroai status` is this session’s quota. `astroai cluster status`
 is whether the Ray cluster is up.
 
 Global flags (most commands accept these **before** the subcommand, e.g. `astroai --json status`. Several commands also accept the same flags **after** the subcommand name — see examples below):
@@ -69,26 +69,26 @@ astroai run train.py --cpus 2 --gpus 1 --memory 8GiB
 
 | Command | What it does |
 |---------|----------------|
-| `cluster start --autoscaling` | Usual path. Writes the manager env file, creates the manager if needed, Ray adds `ray-as-*` workers when a job needs CPUs |
-| `cluster start --workers N` | Fixed pool. Do not mix with `--autoscaling` on the same manager |
-| `cluster check` | Up or not, joined workers, Dashboard URL |
-| `cluster scale N` | Grow/shrink a **fixed** pool. `scale 0` stops workers, keeps the manager |
-| `cluster stop` | Destroy every worker. Keeps the manager |
+| `cluster start` | Start (or reuse) the autoscaling cluster. Writes the manager env file, creates the manager if needed; Ray adds `ray-as-*` workers when a job needs CPUs |
+| `cluster status` | Up or not, joined workers, Dashboard URL |
+| `cluster stop` | Tear down the whole cluster: workers **and** the manager, plus persisted state |
 | `cluster dashboard` | Print the Ray Dashboard URL. `proxy` / `iframe` for notebooks |
 
+`start` options: `--min-workers` (kept alive when idle), `--max-workers`
+(ceiling), `--cores`, `--ram`, `--gpus`, `--address`, `--timeout`, `--json`.
+
 ```bash
-astroai cluster start --autoscaling
-astroai cluster start --autoscaling --max-workers 8 --cores 2 --ram 8
-astroai cluster start --workers 2 --gpus 1
-astroai cluster check
-astroai cluster scale 0
+astroai cluster start
+astroai cluster start --max-workers 8 --cores 2 --ram 8
+astroai cluster start --min-workers 1 --gpus 1 --timeout 1800
+astroai cluster status
 astroai cluster dashboard
 ```
 
-`start` is safe to run again (no second manager). `--json` returns
-`manager_url`, `jobs_address`, `dashboard_url`. Hidden aliases:
-`cluster ensure` → `start`, `cluster status` → `check`, top-level
-`astroai dashboard` → `cluster dashboard`.
+`start` is safe to run again (no second manager). If a manager was already
+running, the output says so — restart it to pick up new sizing. `--json`
+returns `manager_url`, `jobs_address`, `dashboard_url`,
+`cluster_phase`, `joined_workers`, `autoscaling`.
 
 ### `astroai jobs`
 
@@ -253,7 +253,7 @@ configs stay on `$HOME` (/arc/home). Some ids still install via battle-tested
 | `agent setup [NAME…]` | First-run scaffold for an agent id or setup name; `--all` / `--project` |
 | `agent config ID` | Show/edit an agent's `$HOME` settings file (`--key`, `key=value`, `--unset`) |
 | `agent update [ID]` | Refresh agent configs; with ID refreshes one agent |
-| `agent verify` | Health check; `--fix` auto-repairs shared setup + installed agents; `--fix ID` for one agent; `--clean` stale state |
+| `agent verify` | Health check + drift report (obsolete managed skills, stale plugins, dead MCP paths); `--fix` repairs configs **and** reconciles skills/plugins/paths with this lab version; `--fix ID` for one agent; `--clean` stale state |
 | `agent plugins …` | list / install / update / remove extras (skills, MCP, rules, tools). `plugins list` is Kind / On / Def / Agents; `--description` for summaries |
 
 ```bash

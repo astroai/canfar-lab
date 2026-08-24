@@ -3,8 +3,36 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
+
+
+def atomic_write_text(path: Path, text: str) -> None:
+    """Write *text* so readers never observe a torn file.
+
+    Shared ``/arc/home`` is NFS: two sessions writing the same config must not
+    be able to interleave partial writes. Write to a sibling temp file, fsync,
+    then ``os.replace`` (atomic on the same filesystem).
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def atomic_write_json(path: Path, data: dict[str, Any]) -> None:
+    """``atomic_write_text`` for pretty JSON."""
+    atomic_write_text(path, json.dumps(data, indent=2) + "\n")
 
 
 def strip_jsonc(text: str) -> str:
@@ -99,8 +127,8 @@ def read_jsonc(path: Path) -> Any:
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    """Pretty-write JSON atomically (safe on the shared NFS home)."""
+    atomic_write_json(path, data)
 
 
 def merge_dicts(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:

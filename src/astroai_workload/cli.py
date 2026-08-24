@@ -1,4 +1,4 @@
-"""Run programs on a CANFAR Ray cluster, or start and resize that cluster."""
+"""Run programs on a CANFAR Ray cluster, and start or tear down that cluster."""
 
 from __future__ import annotations
 
@@ -8,6 +8,8 @@ import shlex
 import sys
 import time
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Any, NoReturn
 
@@ -17,19 +19,13 @@ from .executor import RayExecutor, run_script
 from .models import DataProductRef, ResourceRequest, RunSpec, RunStatus
 
 _MAIN_HELP = """
-Run a program on a Ray cluster, or start/resize the workers that cluster uses.
+Run a program on an autoscaling Ray cluster on CANFAR.
 
-  Autoscaling (usual path)
-    astroai cluster start --autoscaling
-    astroai run train.py --cpus 2
-
-  Fixed-size workers
-    astroai cluster start --workers 2
-    astroai cluster scale 0          # stop workers, keep the manager
-
-  Jobs (cluster already up)
-    astroai run train.py --cpus 2
-    astroai jobs submit --cmd 'python -m mosaic.stack' --wait
+  astroai cluster start          # autoscaling head; Ray adds workers on demand
+  astroai run train.py --cpus 2  # jobs add workers automatically
+  astroai jobs submit --cmd 'python -m mosaic.stack' --wait
+  astroai cluster status
+  astroai cluster stop           # tear down workers + manager
 """
 
 app = typer.Typer(
@@ -42,10 +38,9 @@ app = typer.Typer(
 cluster_app = typer.Typer(
     name="cluster",
     help=(
-        "Start a ray-manager and workers. "
-        "`start --autoscaling` is the usual path (Ray adds workers when jobs need CPUs). "
-        "`start --workers N` starts a fixed pool instead. "
-        "`check` shows whether it is up."
+        "Start or stop an autoscaling Ray cluster. Ray adds worker sessions "
+        "when a job needs CPUs and idles them out later. "
+        "`status` shows whether it is up."
     ),
     no_args_is_help=True,
     add_completion=False,
@@ -61,21 +56,19 @@ autoscaler_app = typer.Typer(
     name="autoscaler",
     help=(
         "Write YAML so the Ray head starts and stops CANFAR workers on demand. "
-        "This is the manager-head path, not `run`. Most people should "
-        "`cluster start --autoscaling` instead."
+        "Manager-image internals; most people should `cluster start` instead."
     ),
     no_args_is_help=True,
     add_completion=False,
 )
 mcp_app = typer.Typer(
     name="mcp",
-    help="Stdio tools for agents: cluster start/check/scale plus job run/list/status/logs/cancel.",
+    help="Stdio tools for agents: cluster start/status plus job run/list/status/logs/cancel.",
     no_args_is_help=True,
     add_completion=False,
 )
 cluster_app.add_typer(dashboard_app)
 app.add_typer(cluster_app)
-app.add_typer(dashboard_app, hidden=True)
 app.add_typer(autoscaler_app, hidden=True)
 app.add_typer(mcp_app, hidden=True)
 
@@ -84,13 +77,26 @@ def _print_json(payload: Any) -> None:
     print(json.dumps(payload, indent=2, sort_keys=True, default=str))
 
 
-def _warn_renamed(ctx: typer.Context, new: str) -> None:
-    invoked = ctx.info_name
-    if invoked and invoked != new:
-        print(
-            f"warning: `astroai cluster {invoked}` is now `astroai cluster {new}`",
-            file=sys.stderr,
-        )
+_CLUSTER_LOCK_TIMEOUT = int(os.environ.get("ASTROAI_LAB_CLUSTER_LOCK_TIMEOUT", "120"))
+
+
+@contextmanager
+def _cluster_control_lock() -> Iterator[None]:
+    """Serialize cluster start/stop across sessions sharing /arc/home.
+
+    Two sessions starting or one starting while the other stops would race on
+    ``ray-manager.env`` and the manager session itself. flock is unreliable on
+    NFS, so this is an O_EXCL lock file with staleness recovery.
+    """
+    from astroai_lab.core.pathlock import path_lock
+
+    path = Path.home() / ".astroai" / "ray" / "control.lock"
+    with path_lock(
+        path,
+        timeout=_CLUSTER_LOCK_TIMEOUT,
+        busy_hint="Another cluster start/stop is in progress",
+    ):
+        yield
 
 
 def _manager_base_url(address: str | None) -> str:
@@ -536,66 +542,78 @@ def _manager_image() -> str:
     return f"{registry}/{owner}/ray-manager:{tag}"
 
 
-def cluster_ensure_payload(
+def cluster_start_payload(
     *,
     address: str | None = None,
-    workers: int = 0,
+    min_workers: int = 0,
+    max_workers: int = 8,
     cores: int = 1,
     ram: int = 4,
     gpus: int = 0,
     timeout: int = 1800,
-    require_preflight: bool = False,
-    autoscaling: bool = False,
-    max_workers: int = 8,
 ) -> dict[str, Any]:
-    """Ensure a ray-manager is running; optionally launch workers.
+    """Start (or reuse) an autoscaling Ray cluster.
 
     Single source of truth shared by ``astroai cluster start`` and the
-    MCP ``cluster_start`` tool. Resolves the manager (env → persisted connect
-    URL → ``canfar ps`` discovery), waits for /readyz, optionally creates
-    workers, and returns the Jobs address + Dashboard URL as a JSON-safe dict.
-
-    ``autoscaling=True`` writes ``~/.config/canfar/lab/ray-manager.env`` and
-    creates the manager if needed. It does not launch a fixed worker pool.
-    Ray starts ``ray-as-*`` workers when a job needs CPUs.
-
-    ``require_preflight`` defaults to False: on some Skaha deployments the
-    headless preflight probe never leaves Pending (known platform quirk), which
-    would otherwise block worker creation for agent one-click flows. Agents can
-    pass ``require_preflight=True`` to enforce the network preflight gate.
+    MCP ``cluster_start`` tool. Writes ``~/.config/canfar/lab/ray-manager.env``
+    so the manager head autoscales, creates the ray-manager session when none
+    is running, waits for /readyz, and returns the Jobs address + Dashboard
+    URL as a JSON-safe dict. Ray starts ``ray-as-*`` workers when a job needs
+    CPUs and idles them out later.
 
     Raises RuntimeError with a human-readable message when no manager can be
     resolved or the manager is not ready.
     """
-    from .dashboard import persist_connect_url, resolve_dashboard_url
-
-    existing_manager = False
-    if autoscaling:
-        from .autoscaler import write_manager_autoscaling_env
-
-        write_manager_autoscaling_env(
-            min_workers=workers,
+    with _cluster_control_lock():
+        return _cluster_start_locked(
+            address=address,
+            min_workers=min_workers,
             max_workers=max_workers,
             cores=cores,
-            ram_gb=ram,
+            ram=ram,
             gpus=gpus,
+            timeout=timeout,
         )
-        workers = 0
-        if not address:
-            try:
-                from .canfar_ops import CanfarOps
-            except ImportError as exc:
-                raise RuntimeError("The canfar client is required to create a manager.") from exc
 
-            ops = CanfarOps()
-            existing_manager = ops.find_manager() is not None
-            if not existing_manager:
-                ops.create_contributed(
-                    name="raymgr",
-                    image=_manager_image(),
-                    cores=2,
-                    ram=8,
-                )
+
+def _cluster_start_locked(
+    *,
+    address: str | None,
+    min_workers: int,
+    max_workers: int,
+    cores: int,
+    ram: int,
+    gpus: int,
+    timeout: int,
+) -> dict[str, Any]:
+    """Cluster start body — caller holds the control lock."""
+    from .autoscaler import write_manager_autoscaling_env
+    from .dashboard import persist_connect_url, resolve_dashboard_url
+
+    write_manager_autoscaling_env(
+        min_workers=min_workers,
+        max_workers=max_workers,
+        cores=cores,
+        ram_gb=ram,
+        gpus=gpus,
+    )
+
+    existing_manager = False
+    if not address:
+        try:
+            from .canfar_ops import CanfarOps
+        except ImportError as exc:
+            raise RuntimeError("The canfar client is required to create a manager.") from exc
+
+        ops = CanfarOps()
+        existing_manager = ops.find_manager() is not None
+        if not existing_manager:
+            ops.create_contributed(
+                name="raymgr",
+                image=_manager_image(),
+                cores=2,
+                ram=8,
+            )
 
     if address:
         base = address.rstrip("/")
@@ -616,7 +634,7 @@ def cluster_ensure_payload(
             time.sleep(poll_s)
     if not base:
         raise RuntimeError(
-            "No ray-manager found. Run `astroai cluster start --autoscaling` "
+            "No ray-manager found. Run `astroai cluster start` "
             "or start one from the AstroAI hub (Start batch compute)."
         )
 
@@ -627,21 +645,6 @@ def cluster_ensure_payload(
     manager_name = base.rstrip("/").rsplit("/", 1)[-1]
     persist_connect_url(manager_name or "default", base)
 
-    created = None
-    if workers > 0:
-        payload = client.create_cluster(
-            name=manager_name or "default",
-            worker_count=workers,
-            cores=cores,
-            ram_gb=ram,
-            gpus=gpus,
-            require_preflight=require_preflight,
-            async_mode=True,
-        )
-        created = payload
-        if payload.get("accepted") or payload.get("cluster", {}).get("phase") == "Running":
-            payload = client.wait_operation(timeout_seconds=timeout)
-
     status = client.status()
     jobs_url = base.rstrip("/") + "/dashboard"
     result: dict[str, Any] = {
@@ -650,75 +653,48 @@ def cluster_ensure_payload(
         "dashboard_url": jobs_url,
         "cluster_phase": (status.get("cluster") or {}).get("phase"),
         "joined_workers": status.get("joined_workers", 0),
-        "worker_count": (status.get("cluster") or {}).get("worker_count"),
-        "autoscaling": autoscaling,
+        "autoscaling": True,
     }
-    if autoscaling and existing_manager:
+    if existing_manager:
         result["restart_manager"] = True
-    if created is not None:
-        result["create_accepted"] = created.get("accepted", False)
     return result
 
 
 @cluster_app.command("start")
-@cluster_app.command("ensure", hidden=True)
 def cluster_cmd_start(
     ctx: typer.Context,
     address: Annotated[
         str | None,
         typer.Option("--address", help="Manager connect URL or Jobs API URL."),
     ] = None,
-    workers: Annotated[int, typer.Option("--workers", help="Worker sessions to launch.")] = 0,
+    min_workers: Annotated[
+        int, typer.Option("--min-workers", help="Workers kept alive even when idle.")
+    ] = 0,
+    max_workers: Annotated[int, typer.Option("--max-workers", help="Autoscaler ceiling.")] = 8,
     cores: Annotated[int, typer.Option("--cores", help="CPUs per worker.")] = 1,
     ram: Annotated[int, typer.Option("--ram", help="RAM GiB per worker.")] = 4,
     gpus: Annotated[int, typer.Option("--gpus", help="GPUs per worker.")] = 0,
     timeout: Annotated[int, typer.Option("--timeout", help="Wait timeout (seconds).")] = 1800,
-    require_preflight: Annotated[
-        bool,
-        typer.Option(
-            "--require-preflight",
-            help=(
-                "Enforce the network preflight gate before launching workers. "
-                "Off by default (Skaha headless probes can hang on some "
-                "deployments); set it when the platform preflight works."
-            ),
-        ),
-    ] = False,
-    autoscaling: Annotated[
-        bool,
-        typer.Option(
-            "--autoscaling",
-            help="Usual path. Ray adds workers when a job needs CPUs. Creates the manager.",
-        ),
-    ] = False,
-    max_workers: Annotated[
-        int,
-        typer.Option("--max-workers", help="Autoscaler ceiling (with --autoscaling)."),
-    ] = 8,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Start the Ray cluster. Safe to run if one is already up.
+    """Start the autoscaling Ray cluster. Safe to run if one is already up.
 
-    `--autoscaling` is the usual path: writes the manager env file, creates
-    the manager if needed, and lets Ray add `ray-as-*` workers on demand.
-    `--workers N` starts a fixed pool instead (does not create the manager).
+    Writes the manager env file, creates the ray-manager session if needed,
+    and lets Ray add `ray-as-*` workers on demand.
 
-    Examples:
-      astroai cluster start --autoscaling
-      astroai cluster start --workers 2
+    Example:
+      astroai cluster start --max-workers 8 --cores 2 --ram 8
     """
-    _warn_renamed(ctx, "start")
+    del ctx  # accepted for CLI symmetry; no legacy aliases remain
     try:
-        result = cluster_ensure_payload(
+        result = cluster_start_payload(
             address=address,
-            workers=workers,
+            min_workers=min_workers,
+            max_workers=max_workers,
             cores=cores,
             ram=ram,
             gpus=gpus,
             timeout=timeout,
-            require_preflight=require_preflight,
-            autoscaling=autoscaling,
-            max_workers=max_workers,
         )
     except RuntimeError as exc:
         _cli_fail(exc)
@@ -728,12 +704,11 @@ def cluster_cmd_start(
         print(f"manager:     {result['manager_url']}")
         print(f"jobs/dash:   {result['jobs_address']}")
         print(f"phase:       {result['cluster_phase']}  joined: {result['joined_workers']}")
-        if result.get("autoscaling"):
-            print(f"autoscaling: on (max {max_workers} workers)")
+        print(f"autoscaling: on ({min_workers}–{max_workers} workers)")
         if result.get("restart_manager"):
             print(
                 "this manager was already running — stop it and re-run "
-                "`cluster start --autoscaling` if jobs do not scale"
+                "`cluster start` if jobs do not scale"
             )
     # Hint for the caller's shell (a CLI cannot export into its parent).
     print(f"export ASTROAI_RAY_JOBS_ADDRESS={result['jobs_address']}")
@@ -745,15 +720,12 @@ def cluster_status_payload(address: str | None = None) -> dict[str, Any]:
     return _cluster_payload_from(address)
 
 
-@cluster_app.command("check")
-@cluster_app.command("status", hidden=True)
-def cluster_cmd_check(
-    ctx: typer.Context,
+@cluster_app.command("status")
+def cluster_cmd_status(
     address: Annotated[str | None, typer.Option("--address")] = None,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """See if the cluster is up, and get the Ray Dashboard URL."""
-    _warn_renamed(ctx, "check")
     payload = cluster_status_payload(address)
     if as_json:
         _print_json(payload)
@@ -773,128 +745,85 @@ def cluster_cmd_check(
         )
 
 
+def cluster_stop_payload(*, address: str | None = None) -> dict[str, Any]:
+    """Tear down the whole cluster — workers and manager — CLI + MCP shared.
+
+    Asks the manager to stop the Ray cluster (destroying every worker
+    session), then destroys the ray-manager session itself and clears the
+    persisted connect URLs so nothing keeps pointing at a dead manager.
+    Runs under the control lock so concurrent start/stop from another
+    session sharing this home cannot interleave. Returns a JSON-safe dict.
+    """
+    with _cluster_control_lock():
+        return _cluster_stop_locked(address=address)
+
+
+def _cluster_stop_locked(*, address: str | None) -> dict[str, Any]:
+    """Cluster teardown body — caller holds the control lock."""
+    import httpx
+
+    from .dashboard import clear_persisted_connect_urls
+
+    stopped_cluster = False
+    manager_error: str | None = None
+    try:
+        _manager_client(address).stop_cluster()
+        stopped_cluster = True
+    except (RuntimeError, OSError, httpx.HTTPError) as exc:
+        # Unreachable/half-up managers must not block tearing down the session.
+        manager_error = str(exc)
+
+    destroyed_manager = False
+    try:
+        from .canfar_ops import CanfarOps
+    except ImportError as exc:
+        raise RuntimeError("The canfar client is required to tear down the manager.") from exc
+
+    ops = CanfarOps()
+    manager = ops.find_manager()
+    detail: str | None = None
+    if manager and manager.get("id"):
+        destroyed_manager = bool(ops.destroy(str(manager["id"])))
+        if not destroyed_manager:
+            detail = ops.session_failure_detail(str(manager["id"]))
+    cleared = clear_persisted_connect_urls()
+    return {
+        "stopped_cluster": stopped_cluster,
+        "manager_found": bool(manager),
+        "destroyed_manager": destroyed_manager,
+        "cleared_state": cleared,
+        "error": manager_error,
+        "detail": detail,
+    }
+
+
 @cluster_app.command("stop")
 def cluster_cmd_stop(
     address: Annotated[str | None, typer.Option("--address")] = None,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
-    """Stop the cluster and destroy every worker session. Keeps the manager."""
-    payload = _manager_client(address).stop_cluster()
+    """Stop the cluster: destroy every worker session and the manager."""
+    try:
+        payload = cluster_stop_payload(address=address)
+    except RuntimeError as exc:
+        _cli_fail(exc)
     if as_json:
         _print_json(payload)
+        return
+    if not payload["manager_found"]:
+        print("no ray-manager found — cluster already down")
+        raise typer.Exit(0)
+    if payload["stopped_cluster"]:
+        print("workers stopped")
+    elif payload["error"]:
+        print(f"worker stop skipped: {payload['error']}", file=sys.stderr)
+    if payload["destroyed_manager"]:
+        print("manager destroyed")
     else:
-        cluster = payload.get("cluster") or {}
-        print(f"cluster stopped (phase={cluster.get('phase')})")
-
-
-def cluster_scale_payload(
-    workers: int,
-    *,
-    address: str | None = None,
-    cores: int = 1,
-    ram: int = 4,
-    gpus: int = 0,
-    timeout: int = 1800,
-    require_preflight: bool = False,
-) -> dict[str, Any]:
-    """Scale worker sessions up or down to *workers* — CLI + MCP shared.
-
-    Launches new workers via the manager API when the cluster is smaller than
-    the target, and destroys excess workers when larger. For true on-demand
-    autoscaling, use `cluster start --autoscaling` instead of this command.
-
-    ``require_preflight`` defaults to False to match ``cluster start`` (Skaha
-    headless probes can hang). Pass True to enforce the network preflight gate.
-    Returns a JSON-safe result dict.
-    """
-    from .state_store import TERMINAL_WORKER_PHASES
-
-    client = _manager_client(address)
-    status = client.status()
-    workers_list = list(status.get("workers") or [])
-    active = [
-        w
-        for w in workers_list
-        if w.get("session_id") and w.get("phase") not in TERMINAL_WORKER_PHASES
-    ]
-    current = len(active) if active else int(status.get("joined_workers") or 0)
-    target = max(0, workers)
-
-    if target > current:
-        need = target - current
-        for _ in range(need):
-            client.launch_worker(
-                cores=cores, ram_gb=ram, gpus=gpus, require_preflight=require_preflight
-            )
-        result = client.wait_operation(timeout_seconds=timeout)
-    elif target < current:
-        extra = current - target
-        destroyed = 0
-        # Drop pending/unjoined first so a shrink does not kill healthy nodes
-        # while leftover Pending sessions keep the count high.
-        shrinkable = sorted(active, key=lambda w: (bool(w.get("ray_joined")), w.get("name") or ""))
-        for w in shrinkable:
-            if destroyed >= extra:
-                break
-            if w.get("session_id"):
-                client.destroy_worker(w["session_id"])
-                destroyed += 1
-        result = client.wait_operation(timeout_seconds=timeout)
-    else:
-        result = status
-
-    return {
-        "target": target,
-        "previous": current,
-        "phase": (result.get("cluster") or {}).get("phase"),
-        "joined_workers": result.get("joined_workers", 0),
-    }
-
-
-@cluster_app.command("scale")
-def cluster_cmd_scale(
-    workers: Annotated[int, typer.Argument(help="Target number of worker sessions.")],
-    address: Annotated[str | None, typer.Option("--address")] = None,
-    cores: Annotated[int, typer.Option("--cores", help="CPUs per new worker.")] = 1,
-    ram: Annotated[int, typer.Option("--ram", help="RAM GiB per new worker.")] = 4,
-    gpus: Annotated[int, typer.Option("--gpus", help="GPUs per new worker.")] = 0,
-    timeout: Annotated[int, typer.Option("--timeout", help="Wait timeout (seconds).")] = 1800,
-    require_preflight: Annotated[
-        bool,
-        typer.Option(
-            "--require-preflight",
-            help=(
-                "Enforce the network preflight gate before launching workers. "
-                "Off by default (same as `cluster start`)."
-            ),
-        ),
-    ] = False,
-    as_json: Annotated[bool, typer.Option("--json")] = False,
-) -> None:
-    """Grow or shrink a fixed worker pool to this many sessions.
-
-    `scale 0` stops workers and keeps the manager. For Ray to add/remove
-    workers by itself, use `cluster start --autoscaling`.
-
-    Examples:
-      astroai cluster scale 4
-      astroai cluster scale 0
-    """
-    result = cluster_scale_payload(
-        workers,
-        address=address,
-        cores=cores,
-        ram=ram,
-        gpus=gpus,
-        timeout=timeout,
-        require_preflight=require_preflight,
-    )
-    if as_json:
-        _print_json(result)
-    else:
-        print(f"target: {result['target']}  previous: {result['previous']}")
-        print(f"phase:  {result['phase']}  joined: {result['joined_workers']}")
-    raise typer.Exit(0)
+        print("could not destroy the manager session", file=sys.stderr)
+        if payload.get("detail"):
+            print(payload["detail"], file=sys.stderr)
+        raise typer.Exit(1)
 
 
 # =====================================================================
@@ -929,7 +858,7 @@ def autoscaler_cmd_write_config(
 
     Feed the file to `ray start --head --autoscaling-config=<path>` on the
     manager head. That is not `cluster start` and not `run`. Most users
-    should `cluster start --autoscaling` instead.
+    should `cluster start` instead.
 
     Example:
       astroai autoscaler write-config --path /tmp/autoscaling.yaml \\
@@ -1059,12 +988,6 @@ def dashboard_cmd_iframe(
 @dashboard_app.callback(invoke_without_command=True)
 def dashboard_default(ctx: typer.Context) -> None:
     """Print the Ray Dashboard URL when no subcommand is given."""
-    parent = ctx.parent.info_name if ctx.parent else ""
-    if parent != "cluster":
-        print(
-            "warning: `astroai dashboard` is now `astroai cluster dashboard`",
-            file=sys.stderr,
-        )
     if ctx.invoked_subcommand is not None:
         return
     dashboard_cmd_url(address=None, as_json=False)
@@ -1077,7 +1000,6 @@ def register(parent: typer.Typer, *, jobs_as: str = "jobs") -> None:
     ``run`` stays a top-level command.
     """
     parent.add_typer(cluster_app, name="cluster")
-    parent.add_typer(dashboard_app, name="dashboard", hidden=True)
     parent.add_typer(autoscaler_app, name="autoscaler", hidden=True)
     parent.add_typer(mcp_app, name="mcp", hidden=True)
     parent.command(

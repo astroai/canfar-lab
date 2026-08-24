@@ -653,7 +653,7 @@ class TestGcTerminalClusterWorkers:
 
 class _FakeManagerClient:
     def __init__(self) -> None:
-        self.create_cluster_calls: list[dict] = []
+        self.stop_calls = 0
 
     def wait_ready(self, timeout_seconds: int = 0) -> bool:
         return True
@@ -661,16 +661,16 @@ class _FakeManagerClient:
     def status(self) -> dict:
         return {"cluster": {"phase": "Running", "worker_count": 0}, "joined_workers": 0}
 
-    def create_cluster(self, **kwargs) -> dict:
-        self.create_cluster_calls.append(kwargs)
-        return {"accepted": True, "cluster": {"phase": "Pending"}}
+    def stop_cluster(self) -> dict:
+        self.stop_calls += 1
+        return {"cluster": {"phase": "Idle"}}
 
 
-class TestClusterEnsureAutoscaling:
+class TestClusterStartAutoscaling:
     def test_writes_env_and_creates_manager(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from astroai_workload.cli import cluster_ensure_payload
+        from astroai_workload.cli import cluster_start_payload
 
         monkeypatch.setenv("HOME", str(tmp_path))
         created: dict = {}
@@ -692,12 +692,11 @@ class TestClusterEnsureAutoscaling:
         monkeypatch.setattr("astroai_workload.dashboard.persist_connect_url", lambda *a, **k: None)
         monkeypatch.setattr("astroai_workload.cli._manager_client", lambda base: client)
 
-        result = cluster_ensure_payload(autoscaling=True, max_workers=8, workers=2)
+        result = cluster_start_payload(max_workers=8, min_workers=2)
         assert result["autoscaling"] is True
         assert "restart_manager" not in result
         assert created["name"] == "raymgr"
         assert created["cores"] == 2
-        assert client.create_cluster_calls == []
         env = (tmp_path / ".config" / "canfar" / "lab" / "ray-manager.env").read_text()
         assert "RAY_AUTOSCALING_ENABLED=1" in env
         assert "RAY_AUTOSCALING_MAX_WORKERS=8" in env
@@ -706,7 +705,7 @@ class TestClusterEnsureAutoscaling:
     def test_existing_manager_hints_restart(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from astroai_workload.cli import cluster_ensure_payload
+        from astroai_workload.cli import cluster_start_payload
 
         monkeypatch.setenv("HOME", str(tmp_path))
 
@@ -727,90 +726,64 @@ class TestClusterEnsureAutoscaling:
             "astroai_workload.cli._manager_client", lambda base: _FakeManagerClient()
         )
 
-        result = cluster_ensure_payload(autoscaling=True)
+        result = cluster_start_payload()
         assert result["restart_manager"] is True
         assert result["autoscaling"] is True
 
 
-class TestClusterScaleCountsPending:
-    def test_does_not_launch_when_pending_already_at_target(
-        self, monkeypatch: pytest.MonkeyPatch
+class TestClusterStopTeardown:
+    def _write_connect_url(self, home: Path) -> Path:
+        path = home / ".astroai" / "ray" / "clusters" / "default" / "connect-url"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("https://mgr/", encoding="utf-8")
+        return path
+
+    def test_destroys_workers_manager_and_state(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from astroai_workload.cli import cluster_scale_payload
+        from astroai_workload.cli import cluster_stop_payload
 
-        class _Client:
-            launches = 0
-            destroyed: list[str] = []
-
-            def status(self) -> dict:
-                return {
-                    "cluster": {"phase": "Creating"},
-                    "joined_workers": 0,
-                    "workers": [
-                        {
-                            "session_id": "p1",
-                            "phase": "CANFAR Pending",
-                            "ray_joined": False,
-                            "name": "a",
-                        },
-                        {
-                            "session_id": "p2",
-                            "phase": "CANFAR Pending",
-                            "ray_joined": False,
-                            "name": "b",
-                        },
-                    ],
-                }
-
-            def launch_worker(self, **kwargs: object) -> dict:
-                type(self).launches += 1
-                return {}
-
-            def destroy_worker(self, sid: str) -> dict:
-                type(self).destroyed.append(sid)
-                return {}
-
-            def wait_operation(self, timeout_seconds: int = 0) -> dict:
-                return self.status()
-
-        monkeypatch.setattr("astroai_workload.cli._manager_client", lambda addr: _Client())
-        result = cluster_scale_payload(2)
-        assert result["previous"] == 2
-        assert _Client.launches == 0
-
-    def test_shrink_destroys_pending(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from astroai_workload.cli import cluster_scale_payload
-
+        monkeypatch.setenv("HOME", str(tmp_path))
+        url_file = self._write_connect_url(tmp_path)
         destroyed: list[str] = []
 
-        class _Client:
-            def status(self) -> dict:
-                return {
-                    "cluster": {"phase": "Creating"},
-                    "joined_workers": 0,
-                    "workers": [
-                        {
-                            "session_id": "p1",
-                            "phase": "CANFAR Pending",
-                            "ray_joined": False,
-                            "name": "a",
-                        },
-                        {
-                            "session_id": "p2",
-                            "phase": "Ray Healthy",
-                            "ray_joined": True,
-                            "name": "b",
-                        },
-                    ],
-                }
+        class _Ops:
+            def find_manager(self):
+                return {"id": "sess-1", "name": "raymgr", "status": "Running"}
 
-            def destroy_worker(self, sid: str) -> dict:
-                destroyed.append(sid)
-                return {}
+            def destroy(self, session_id: str) -> bool:
+                destroyed.append(session_id)
+                return True
 
-            def wait_operation(self, timeout_seconds: int = 0) -> dict:
-                return self.status()
+        client = _FakeManagerClient()
+        monkeypatch.setattr("astroai_workload.canfar_ops.CanfarOps", _Ops)
+        monkeypatch.setattr("astroai_workload.cli._manager_client", lambda addr=None: client)
 
-        monkeypatch.setattr("astroai_workload.cli._manager_client", lambda addr: _Client())
-        cluster_scale_payload(1)
-        assert destroyed == ["p1"]
+        result = cluster_stop_payload()
+        assert result["stopped_cluster"] is True
+        assert result["destroyed_manager"] is True
+        assert result["cleared_state"] == 1
+        assert destroyed == ["sess-1"]
+        assert client.stop_calls == 1
+        assert not url_file.exists()
+
+    def test_reports_already_down_when_no_manager(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from astroai_workload.cli import cluster_stop_payload
+
+        monkeypatch.setenv("HOME", str(tmp_path))
+
+        class _Ops:
+            def find_manager(self):
+                return None
+
+        def _no_manager(addr=None):
+            raise RuntimeError("No ray-manager found")
+
+        monkeypatch.setattr("astroai_workload.canfar_ops.CanfarOps", _Ops)
+        monkeypatch.setattr("astroai_workload.cli._manager_client", _no_manager)
+
+        result = cluster_stop_payload()
+        assert result["manager_found"] is False
+        assert result["destroyed_manager"] is False

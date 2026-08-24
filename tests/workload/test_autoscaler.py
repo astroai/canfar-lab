@@ -153,9 +153,7 @@ def test_terminate_and_status(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_create_node_head_does_not_launch(monkeypatch: pytest.MonkeyPatch) -> None:
     provider = _provider()
     provider._ops.create_headless = MagicMock()
-    result = provider.create_node(
-        node_config={}, tags={"ray-node-type": "head"}, count=1
-    )
+    result = provider.create_node(node_config={}, tags={"ray-node-type": "head"}, count=1)
     assert "ray-head" in result
     provider._ops.create_headless.assert_not_called()
 

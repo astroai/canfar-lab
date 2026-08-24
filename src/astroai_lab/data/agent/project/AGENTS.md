@@ -25,7 +25,7 @@ Curated lean/science plugins: `astroai agent plugins list` · `astroai agent plu
 pixi install    # or uv sync — env lives under $WORK, not $HOME
 pixi run …      # or uv run …
 astroai save         # before session ends — code on $WORK is ephemeral
-astroai cluster start --autoscaling
+astroai cluster start
 astroai run train.py --cpus 2
 ```
 
@@ -33,6 +33,6 @@ Pin Python deps in **pixi.toml / uv.lock** here — not in the image platform ve
 Platform CLIs (`canfar`, `cadcget`, `astroai`) live in `/opt/astroai/venv/cadc`; upgrade this session with `upgrade-cadc-tools.sh` if needed.
 
 Search: `rg`, `fd`, `sg` (ast-grep skill). View files: `peek <path>` or `bat`/`less`.
-Help: `astroai help`, `astroai cluster check`, `astroai status --json`.
+Help: `astroai help`, `astroai cluster status`, `astroai status --json`.
 
 In webterm, prefer `peek` when pointing the user at generated plans, logs, or archives.

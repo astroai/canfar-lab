@@ -7,7 +7,7 @@ id: ray-manager-mcp
 kind: mcp
 tags: [science, ray, compute, canfar, mcp]
 summary: Ray cluster and job tools (start/run/list) served from the ray-manager session
-homepage: https://github.com/astroai/lab
+homepage: https://github.com/astroai/canfar-lab
 agents: [mcp-hosts]    # support matrix (MCP-capable hosts)
 install:
   server: ray-manager

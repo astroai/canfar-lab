@@ -36,7 +36,7 @@ def test_display_version_appends_git_commit(monkeypatch: pytest.MonkeyPatch) -> 
                 return None
             return json.dumps(
                 {
-                    "url": "https://github.com/astroai/lab.git",
+                    "url": "https://github.com/astroai/canfar-lab.git",
                     "vcs_info": {
                         "vcs": "git",
                         "commit_id": "2f7e99deaf6f82a0bf4027a39ca79397f735bd83",

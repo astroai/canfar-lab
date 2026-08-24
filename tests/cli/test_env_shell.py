@@ -81,3 +81,28 @@ def test_env_install_shell_removed(tmp_path: Path) -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["env", "install-shell", str(tmp_path / "shell")])
     assert result.exit_code == 2  # usage error: unknown command
+
+
+def test_env_export_includes_persisted_ray_address(tmp_path, monkeypatch) -> None:
+    """A persisted connect-url shows up as ASTROAI_RAY_JOBS_ADDRESS (local read)."""
+    monkeypatch.setenv("WORK", str(tmp_path))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    url = tmp_path / ".astroai" / "ray" / "clusters" / "default" / "connect-url"
+    url.parent.mkdir(parents=True)
+    url.write_text("https://mgr.example/", encoding="utf-8")
+    runner = CliRunner()
+    shell = runner.invoke(app, ["env", "export", "--no-ensure"])
+    assert shell.exit_code == 0
+    assert "ASTROAI_RAY_JOBS_ADDRESS=https://mgr.example/dashboard" in shell.stdout
+    as_json = runner.invoke(app, ["env", "export", "--no-ensure", "--json"])
+    data = json.loads(as_json.stdout)
+    assert data["ASTROAI_RAY_JOBS_ADDRESS"] == "https://mgr.example/dashboard"
+
+
+def test_env_export_without_ray_state_has_no_ray_address(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("WORK", str(tmp_path))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    runner = CliRunner()
+    result = runner.invoke(app, ["env", "export", "--no-ensure", "--json"])
+    assert result.exit_code == 0
+    assert "ASTROAI_RAY_JOBS_ADDRESS" not in json.loads(result.stdout)

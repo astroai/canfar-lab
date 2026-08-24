@@ -655,8 +655,10 @@ def _run_registry_repair(ctx: typer.Context, agent_id: str | None, *, all_agents
         fix_registry_agent,
         list_installed_registry_agents,
     )
+    from astroai_lab.agent.setup_state import agent_setup_lock
 
     opts = get_opts(ctx)
+    home = Path.home()
     ids = [agent_id] if agent_id else [a["id"] for a in list_installed_registry_agents()]
     if not ids:
         if opts.json:
@@ -677,16 +679,17 @@ def _run_registry_repair(ctx: typer.Context, agent_id: str | None, *, all_agents
     actions: list[str] = []
     errors: list[str] = []
     fixed: list[str] = []
-    for aid in ids:
-        try:
-            result = fix_registry_agent(aid, dry_run=opts.dry_run)
-        except LabError as exc:
-            errors.append(f"{aid}: {exc}")
-            continue
-        actions.extend(result["actions"])
-        errors.extend(result["errors"])
-        if result["ok"]:
-            fixed.append(aid)
+    with agent_setup_lock(home):
+        for aid in ids:
+            try:
+                result = fix_registry_agent(aid, dry_run=opts.dry_run)
+            except LabError as exc:
+                errors.append(f"{aid}: {exc}")
+                continue
+            actions.extend(result["actions"])
+            errors.extend(result["errors"])
+            if result["ok"]:
+                fixed.append(aid)
 
     payload = {
         "ok": not errors,
@@ -864,13 +867,16 @@ def agent_verify_cmd(
     if clean:
         if auto_fix or agent or all_agents:
             raise typer.BadParameter("--clean cannot be combined with --fix, <agent>, or --all")
-        results = agent_clean_mod.clean_agent_state(
-            stale_locks=stale_locks,
-            failed_marker=failed,
-            empty_configs=empty_configs,
-            logs=logs,
-            dry_run=opts.dry_run,
-        )
+        from astroai_lab.agent.setup_state import agent_setup_lock
+
+        with agent_setup_lock(home):
+            results = agent_clean_mod.clean_agent_state(
+                stale_locks=stale_locks,
+                failed_marker=failed,
+                empty_configs=empty_configs,
+                logs=logs,
+                dry_run=opts.dry_run,
+            )
         if opts.json:
             ui.print_json([r.__dict__ for r in results])
             return
@@ -907,9 +913,13 @@ def agent_verify_cmd(
 
     issues = agent_inventory.verify_setup(home, probe_binaries=True)
     state = read_setup_state(home)
+    from astroai_lab.agent.reconcile import drift_issues
+
+    drift = drift_issues(home)
     payload = {
         "ok": not issues,
         "issues": issues,
+        "drift": drift,
         "setup": state.to_dict(),
     }
     if opts.json:
@@ -917,13 +927,19 @@ def agent_verify_cmd(
         if issues:
             raise typer.Exit(1)
         return
+    if drift:
+        ui.print_warn("Installed state has drifted from this lab version:")
+        for d in drift:
+            ui.print_warn(f"  {d}")
+        ui.print_hint("Tip: Run `astroai agent verify --fix` to reconcile.")
     if issues:
         ui.print_error("Agent setup incomplete:\n  " + "\n  ".join(issues))
         ui.print_hint("Tip: Run `astroai agent verify --fix`.")
         raise typer.Exit(1)
-    if state.stamp:
+    if not drift and state.stamp:
         ui.print_hint(f"  last run: {state.stamp}")
-    ui.print_ok("Agent setup OK")
+    if not drift:
+        ui.print_ok("Agent setup OK")
 
 
 def _install_one_agent(tool: str, *, dry_run: bool) -> None:

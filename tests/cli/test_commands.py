@@ -55,24 +55,21 @@ def test_help_includes_cluster_jobs_run() -> None:
     for name in ("run", "cluster", "jobs"):
         assert name in result.output
     root = get_command(app)
-    for name in ("dashboard", "mcp", "autoscaler"):
+    for name in ("mcp", "autoscaler"):
         assert name in root.commands
         assert root.commands[name].hidden
+    assert "dashboard" not in root.commands  # lives under `cluster dashboard`
 
 
-def test_cluster_help_start_and_check() -> None:
+def test_cluster_help_start_status_stop() -> None:
     result = runner.invoke(app, ["cluster", "--help"])
     assert result.exit_code == 0
-    assert "start" in result.output
-    assert "check" in result.output
-    assert "dashboard" in result.output
-
-
-def test_cluster_ensure_alias_still_works() -> None:
-    result = runner.invoke(app, ["cluster", "ensure", "--help"])
-    assert result.exit_code == 0
-    # Rich splits `--flag` with SGR codes under GITHUB_ACTIONS; strip first.
-    assert "--autoscaling" in re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    for name in ("start", "status", "stop", "dashboard"):
+        assert name in result.output
+    out = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    assert "ensure" not in out
+    assert "scale" not in out
+    assert "--autoscaling" not in out
 
 
 def test_help_single_command() -> None:

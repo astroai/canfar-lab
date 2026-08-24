@@ -16,7 +16,7 @@ _DEFAULT_JOBS_ADDRESS = "http://127.0.0.1:8265"
 _ADDRESS_HINT = (
     "Cannot reach the Ray cluster. Start a ray-manager from the AstroAI hub "
     "(Start batch compute) or the portal, then run "
-    "`astroai cluster start --autoscaling` and export the printed "
+    "`astroai cluster start` and export the printed "
     "ASTROAI_RAY_JOBS_ADDRESS. Inside the manager session the address is "
     "already http://127.0.0.1:8265. Do not invent hostnames like ray-manager:8265."
 )

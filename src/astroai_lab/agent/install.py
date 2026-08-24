@@ -688,7 +688,7 @@ def install_tool(name: str, *, dry_run: bool = False) -> None:
     npm_timeout = INSTALL_TIMEOUT_SEC
 
     if name == "node":
-        # Node LTS + npm are baked into the base image (astroai-containers), so
+        # Node LTS + npm are baked into the base image (canfar-containers), so
         # this is normally a no-op on CANFAR sessions; keep the pixi fallback
         # for bare environments where node is not already on PATH.
         if shutil.which("node") is not None and shutil.which("npm") is not None:

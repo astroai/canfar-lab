@@ -225,10 +225,7 @@ def _apply_addon(
             return AddonResult(addon_id, "dry-run", ", ".join(sorted(targets)))
         installed: list[str] = []
         for ag, dst in sorted(targets.items()):
-            if dst.exists():
-                shutil.rmtree(dst)
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(src, dst)
+            _copy_skill_tree(src, dst)
             installed.append(f"{ag}:{dst}")
         return AddonResult(addon_id, "installed", "; ".join(installed))
 
@@ -261,6 +258,9 @@ def _copy_skill_tree(src: Path, dst: Path) -> None:
         shutil.rmtree(dst)
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(src, dst)
+    from astroai_lab.agent.reconcile import MARKER
+
+    (dst / MARKER).write_text("", encoding="utf-8")
 
 
 def _src_in_cache(cache_root: Path, rel: str) -> Path | str:

@@ -1,6 +1,6 @@
 [project]
 name = "astroai-lab"
-version = "0.4.0"
+version = "0.5.0"
 description = "In-session workbench CLI for AstroAI sessions on the CANFAR Science Platform"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -41,10 +41,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/astroai/lab"
-Documentation = "https://github.com/astroai/lab/blob/main/docs/USAGE.md"
-Repository = "https://github.com/astroai/lab"
-Issues = "https://github.com/astroai/lab/issues"
+Homepage = "https://github.com/astroai/canfar-lab"
+Documentation = "https://github.com/astroai/canfar-lab/blob/main/docs/USAGE.md"
+Repository = "https://github.com/astroai/canfar-lab"
+Issues = "https://github.com/astroai/canfar-lab/issues"
 Platform = "https://opencadc.github.io/canfar/"
 
 [project.scripts]

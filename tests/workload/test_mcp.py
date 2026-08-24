@@ -53,8 +53,8 @@ def test_method_not_found() -> None:
 def test_tools_list_exposes_cluster_and_job_tools() -> None:
     resp = handle_message(_rpc("tools/list"))
     names = [t["name"] for t in resp["result"]["tools"]]
-    assert names[:4] == ["cluster_start", "cluster_check", "cluster_scale", "dashboard_url"]
-    assert names[4:10] == [
+    assert names[:4] == ["cluster_start", "cluster_status", "cluster_stop", "dashboard_url"]
+    assert names[4:] == [
         "job_run",
         "job_submit",
         "job_status",
@@ -62,7 +62,6 @@ def test_tools_list_exposes_cluster_and_job_tools() -> None:
         "job_cancel",
         "job_list",
     ]
-    assert names[10:] == ["cluster_ensure", "cluster_status"]
     for tool in resp["result"]["tools"]:
         assert "inputSchema" in tool
         assert "handler" not in tool  # handlers never leak over the wire
@@ -86,22 +85,22 @@ def test_unknown_notification_gets_no_response() -> None:
     assert handle_message(_rpc("notifications/cancelled", msg_id=None)) is None
 
 
-def test_tools_call_cluster_ensure_business_error(
+def test_tools_call_cluster_start_business_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def _boom(**kwargs):
         raise RuntimeError("No manager found. Set ASTROAI_RAY_JOBS_ADDRESS or pass --address.")
 
-    monkeypatch.setattr("astroai_workload.mcp.cluster_ensure_payload", _boom)
-    resp = handle_message(_rpc("tools/call", {"name": "cluster_ensure", "arguments": {}}))
+    monkeypatch.setattr("astroai_workload.mcp.cluster_start_payload", _boom)
+    resp = handle_message(_rpc("tools/call", {"name": "cluster_start", "arguments": {}}))
     assert resp["result"]["isError"] is True
     assert "No manager found" in resp["result"]["content"][0]["text"]
 
 
-def test_tools_call_cluster_ensure_forwards_require_preflight(
+def test_tools_call_cluster_start_forwards_autoscaling_options(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The MCP tool forwards require_preflight (default False) to the payload."""
+    """The MCP tool forwards worker sizing to the payload with sane defaults."""
     captured: dict = {}
 
     def _fake(**kwargs):
@@ -112,64 +111,56 @@ def test_tools_call_cluster_ensure_forwards_require_preflight(
             "dashboard_url": "https://x/session/contrib/abc/dashboard",
             "cluster_phase": "Running",
             "joined_workers": 2,
-            "worker_count": 2,
+            "autoscaling": True,
         }
 
-    monkeypatch.setattr("astroai_workload.mcp.cluster_ensure_payload", _fake)
+    monkeypatch.setattr("astroai_workload.mcp.cluster_start_payload", _fake)
 
-    # Explicit require_preflight=True is forwarded.
     handle_message(
         _rpc(
             "tools/call",
-            {"name": "cluster_ensure", "arguments": {"workers": 2, "require_preflight": True}},
+            {
+                "name": "cluster_start",
+                "arguments": {"min_workers": 1, "max_workers": 4, "cores": 2},
+            },
         )
     )
-    assert captured.get("require_preflight") is True
-    assert captured.get("workers") == 2
-
-    # Default (absent) must be False — agent one-click flow on Skaha where the
-    # headless preflight probe can hang.
-    captured.clear()
-    handle_message(_rpc("tools/call", {"name": "cluster_ensure", "arguments": {"workers": 1}}))
-    assert captured.get("require_preflight") is False
-    assert captured.get("autoscaling") is False
-
-    captured.clear()
-    handle_message(
-        _rpc(
-            "tools/call",
-            {"name": "cluster_ensure", "arguments": {"autoscaling": True, "max_workers": 4}},
-        )
-    )
-    assert captured.get("autoscaling") is True
+    assert captured.get("min_workers") == 1
     assert captured.get("max_workers") == 4
+    assert captured.get("cores") == 2
+
+    # Defaults keep the cluster fully elastic.
+    captured.clear()
+    handle_message(_rpc("tools/call", {"name": "cluster_start", "arguments": {}}))
+    assert captured.get("min_workers") == 0
+    assert captured.get("max_workers") == 8
 
 
-def test_tools_list_cluster_start_schema_has_require_preflight() -> None:
+def test_tools_list_cluster_start_schema_is_autoscaling_only() -> None:
     resp = handle_message(_rpc("tools/list"))
     start = next(t for t in resp["result"]["tools"] if t["name"] == "cluster_start")
     props = start["inputSchema"]["properties"]
-    assert props["require_preflight"]["type"] == "boolean"
-    assert props["require_preflight"]["default"] is False
-    assert props["autoscaling"]["type"] == "boolean"
-    assert props["autoscaling"]["default"] is False
+    assert props["min_workers"]["default"] == 0
     assert props["max_workers"]["default"] == 8
-    alias = next(t for t in resp["result"]["tools"] if t["name"] == "cluster_ensure")
-    assert alias["inputSchema"] == start["inputSchema"]
+    assert "require_preflight" not in props
+    assert "autoscaling" not in props
+    assert "workers" not in props
 
 
-def test_tools_call_cluster_scale_invalid_args() -> None:
-    resp = handle_message(
-        _rpc("tools/call", {"name": "cluster_scale", "arguments": {"workers": "not-a-number"}})
+def test_tools_call_cluster_stop(monkeypatch: pytest.MonkeyPatch) -> None:
+    import astroai_workload.cli as cli_mod
+
+    calls: dict = {}
+    monkeypatch.setattr(
+        cli_mod,
+        "cluster_stop_payload",
+        lambda **kwargs: calls.update(kwargs) or {"destroyed_manager": True},
     )
-    assert resp["error"]["code"] == -32602
-
-
-def test_tools_call_cluster_scale_requires_workers() -> None:
-    """Omitting `workers` must NOT default to 0 (would destroy every worker)."""
-    resp = handle_message(_rpc("tools/call", {"name": "cluster_scale", "arguments": {}}))
-    assert resp["error"]["code"] == -32602
-    assert "workers" in resp["error"]["message"]
+    resp = handle_message(
+        _rpc("tools/call", {"name": "cluster_stop", "arguments": {"address": "https://m"}})
+    )
+    assert json.loads(resp["result"]["content"][0]["text"]) == {"destroyed_manager": True}
+    assert calls.get("address") == "https://m"
 
 
 def test_initialize_echoes_known_protocol_version() -> None:
@@ -284,7 +275,7 @@ def test_serve_stdio_subprocess_e2e() -> None:
     assert by_id[1]["result"]["serverInfo"]["name"] == "astroai"
     names = [t["name"] for t in by_id[2]["result"]["tools"]]
     assert "cluster_start" in names and "dashboard_url" in names
-    assert "cluster_ensure" in names
+    assert "cluster_stop" in names
     assert "job_run" in names
     assert by_id[3]["result"] == {}
     # The malformed line produced a parse-error response with no id.

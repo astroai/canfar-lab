@@ -7,7 +7,7 @@ Start and stop sessions with [`canfar`](https://github.com/opencadc/canfar)
 (or the Science Portal). Inside the session, `astroai` does three jobs:
 
 1. **Project env** — `init` / `clone` / `save` / `resume` (lockfiles on `/arc`)
-2. **Ray cluster** — `cluster start` / `check` / `run` / `jobs`
+2. **Ray cluster** — `cluster start` / `status` / `run` / `jobs`
 3. **Agents** — `agent setup` / `install` / `verify`
 
 ```mermaid
@@ -33,7 +33,7 @@ flowchart LR
 | **`astroai`** | This package, inside a session |
 | **`images.canfar.net/astroai/*`** | Session images |
 
-Images: [astroai-containers](https://github.com/astroai/astroai-containers).
+Images: [canfar-containers](https://github.com/astroai/canfar-containers).
 
 ## Inside a session
 
@@ -44,16 +44,17 @@ astroai save                    # lockfile snapshot to /arc
 astroai resume mylab
 astroai status                  # quotas, sessions (not the Ray cluster)
 
-astroai cluster start --autoscaling
-astroai cluster check
+astroai cluster start
+astroai cluster status
 astroai run train.py --cpus 2
 
 astroai kernel ensure
 astroai agent setup
 ```
 
-`astroai status` is this session’s CPU/disk/quota. `astroai cluster check`
-is whether the Ray cluster is up.
+`astroai status` is this session’s CPU/disk/quota. `astroai cluster status`
+is whether the Ray cluster is up. `astroai cluster stop` tears down workers
+and the manager.
 
 Help: `astroai help` · one command: `astroai help -c cluster` · cheat sheet:
 [docs/help.md](docs/help.md)
@@ -63,8 +64,8 @@ Help: `astroai help` · one command: `astroai help -c cluster` · cheat sheet:
 Session images already put `astroai` on PATH.
 
 ```bash
-pipx install git+https://github.com/astroai/lab.git
-# or: pip install "git+https://github.com/astroai/lab.git"
+pipx install git+https://github.com/astroai/canfar-lab.git
+# or: pip install "git+https://github.com/astroai/canfar-lab.git"
 pixi install && pixi run astroai --help   # checkout
 ```
 
@@ -76,6 +77,7 @@ pixi install && pixi run astroai --help   # checkout
 | [docs/USAGE.md](docs/USAGE.md) | Storage, workflows, Ray, agents |
 | [docs/cli.md](docs/cli.md) | Flags and every command |
 | [docs/config.md](docs/config.md) | Optional `~/.astroai/lab/config.yaml` |
+| [docs/concurrency.md](docs/concurrency.md) | Shared home: locks, atomic writes, agent runtime placement |
 
 Data movement is not this CLI. Use **`canfar data`** and `vcp` / `vls`.
 

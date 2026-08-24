@@ -87,9 +87,7 @@ def test_resolve_dashboard_url_from_persisted(
     monkeypatch.delenv("ASTROAI_RAY_JOBS_ADDRESS", raising=False)
     monkeypatch.delenv("RAY_DASHBOARD_URL", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setattr(
-        "astroai_workload.dashboard._live_manager_connect", lambda: (None, False)
-    )
+    monkeypatch.setattr("astroai_workload.dashboard._live_manager_connect", lambda: (None, False))
     persist_connect_url("c9", "https://canfar.net/session/contrib/xyz")
     assert resolve_dashboard_url() == "https://canfar.net/session/contrib/xyz/dashboard"
 
@@ -115,9 +113,7 @@ def test_resolve_dashboard_url_pending_manager_not_stale_persist(
     monkeypatch.delenv("RAY_DASHBOARD_URL", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))
     persist_connect_url("old", "https://canfar.net/session/contrib/dead")
-    monkeypatch.setattr(
-        "astroai_workload.dashboard._live_manager_connect", lambda: (None, True)
-    )
+    monkeypatch.setattr("astroai_workload.dashboard._live_manager_connect", lambda: (None, True))
     assert resolve_dashboard_url() is None
 
 

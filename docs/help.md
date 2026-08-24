@@ -35,9 +35,9 @@ Saves default to **`~/.astroai/lab/saves/`**.
 ## Ray jobs
 
 ```text
-1. astroai cluster start --autoscaling
+1. astroai cluster start
 2. astroai run train.py --cpus 2
-3. astroai cluster check
+3. astroai cluster status
 ```
 
 Same as AstroAI hub **Start batch compute**. `astroai status` is not the cluster.
@@ -55,8 +55,8 @@ astroai status                # this session
 astroai status --all
 astroai clean                 # home caches; --yes to delete
 astroai kernel ensure
-astroai cluster start --autoscaling
-astroai cluster check
+astroai cluster start
+astroai cluster status
 astroai cluster stop
 astroai run train.py --cpus 2
 astroai jobs list

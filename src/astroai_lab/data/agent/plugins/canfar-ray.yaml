@@ -4,7 +4,7 @@ kind: skill                    # skill | bundle | mcp | tool | rule
 addon: true
 tags: [science, ray, compute, canfar]
 summary: Start or resize a CANFAR Ray cluster and run jobs on it (astroai cluster start)
-homepage: https://github.com/astroai/lab
+homepage: https://github.com/astroai/canfar-lab
 agents: [skill-hosts]
 install:
   source: canfar-ray           # skill: bundled dir under bundle_root()/skills/<source>

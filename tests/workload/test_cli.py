@@ -133,37 +133,55 @@ def test_cli_submit_stores_input_uris(monkeypatch) -> None:
     assert seen["outputs"] == ["/arc/projects/g/out"]
 
 
-def test_cli_help_names_jobs_and_workers() -> None:
+def test_cli_help_names_cluster_and_run() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     out = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
-    assert "cluster start --autoscaling" in out
-    assert "cluster start --workers" in out
+    assert "cluster start" in out
     assert "astroai run" in out
 
 
-def test_cluster_help_hides_ensure() -> None:
+def test_cli_help_has_no_legacy_commands() -> None:
+    result = runner.invoke(app, ["--help"])
+    assert result.exit_code == 0
+    out = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+    assert "--autoscaling" not in out
+    assert "--workers" not in out
+    assert "scale" not in out
+    assert "ensure" not in out
+
+
+def test_cluster_help_lists_autoscaling_surface() -> None:
     result = runner.invoke(app, ["cluster", "--help"])
     assert result.exit_code == 0
-    assert "start" in result.stdout
-    assert "check" in result.stdout
+    out = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+    assert "start" in out
+    assert "status" in out
+    assert "stop" in out
 
 
-def test_cluster_ensure_alias_warns(monkeypatch) -> None:
-    monkeypatch.setattr(
-        "astroai_workload.cli.cluster_ensure_payload",
-        lambda **k: {
+def test_cluster_start_forwards_autoscaling_options(monkeypatch, tmp_path) -> None:
+    captured: dict = {}
+
+    def _fake_payload(**kwargs):
+        captured.update(kwargs)
+        return {
             "manager_url": "https://m",
             "jobs_address": "https://m/dashboard",
-            "cluster_phase": "Idle",
+            "cluster_phase": "Running",
             "joined_workers": 0,
-        },
+            "autoscaling": True,
+        }
+
+    monkeypatch.setattr("astroai_workload.cli.cluster_start_payload", _fake_payload)
+    result = runner.invoke(
+        app,
+        ["cluster", "start", "--json", "--min-workers", "1", "--max-workers", "4"],
     )
-    result = runner.invoke(app, ["cluster", "ensure", "--json"])
-    assert result.exit_code == 0
-    err = result.stderr
-    assert "cluster ensure" in err
-    assert "cluster start" in err
+    assert result.exit_code == 0, result.output
+    assert '"autoscaling": true' in result.output
+    assert captured["min_workers"] == 1
+    assert captured["max_workers"] == 4
 
 
 def test_cli_run_missing_script_is_not_invalid_value(tmp_path: Path) -> None:

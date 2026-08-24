@@ -2,7 +2,7 @@
 # Audit astroai help text vs accepted flags. Exit 1 on mismatches.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-CLI=(uv run astroai)
+CLI=(pixi run astroai)
 FAIL=0
 
 # Under GITHUB_ACTIONS=true, typer/rich colorizes --help output and splits
@@ -98,8 +98,8 @@ for grp in env config kernel agent cluster jobs; do
 done
 check_help_ok "cluster dashboard" cluster dashboard
 check_help_ok "cluster start" cluster start
-check_help_ok "cluster check" cluster check
-check_help_ok "dashboard (hidden)" dashboard
+check_help_ok "cluster status" cluster status
+check_help_ok "cluster stop" cluster stop
 check_help_ok "mcp (hidden)" mcp
 check_help_ok "autoscaler (hidden)" autoscaler
 
@@ -133,7 +133,8 @@ check_flag_in_help "clean" "--saves" clean
 check_flag_in_help "env export" "--no-ensure" env export
 check_flag_in_help "env export" "--json" env export
 check_flag_in_help "agent list" "--description" agent list
-check_flag_in_help "cluster start" "--autoscaling" cluster start
+check_flag_in_help "cluster start" "--max-workers" cluster start
+check_flag_in_help "cluster start" "--min-workers" cluster start
 check_flag_in_help "agent setup" "--all" agent setup
 
 echo "=== Flag placement (global OR subcommand) ==="

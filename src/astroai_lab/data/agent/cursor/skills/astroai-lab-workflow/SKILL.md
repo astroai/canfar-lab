@@ -31,9 +31,9 @@ pixi install                     # or uv sync
 pixi run python analysis.py
 astroai save
 
-astroai cluster start --autoscaling
+astroai cluster start
 astroai run train.py --cpus 2
-astroai cluster check
+astroai cluster status
 ```
 
 Global flags (`--json`, `--yes`, `--dry-run`) work **before or after** the subcommand:
@@ -79,7 +79,7 @@ When showing the user a generated markdown, log, or archive in webterm (or any A
 
 ```bash
 astroai help
-astroai cluster check
+astroai cluster status
 astroai status --json          # quotas, team projects, canfar auth/ps
 astroai save --list --json
 astroai agent list

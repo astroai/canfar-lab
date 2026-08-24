@@ -254,6 +254,7 @@ class SessionEnv:
             self.torch_home,
             self.tmpdir,
             self.xdg_cache_home,
+            self.xdg_data_home,
             self.astroai_lab_npm_prefix,
         ):
             path.mkdir(parents=True, exist_ok=True)
@@ -288,7 +289,12 @@ def resolve_session_env(*, ensure: bool = True) -> SessionEnv:
     xdg_config = Path(os.environ.get("XDG_CONFIG_HOME", str(home / ".config")))
     # Keep XDG_DATA_HOME on $HOME for small durable agent/jupyter specs;
     # package download caches use XDG_CACHE_HOME / explicit *_CACHE_* vars.
-    xdg_data = Path(os.environ.get("XDG_DATA_HOME", str(home / ".local" / "share")))
+    # When a scratch disk exists, bulk data lands there instead so agent
+    # runtimes do not eat the home quota; tiny durable specs stay on /arc.
+    if scratch is not None:
+        xdg_data = _session_cache_path("XDG_DATA_HOME", cache_root / "data", work, scratch)
+    else:
+        xdg_data = Path(os.environ.get("XDG_DATA_HOME", str(home / ".local" / "share")))
     xdg_cache = _session_cache_path("XDG_CACHE_HOME", cache_root, work, scratch)
 
     if scratch is not None:

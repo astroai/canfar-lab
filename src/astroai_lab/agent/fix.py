@@ -145,19 +145,59 @@ def fix_agent_setup(*, home: Path | None = None, dry_run: bool = False) -> list[
     return results
 
 
+def reconcile_installed_state(
+    *, home: Path | None = None, dry_run: bool = False
+) -> list[FixResult]:
+    """Reconcile skills/plugins/MCP paths with what this lab version ships.
+
+    Used by ``agent verify --fix``. Conservative by design: only content
+    astroai itself installed (marker or ``astroai-``/``canfar-`` naming) is
+    ever removed; unresolvable MCP entries are reported, never deleted.
+    """
+    from astroai_lab.agent.reconcile import reconcile_all
+
+    home = home or Path.home()
+    results: list[FixResult] = []
+    for kind, rows in reconcile_all(home, dry_run=dry_run).items():
+        for row in rows:
+            results.append(
+                FixResult(
+                    target=f"{kind}:{row['target']}",
+                    fixed=row["status"] not in ("failed", "unresolved"),
+                    detail=f"{row['status']}: {row['detail']}",
+                )
+            )
+    return results
+
+
 def repair_installed_agents(*, home: Path | None = None, dry_run: bool = False) -> dict[str, Any]:
     """Repair shared setup plus every installed registry agent's config.
 
-    Used by ``agent verify --fix``.
+    Used by ``agent verify --fix``. Also reconciles skills, plugins, and MCP
+    command paths against what this lab version ships. Runs under the shared
+    agent-setup lock: another session may be mutating the same configs.
     """
+    from astroai_lab.agent.setup_state import agent_setup_lock
+
+    home = home or Path.home()
+    with agent_setup_lock(home):
+        return _repair_installed_agents_locked(home=home, dry_run=dry_run)
+
+
+def _repair_installed_agents_locked(*, home: Path, dry_run: bool) -> dict[str, Any]:
     from astroai_lab.agent.registry import fix_registry_agent, list_installed_registry_agents
     from astroai_lab.errors import LabError
 
-    home = home or Path.home()
     setup_results = fix_agent_setup(home=home, dry_run=dry_run)
+    reconcile_results = reconcile_installed_state(home=home, dry_run=dry_run)
     actions: list[str] = []
     errors: list[str] = []
     fixed: list[str] = []
+    for row in setup_results + reconcile_results:
+        if row.fixed:
+            actions.append(f"{row.target}: {row.detail}")
+        elif row.detail:
+            errors.append(f"{row.target}: {row.detail}")
     agents = list_installed_registry_agents(home)
     for agent in agents:
         aid = agent["id"]

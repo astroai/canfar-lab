@@ -166,13 +166,14 @@ def test_command_inventory_covers_all_visible_paths() -> None:
     assert "save" in paths
     assert "resume" in paths
     assert "cluster start" in paths
-    assert "cluster check" in paths
+    assert "cluster status" in paths
     assert "cluster dashboard" in paths
     assert "jobs list" in paths
     assert "run" in paths
     # Hidden aliases are excluded from the machine inventory.
     assert "cluster ensure" not in paths
-    assert "cluster status" not in paths
+    assert "cluster scale" not in paths
+    assert "cluster check" not in paths
     assert "dashboard" not in paths
     assert "mcp" not in paths
     assert "autoscaler" not in paths

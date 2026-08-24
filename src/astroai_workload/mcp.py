@@ -19,8 +19,7 @@ from typing import Any
 
 from astroai_workload import __version__
 from astroai_workload.cli import (
-    cluster_ensure_payload,
-    cluster_scale_payload,
+    cluster_start_payload,
     cluster_status_payload,
     dashboard_url_payload,
     job_cancel_payload,
@@ -78,17 +77,15 @@ def _str_list(value: Any, name: str) -> list[str] | None:
     return [str(item) for item in value]
 
 
-def _tool_cluster_ensure(args: dict[str, Any]) -> dict[str, Any]:
-    return cluster_ensure_payload(
+def _tool_cluster_start(args: dict[str, Any]) -> dict[str, Any]:
+    return cluster_start_payload(
         address=args.get("address"),
-        workers=int(args.get("workers", 0)),
+        min_workers=int(args.get("min_workers", 0)),
+        max_workers=int(args.get("max_workers", 8)),
         cores=int(args.get("cores", 1)),
         ram=int(args.get("ram", 4)),
         gpus=int(args.get("gpus", 0)),
         timeout=int(args.get("timeout", 1800)),
-        require_preflight=bool(args.get("require_preflight", False)),
-        autoscaling=bool(args.get("autoscaling", False)),
-        max_workers=int(args.get("max_workers", 8)),
     )
 
 
@@ -96,20 +93,10 @@ def _tool_cluster_status(args: dict[str, Any]) -> dict[str, Any]:
     return cluster_status_payload(args.get("address"))
 
 
-def _tool_cluster_scale(args: dict[str, Any]) -> dict[str, Any]:
-    # `workers` is required — omitting it must NOT default to 0 (that would
-    # destroy every worker session). The CLI makes it a positional argument.
-    if "workers" not in args:
-        raise ValueError("workers is required")
-    return cluster_scale_payload(
-        workers=int(args["workers"]),
-        address=args.get("address"),
-        cores=int(args.get("cores", 1)),
-        ram=int(args.get("ram", 4)),
-        gpus=int(args.get("gpus", 0)),
-        timeout=int(args.get("timeout", 1800)),
-        require_preflight=bool(args.get("require_preflight", False)),
-    )
+def _tool_cluster_stop(args: dict[str, Any]) -> dict[str, Any]:
+    from astroai_workload.cli import cluster_stop_payload
+
+    return cluster_stop_payload(address=args.get("address"))
 
 
 def _tool_dashboard_url(args: dict[str, Any]) -> dict[str, Any]:
@@ -188,10 +175,10 @@ TOOLS: list[dict[str, Any]] = [
     {
         "name": "cluster_start",
         "description": (
-            "Start a ray-manager if needed. autoscaling=true (usual) lets Ray "
-            "add workers when jobs need CPUs. workers=N starts a fixed pool "
-            "instead. Safe to call again. Returns the cluster URL to use as "
-            "ASTROAI_RAY_JOBS_ADDRESS."
+            "Start (or reuse) the autoscaling Ray cluster: writes the manager "
+            "env file, creates the ray-manager session when none is running, "
+            "and Ray adds workers when jobs need CPUs. Safe to call again. "
+            "Returns the cluster URL to use as ASTROAI_RAY_JOBS_ADDRESS."
         ),
         "inputSchema": {
             "type": "object",
@@ -200,10 +187,15 @@ TOOLS: list[dict[str, Any]] = [
                     "type": "string",
                     "description": "Manager connect URL or Jobs API URL.",
                 },
-                "workers": {
+                "min_workers": {
                     "type": "integer",
-                    "description": "Worker sessions to launch.",
+                    "description": "Workers kept alive even when idle.",
                     "default": 0,
+                },
+                "max_workers": {
+                    "type": "integer",
+                    "description": "Autoscaler ceiling.",
+                    "default": 8,
                 },
                 "cores": {"type": "integer", "description": "CPUs per worker.", "default": 1},
                 "ram": {"type": "integer", "description": "RAM GiB per worker.", "default": 4},
@@ -213,34 +205,12 @@ TOOLS: list[dict[str, Any]] = [
                     "description": "Wait timeout (seconds).",
                     "default": 1800,
                 },
-                "require_preflight": {
-                    "type": "boolean",
-                    "description": (
-                        "Enforce the network preflight gate before launching "
-                        "workers. Off by default. Skaha headless probes can "
-                        "hang on some deployments; enable when it works."
-                    ),
-                    "default": False,
-                },
-                "autoscaling": {
-                    "type": "boolean",
-                    "description": (
-                        "Usual path. Ray starts and stops workers as jobs need "
-                        "CPUs. Creates the manager if needed."
-                    ),
-                    "default": False,
-                },
-                "max_workers": {
-                    "type": "integer",
-                    "description": "Autoscaler ceiling when autoscaling is true.",
-                    "default": 8,
-                },
             },
         },
-        "handler": _tool_cluster_ensure,
+        "handler": _tool_cluster_start,
     },
     {
-        "name": "cluster_check",
+        "name": "cluster_status",
         "description": (
             "See if the Ray cluster is up, whether workers have joined, and the Dashboard path."
         ),
@@ -256,40 +226,21 @@ TOOLS: list[dict[str, Any]] = [
         "handler": _tool_cluster_status,
     },
     {
-        "name": "cluster_scale",
+        "name": "cluster_stop",
         "description": (
-            "Grow or shrink the cluster to this many worker sessions. "
-            "workers=0 stops workers and keeps the manager. This is a count "
-            "you choose, not autoscaling."
+            "Tear down the whole cluster: destroy every worker session and "
+            "the ray-manager session, and clear persisted state."
         ),
         "inputSchema": {
             "type": "object",
             "properties": {
-                "workers": {"type": "integer", "description": "Target number of worker sessions."},
                 "address": {
                     "type": "string",
                     "description": "Manager connect URL or Jobs API URL.",
                 },
-                "cores": {"type": "integer", "description": "CPUs per new worker.", "default": 1},
-                "ram": {"type": "integer", "description": "RAM GiB per new worker.", "default": 4},
-                "gpus": {"type": "integer", "description": "GPUs per new worker.", "default": 0},
-                "timeout": {
-                    "type": "integer",
-                    "description": "Wait timeout (seconds).",
-                    "default": 1800,
-                },
-                "require_preflight": {
-                    "type": "boolean",
-                    "description": (
-                        "Enforce network preflight before launching workers. "
-                        "Default false (same as cluster_start)."
-                    ),
-                    "default": False,
-                },
             },
-            "required": ["workers"],
         },
-        "handler": _tool_cluster_scale,
+        "handler": _tool_cluster_stop,
     },
     {
         "name": "dashboard_url",
@@ -412,23 +363,6 @@ TOOLS: list[dict[str, Any]] = [
         "handler": _tool_job_list,
     },
 ]
-
-_start = next(t for t in TOOLS if t["name"] == "cluster_start")
-_check = next(t for t in TOOLS if t["name"] == "cluster_check")
-TOOLS.extend(
-    [
-        {
-            **_start,
-            "name": "cluster_ensure",
-            "description": "Deprecated alias for cluster_start.",
-        },
-        {
-            **_check,
-            "name": "cluster_status",
-            "description": "Deprecated alias for cluster_check.",
-        },
-    ]
-)
 
 _TOOL_BY_NAME = {t["name"]: t for t in TOOLS}
 

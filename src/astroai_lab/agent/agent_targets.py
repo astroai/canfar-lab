@@ -112,9 +112,10 @@ def _read_config(path: Path, fmt: McpFormat) -> dict[str, Any]:
 
 
 def _write_config(path: Path, data: dict[str, Any], fmt: McpFormat) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    from astroai_lab.utils.json_utils import atomic_write_text
+
     if fmt == "yaml":
-        path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+        atomic_write_text(path, yaml.safe_dump(data, sort_keys=False))
     else:
         write_json(path, data)
 

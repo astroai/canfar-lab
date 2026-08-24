@@ -399,8 +399,10 @@ def write_manager_autoscaling_env(
     if not enabled:
         path.unlink(missing_ok=True)
         return path
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    from astroai_lab.utils.json_utils import atomic_write_text
+
+    atomic_write_text(
+        path,
         "\n".join(
             [
                 "RAY_AUTOSCALING_ENABLED=1",
@@ -413,7 +415,6 @@ def write_manager_autoscaling_env(
                 "",
             ]
         ),
-        encoding="utf-8",
     )
     return path
 

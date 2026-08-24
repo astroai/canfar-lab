@@ -343,6 +343,12 @@ def _install_skill(
         shutil.rmtree(dst)
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(src, dst)
+    from contextlib import suppress
+
+    from astroai_lab.agent.reconcile import MARKER
+
+    with suppress(OSError):
+        (dst / MARKER).write_text("", encoding="utf-8")
     return PluginResult(plugin["id"], agent, "installed", str(dst))
 
 
@@ -431,10 +437,34 @@ def install_plugin(
     """Install a plugin. Default applies to installed agents in the matrix;
     ``--agent`` scopes to one agent. ``installed_only=False`` (configure) acts
     on the full support matrix."""
+    from astroai_lab.agent.setup_state import agent_setup_lock
+
     plugin = get_plugin(plugin_id)
     if plugin is None:
         raise LabError(f"Unknown plugin: {plugin_id}", hint="astroai agent plugins list")
     home = home or Path.home()
+    with agent_setup_lock(home):
+        return _install_plugin_locked(
+            plugin_id,
+            plugin,
+            agent=agent,
+            home=home,
+            force=force,
+            dry_run=dry_run,
+            installed_only=installed_only,
+        )
+
+
+def _install_plugin_locked(
+    plugin_id: str,
+    plugin: dict[str, Any],
+    *,
+    agent: str | None,
+    home: Path,
+    force: bool,
+    dry_run: bool,
+    installed_only: bool,
+) -> list[PluginResult]:
     selected = _selected_agents(plugin, agent)
     if installed_only:
         selected = [a for a in selected if _agent_installed(a, home)]
@@ -508,10 +538,19 @@ def remove_plugin(
     dry_run: bool = False,
 ) -> list[PluginResult]:
     """Remove a plugin from the support matrix (or one --agent)."""
+    from astroai_lab.agent.setup_state import agent_setup_lock
+
     plugin = get_plugin(plugin_id)
     if plugin is None:
         raise LabError(f"Unknown plugin: {plugin_id}", hint="astroai agent plugins list")
     home = home or Path.home()
+    with agent_setup_lock(home):
+        return _remove_plugin_locked(plugin, agent=agent, home=home, dry_run=dry_run)
+
+
+def _remove_plugin_locked(
+    plugin: dict[str, Any], *, agent: str | None, home: Path, dry_run: bool
+) -> list[PluginResult]:
     selected = _selected_agents(plugin, agent)
     results: list[PluginResult] = []
     for a in selected:

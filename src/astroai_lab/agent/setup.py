@@ -48,6 +48,25 @@ def install_tree(src_dir: Path, dst_dir: Path, *, force: bool, dry_run: bool) ->
     return count
 
 
+def install_skills_tree(src_dir: Path, dst_dir: Path, *, force: bool, dry_run: bool) -> int:
+    """Install bundled skill trees and mark them as astroai-managed."""
+    count = install_tree(src_dir, dst_dir, force=force, dry_run=dry_run)
+    from astroai_lab.agent.reconcile import MARKER
+
+    if not dry_run and src_dir.is_dir():
+        for src in src_dir.iterdir():
+            if not src.is_dir():
+                continue
+            marker = dst_dir / src.name / MARKER
+            if not marker.is_file():
+                try:
+                    marker.parent.mkdir(parents=True, exist_ok=True)
+                    marker.write_text("", encoding="utf-8")
+                except OSError:
+                    continue
+    return count
+
+
 def merge_mcp_servers(src_json: Path, dst_json: Path, *, force: bool, dry_run: bool) -> None:
     """Merge mcpServers from src into dst; never replace the whole destination."""
     from astroai_lab.agent.agent_targets import merge_mcp_file
@@ -211,7 +230,7 @@ def run_bundle(
             force=force,
             dry_run=dry_run,
         )
-        install_tree(
+        install_skills_tree(
             root / "cursor" / "skills",
             home / ".cursor" / "skills",
             force=force,
@@ -283,13 +302,14 @@ def run_bundle(
         )
         hook = home / ".astroai" / "lab" / "agent-env.sh"
         if (force or not hook.is_file()) and not dry_run:
-            hook.parent.mkdir(parents=True, exist_ok=True)
-            hook.write_text(
+            from astroai_lab.utils.json_utils import atomic_write_text
+
+            atomic_write_text(
+                hook,
                 "# AstroAI lab agent setup: GitHub token for gh + GitHub MCP\n"
                 "if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then\n"
                 '  export GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"\n'
                 "fi\n",
-                encoding="utf-8",
             )
         bashrc = home / ".bashrc"
         marker = "# astroai agent setup"
@@ -357,6 +377,23 @@ def ensure_agent_dirs(home: Path, *, dry_run: bool) -> None:
         return
     for d in dirs:
         d.mkdir(parents=True, exist_ok=True)
+
+
+def relocate_agent_runtime_state(home: Path, *, dry_run: bool) -> list[str]:
+    """Move agent runtime stores (DBs, transcripts) onto the session scratch.
+
+    Two sessions share /arc/home; concurrent SQLite/append-heavy stores there
+    contend or corrupt (NFS flock is unreliable). Config stays on $HOME;
+    runtime goes to scratch via symlinks. See astroai_lab.core.home_layout.
+    """
+    from astroai_lab.core.home_layout import relocate_agent_runtime
+    from astroai_lab.shell.session_env import resolve_session_env
+
+    try:
+        data_root = resolve_session_env(ensure=False).xdg_data_home
+    except Exception:  # noqa: BLE001 — relocation must never block setup
+        return []
+    return relocate_agent_runtime(home, data_root, dry_run=dry_run)
 
 
 def write_stamp(home: Path, mode: str, *, dry_run: bool) -> None:
@@ -436,6 +473,10 @@ def agent_setup(
 
     def _run() -> SetupResult:
         ensure_agent_dirs(home, dry_run=dry_run)
+        if mode != "project":
+            warnings.extend(
+                f"runtime: {a}" for a in relocate_agent_runtime_state(home, dry_run=dry_run)
+            )
         succeeded: list[str] = []
         failed: list[tuple[str, str]] = []
         for name in names:
