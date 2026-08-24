@@ -31,13 +31,8 @@ def _check_json_file(path: Path, home: Path, *, jsonc: bool = False) -> str | No
 
 
 def _check_toml_file(path: Path, home: Path) -> str | None:
-    try:
-        import tomllib  # type: ignore
-    except ImportError:
-        try:
-            import tomli as tomllib  # type: ignore
-        except ImportError:
-            return None
+    from astroai_lab.utils.toml_compat import tomllib
+
     try:
         tomllib.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:

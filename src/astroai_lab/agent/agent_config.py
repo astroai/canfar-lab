@@ -80,13 +80,11 @@ def _parse_config(text: str, fmt: str, agent_id: str, path: Path) -> dict[str, A
         except yaml.YAMLError as exc:
             raise LabError(f"Cannot parse {agent_id} config ({path}): {exc}") from exc
     elif fmt == "toml":
-        try:
-            import tomllib  # type: ignore
-        except ImportError:
-            import tomli as tomllib  # type: ignore
+        from astroai_lab.utils.toml_compat import tomllib
+
         try:
             data = tomllib.loads(text)
-        except Exception as exc:  # noqa: BLE001 — tomllib/tomli decode error types differ
+        except Exception as exc:  # noqa: BLE001 — decode error types differ
             raise LabError(f"Cannot parse {agent_id} config ({path}): {exc}") from exc
     elif fmt == "markdown":
         raise LabError(f"{agent_id} config is markdown (read-only)")

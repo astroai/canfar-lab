@@ -125,24 +125,17 @@ def _merge_marimo_openrouter(cfg: Path, *, force: bool, dry_run: bool) -> None:
     if not key:
         return
 
-    # Check if api_key is already set using tomllib (stdlib 3.11+) or tomli
+    # Check if api_key is already set (TOML parse) before line-merging.
     text = cfg.read_text(encoding="utf-8")
-    try:
-        import tomllib  # type: ignore
-    except ImportError:
-        try:
-            import tomli as tomllib  # type: ignore
-        except ImportError:
-            tomllib = None  # type: ignore[assignment]
+    from astroai_lab.utils.toml_compat import tomllib
 
-    if tomllib is not None:
-        try:
-            data = tomllib.loads(text)
-            current_key = _toml_get(data, "ai", "openrouter", "api_key")
-            if current_key and not force:
-                return
-        except Exception:  # noqa: BLE001 — tomllib may be absent or TOML unparseable; fall through to line-based merge
-            pass
+    try:
+        data = tomllib.loads(text)
+        current_key = _toml_get(data, "ai", "openrouter", "api_key")
+        if current_key and not force:
+            return
+    except Exception:  # noqa: BLE001 — unparseable TOML falls through to line-based merge
+        pass
 
     if dry_run:
         return
