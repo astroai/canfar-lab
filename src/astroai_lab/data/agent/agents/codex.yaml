@@ -9,7 +9,7 @@ install:
   method: gh-release
   repo: openai/codex
   asset: "codex-{arch}-unknown-linux-musl.tar.gz" # {arch} = x86_64 | aarch64
-  requires_gh_auth: true
+  requires_gh_auth: false
 config:
   path: "~/.codex/config.toml"
   format: toml
@@ -18,4 +18,4 @@ verify:
   - "codex --version"
   - "test -f ~/.codex/config.toml"
 plugins: [skill, mcp, config, addon]
-notes: Requires `gh auth status`; configured via ~/.codex/config.toml
+notes: Public GitHub release (no gh login); configured via ~/.codex/config.toml

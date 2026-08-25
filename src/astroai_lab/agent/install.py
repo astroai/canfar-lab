@@ -640,14 +640,51 @@ def _require(cmd: str) -> None:
         raise LabError(f"{cmd} is required.", hint=f"Install {cmd} or check PATH")
 
 
-def _gh_release_bin(repo: str, asset: str, binary: str) -> None:
-    _require("gh")
+def _gh_auth_ok() -> bool:
+    if shutil.which("gh") is None:
+        return False
+    try:
+        proc = subprocess.run(
+            ["gh", "auth", "status"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return proc.returncode == 0
+
+
+def _download_public_gh_release(repo: str, asset: str, dest: Path) -> None:
+    """Fetch a release asset from a public GitHub repo (no ``gh auth login``)."""
+    url = f"https://github.com/{repo}/releases/latest/download/{asset}"
+    run(["curl", "-fsSL", "-o", str(dest), url])
+
+
+def _gh_release_bin(
+    repo: str, asset: str, binary: str, *, requires_gh_auth: bool = False
+) -> None:
     _require("curl")
-    run_capture(["gh", "auth", "status"])
     tmp = Path(os.environ.get("TMPDIR", "").strip() or "/tmp")
     tmp.mkdir(parents=True, exist_ok=True)
-    run(["gh", "release", "download", "-R", repo, "-p", asset, "-D", str(tmp)])
     archive = tmp / asset
+    if _gh_auth_ok():
+        _require("gh")
+        run(["gh", "release", "download", "-R", repo, "-p", asset, "-D", str(tmp)])
+    elif requires_gh_auth:
+        raise LabError(
+            f"Installing from {repo} requires GitHub CLI authentication.",
+            hint="Run: gh auth login",
+        )
+    else:
+        try:
+            _download_public_gh_release(repo, asset, archive)
+        except LabError as exc:
+            raise LabError(
+                f"Could not download {asset} from {repo}.",
+                hint="Check network access, or run: gh auth login (private releases)",
+            ) from exc
     if asset.endswith(".tar.gz"):
         with tarfile.open(archive, "r:gz") as tf:
             tf.extractall(tmp)

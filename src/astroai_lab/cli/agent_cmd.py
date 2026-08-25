@@ -943,12 +943,24 @@ def agent_verify_cmd(
 
 
 def _install_one_agent(tool: str, *, dry_run: bool) -> None:
-    from astroai_lab.agent.registry import get_registry_agent, install_registry_agent
+    from astroai_lab.agent.registry import (
+        get_registry_agent,
+        install_registry_agent,
+        setup_registry_agent,
+    )
 
     if tool in agent_install.TOOLS:
         agent_install.install_tool(tool, dry_run=dry_run)
     elif get_registry_agent(tool) is not None:
         install_registry_agent(tool, dry_run=dry_run)
+        if not dry_run:
+            setup = setup_registry_agent(tool, dry_run=False)
+            if setup["errors"]:
+                detail = "; ".join(setup["errors"])
+                raise LabError(
+                    f"Installed {tool}, but setup failed: {detail}",
+                    hint=f"Retry: astroai agent setup {tool}",
+                )
     else:
         raise LabError(f"Unknown tool: {tool}", hint="astroai agent list")
 

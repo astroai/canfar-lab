@@ -63,6 +63,7 @@ def test_load_registry_includes_migrated_agents() -> None:
     codex = get_registry_agent("codex")
     assert codex is not None
     assert codex["install"]["method"] == "gh-release"
+    assert codex["install"].get("requires_gh_auth") is False
     assert "{arch}" in codex["install"]["asset"]
     cursor = get_registry_agent("cursor")
     assert cursor is not None
@@ -426,7 +427,9 @@ def test_install_gh_release_templates_arch(monkeypatch: pytest.MonkeyPatch) -> N
 
     seen: list[tuple[str, str]] = []
     monkeypatch.setattr(
-        install_mod, "_gh_release_bin", lambda repo, asset, binary: seen.append((asset, binary))
+        install_mod,
+        "_gh_release_bin",
+        lambda repo, asset, binary, **kwargs: seen.append((asset, binary)),
     )
     monkeypatch.setattr(install_mod, "_verify_cmd", lambda *a, **k: None)
     monkeypatch.setattr("platform.machine", lambda: "x86_64")

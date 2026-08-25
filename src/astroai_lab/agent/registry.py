@@ -456,7 +456,12 @@ def _install_gh_release(agent: dict[str, Any]) -> str:
     install = agent["install"]
     # {arch} templates to platform.machine() (x86_64/aarch64) for per-arch assets.
     asset = str(install["asset"]).replace("{arch}", platform.machine())
-    _gh_release_bin(str(install["repo"]), asset, binary)
+    _gh_release_bin(
+        str(install["repo"]),
+        asset,
+        binary,
+        requires_gh_auth=bool(install.get("requires_gh_auth")),
+    )
     _verify_cmd(binary)
     return binary
 

@@ -433,6 +433,7 @@ def install_plugin(
     force: bool = False,
     dry_run: bool = False,
     installed_only: bool = True,
+    assume_locked: bool = False,
 ) -> list[PluginResult]:
     """Install a plugin. Default applies to installed agents in the matrix;
     ``--agent`` scopes to one agent. ``installed_only=False`` (configure) acts
@@ -443,7 +444,8 @@ def install_plugin(
     if plugin is None:
         raise LabError(f"Unknown plugin: {plugin_id}", hint="astroai agent plugins list")
     home = home or Path.home()
-    with agent_setup_lock(home):
+
+    def _run() -> list[PluginResult]:
         return _install_plugin_locked(
             plugin_id,
             plugin,
@@ -453,6 +455,11 @@ def install_plugin(
             dry_run=dry_run,
             installed_only=installed_only,
         )
+
+    if assume_locked:
+        return _run()
+    with agent_setup_lock(home):
+        return _run()
 
 
 def _install_plugin_locked(
@@ -525,6 +532,33 @@ def apply_agent_plugins(
                 force=force,
                 dry_run=dry_run,
                 installed_only=installed_only,
+            )
+        )
+    return results
+
+
+def apply_default_plugins(
+    *,
+    home: Path | None = None,
+    force: bool = False,
+    dry_run: bool = False,
+    installed_only: bool = False,
+    assume_locked: bool = False,
+) -> list[PluginResult]:
+    """Apply every plugin marked ``default: true`` to its support matrix."""
+    home = home or Path.home()
+    results: list[PluginResult] = []
+    for plugin in load_plugins():
+        if not plugin.get("default"):
+            continue
+        results.extend(
+            install_plugin(
+                plugin["id"],
+                home=home,
+                force=force,
+                dry_run=dry_run,
+                installed_only=installed_only,
+                assume_locked=assume_locked,
             )
         )
     return results

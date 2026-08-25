@@ -484,6 +484,25 @@ def agent_setup(
         partial = bool(succeeded) and bool(failed)
         ok = bool(succeeded) and not failed
 
+        if ok and mode != "project":
+            from astroai_lab.agent import plugins as agent_plugins
+
+            for result in agent_plugins.apply_default_plugins(
+                home=home,
+                force=force,
+                dry_run=dry_run,
+                installed_only=False,
+                assume_locked=use_lock and not dry_run,
+            ):
+                if result.status == "failed":
+                    errors.append(f"plugin {result.plugin} ({result.agent}): {result.detail}")
+                    partial = True
+                    ok = False
+                elif result.status in ("installed", "updated", "would_install"):
+                    actions.append(
+                        f"plugin {result.status.replace('_', ' ')} {result.plugin} ({result.agent})"
+                    )
+
         if not dry_run and ok and verify and mode != "project":
             issues = verify_setup(home)
             if issues:

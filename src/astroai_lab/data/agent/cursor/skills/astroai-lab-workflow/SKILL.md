@@ -10,10 +10,10 @@ description: >-
 (env, Ray jobs, agents). AstroAI = product; CANFAR = host platform.
 
 ```bash
-astroai agent setup              # once per user — MCP + skills (persists on /arc)
-astroai agent install kilo       # or: goose, cline, opencode, codex, cursor, …
-astroai agent install cursor     # Cursor Agent CLI onto $SCRATCH
-gh auth login                       # GitHub for gh + GitHub MCP
+astroai agent setup              # once per user — MCP + CANFAR skills (canfar-platform)
+astroai agent install codex      # public GitHub release — no gh login needed
+astroai agent install kilo       # or: goose, cline, opencode, cursor, …
+gh auth login                    # only for GitHub MCP / private repos / git push
 ```
 
 Discover what’s available: `astroai agent list` · plugins: `astroai agent plugins list`  

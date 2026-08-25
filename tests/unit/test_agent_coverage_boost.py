@@ -46,6 +46,10 @@ def test_agent_setup_records_ok(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
         "astroai_lab.core.paths.quota_used_pct",
         lambda path: 10,
     )
+    monkeypatch.setattr(
+        "astroai_lab.agent.plugins.apply_default_plugins",
+        lambda **kwargs: [],
+    )
     result = agent_setup(bundles=["cli"], force=True, dry_run=False, verify=True)
     assert result.ok
     assert result.exit_code == 0
@@ -69,6 +73,10 @@ def test_agent_setup_verify_failure_marks_failed(
     monkeypatch.setattr(
         "astroai_lab.core.paths.quota_used_pct",
         lambda path: 10,
+    )
+    monkeypatch.setattr(
+        "astroai_lab.agent.plugins.apply_default_plugins",
+        lambda **kwargs: [],
     )
     result = agent_setup(bundles=["cli"], force=True, dry_run=False, verify=True)
     assert not result.ok
