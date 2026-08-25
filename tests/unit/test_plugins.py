@@ -34,8 +34,9 @@ CANFAR_SKILLS_SRC = Path("/data/src/canfar-skills")
 
 
 def _mock_canfar_skills_upstream(monkeypatch: pytest.MonkeyPatch) -> None:
-    from astroai_lab.agent import addons as addons_mod
     import shutil
+
+    from astroai_lab.agent import addons as addons_mod
 
     def _fake_refresh(cache_root: Path, repo: str, paths):  # noqa: ANN001
         if repo != "astroai/canfar-skills":
