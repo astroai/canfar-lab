@@ -18,6 +18,8 @@ from tests.conftest import mock_canfar_skills_upstream
 runner = CliRunner()
 
 _mock_canfar_skills_upstream = mock_canfar_skills_upstream
+
+
 def _addon(plugin_id: str) -> dict:
     plugin = get_plugin(plugin_id)
     assert plugin is not None

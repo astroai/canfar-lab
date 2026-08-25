@@ -32,6 +32,8 @@ from tests.conftest import CANFAR_SKILLS_SRC, mock_canfar_skills_upstream
 runner = CliRunner()
 
 _mock_canfar_skills_upstream = mock_canfar_skills_upstream
+
+
 def _write_plugin_yaml(root: Path, name: str, body: str) -> Path:
     plugins = root / "plugins"
     plugins.mkdir(parents=True, exist_ok=True)
