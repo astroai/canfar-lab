@@ -36,14 +36,15 @@ def _mock_canfar_skills_upstream(monkeypatch: pytest.MonkeyPatch) -> None:
                 if src.is_dir():
                     if dst.exists():
                         import shutil
+
                         shutil.rmtree(dst)
                     import shutil
+
                     shutil.copytree(src, dst)
             return "cloned", repo
         return "failed", "canfar-skills src missing"
 
     monkeypatch.setattr(addons_mod, "_refresh_upstream_repo", _fake_refresh)
-
 
 
 def _addon(plugin_id: str) -> dict:

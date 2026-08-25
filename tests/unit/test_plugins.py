@@ -57,7 +57,6 @@ def _mock_canfar_skills_upstream(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(addons_mod, "_refresh_upstream_repo", _fake_refresh)
 
 
-
 def _write_plugin_yaml(root: Path, name: str, body: str) -> Path:
     plugins = root / "plugins"
     plugins.mkdir(parents=True, exist_ok=True)
@@ -99,8 +98,6 @@ def test_load_plugins_includes_canfar_ray() -> None:
     assert plugin["install"]["path"] == "skills/astroai-ray"
 
 
-
-
 def test_load_plugins_includes_canfar_platform() -> None:
     plugin = get_plugin("canfar-platform")
     assert plugin is not None
@@ -108,6 +105,7 @@ def test_load_plugins_includes_canfar_platform() -> None:
     assert plugin["install"]["type"] == "github-bundle"
     assert plugin["install"]["repo"] == "astroai/canfar-skills"
     assert len(plugin["install"]["skills"]) == 23
+
 
 def test_canfar_ray_skill_points_at_workload_run() -> None:
     skill = Path("/data/src/canfar-skills/skills/astroai-ray/SKILL.md")
