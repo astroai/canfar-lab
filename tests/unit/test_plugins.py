@@ -27,36 +27,11 @@ from astroai_lab.agent.plugins import (
 )
 from astroai_lab.cli.main import app
 from astroai_lab.errors import LabError
+from tests.conftest import CANFAR_SKILLS_SRC, mock_canfar_skills_upstream
 
 runner = CliRunner()
 
-CANFAR_SKILLS_SRC = Path("/data/src/canfar-skills")
-
-
-def _mock_canfar_skills_upstream(monkeypatch: pytest.MonkeyPatch) -> None:
-    import shutil
-
-    from astroai_lab.agent import addons as addons_mod
-
-    def _fake_refresh(cache_root: Path, repo: str, paths):  # noqa: ANN001
-        if repo != "astroai/canfar-skills":
-            return "failed", f"unexpected repo {repo}"
-        path_list = [paths] if isinstance(paths, str) else list(paths)
-        if not CANFAR_SKILLS_SRC.is_dir():
-            return "failed", "canfar-skills src missing"
-        cache_root.mkdir(parents=True, exist_ok=True)
-        for rel in path_list:
-            src = CANFAR_SKILLS_SRC / rel
-            dst = cache_root / rel
-            if src.is_dir():
-                if dst.exists():
-                    shutil.rmtree(dst)
-                shutil.copytree(src, dst)
-        return "cloned", repo
-
-    monkeypatch.setattr(addons_mod, "_refresh_upstream_repo", _fake_refresh)
-
-
+_mock_canfar_skills_upstream = mock_canfar_skills_upstream
 def _write_plugin_yaml(root: Path, name: str, body: str) -> Path:
     plugins = root / "plugins"
     plugins.mkdir(parents=True, exist_ok=True)
@@ -108,9 +83,9 @@ def test_load_plugins_includes_canfar_platform() -> None:
 
 
 def test_canfar_ray_skill_points_at_workload_run() -> None:
-    skill = Path("/data/src/canfar-skills/skills/astroai-ray/SKILL.md")
+    skill = CANFAR_SKILLS_SRC / "skills/astroai-ray/SKILL.md"
     if not skill.is_file():
-        pytest.skip("canfar-skills repo not checked out beside astroai-lab")
+        pytest.skip("canfar-skills fixture missing astroai-ray skill")
     text = skill.read_text(encoding="utf-8")
     assert "astroai run" in text
     assert "Do not call `ray job submit`" in text

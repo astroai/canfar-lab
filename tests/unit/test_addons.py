@@ -13,40 +13,11 @@ from astroai_lab.agent.addons import (
 from astroai_lab.agent.plugins import get_plugin, load_plugins
 from astroai_lab.cli.main import app
 from astroai_lab.errors import LabError
+from tests.conftest import mock_canfar_skills_upstream
 
 runner = CliRunner()
 
-
-CANFAR_SKILLS_SRC = Path("/data/src/canfar-skills")
-
-
-def _mock_canfar_skills_upstream(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Use local canfar-skills tree instead of GitHub in tests."""
-    from astroai_lab.agent import addons as addons_mod
-
-    def _fake_refresh(cache_root: Path, repo: str, paths):  # noqa: ANN001
-        if repo != "astroai/canfar-skills":
-            return "failed", f"unexpected repo {repo}"
-        path_list = [paths] if isinstance(paths, str) else list(paths)
-        if CANFAR_SKILLS_SRC.is_dir():
-            cache_root.mkdir(parents=True, exist_ok=True)
-            for rel in path_list:
-                src = CANFAR_SKILLS_SRC / rel
-                dst = cache_root / rel
-                if src.is_dir():
-                    if dst.exists():
-                        import shutil
-
-                        shutil.rmtree(dst)
-                    import shutil
-
-                    shutil.copytree(src, dst)
-            return "cloned", repo
-        return "failed", "canfar-skills src missing"
-
-    monkeypatch.setattr(addons_mod, "_refresh_upstream_repo", _fake_refresh)
-
-
+_mock_canfar_skills_upstream = mock_canfar_skills_upstream
 def _addon(plugin_id: str) -> dict:
     plugin = get_plugin(plugin_id)
     assert plugin is not None
