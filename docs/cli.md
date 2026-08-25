@@ -267,16 +267,16 @@ astroai agent setup --all
 astroai agent setup --project ./repo   # per-repo AGENTS.md + .cursor
 astroai agent install kilo
 astroai agent install agy omp pi
-astroai agent plugins install ponytail canfar-ray
+astroai agent plugins install ponytail astroai-ray
 astroai agent remove kilo          # uninstall (--purge removes ~/.<agent> home dirs)
 astroai agent wipe --dry-run
 astroai agent wipe --yes
 astroai agent plugins list
 astroai agent plugins list --description
 astroai agent plugins list --kind mcp
-astroai agent plugins install canfar-ray
-astroai agent plugins install canfar-ray --agent hermes
-astroai agent plugins remove canfar-ray
+astroai agent plugins install astroai-ray
+astroai agent plugins install astroai-ray --agent hermes
+astroai agent plugins remove astroai-ray
 astroai agent plugins install ray-manager-mcp
 astroai agent verify
 astroai agent verify --fix         # auto-repair, then re-check

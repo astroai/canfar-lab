@@ -95,11 +95,11 @@ def test_uninstall_tool_purge_removes_home_dir(
     bin_dir, _ = _fake_session_paths(monkeypatch, tmp_path)
     home = tmp_path / "home"
     _make_installed(bin_dir, "hermes", home, ".hermes/config.yaml")
-    (home / ".hermes" / "skills" / "canfar-ray" / "SKILL.md").parent.mkdir(
+    (home / ".hermes" / "skills" / "astroai-ray" / "SKILL.md").parent.mkdir(
         parents=True, exist_ok=True
     )
-    (home / ".hermes" / "skills" / "canfar-ray" / "SKILL.md").write_text(
-        "# canfar-ray\n", encoding="utf-8"
+    (home / ".hermes" / "skills" / "astroai-ray" / "SKILL.md").write_text(
+        "# astroai-ray\n", encoding="utf-8"
     )
 
     results = uninstall_tool("hermes", home=home, purge=True)

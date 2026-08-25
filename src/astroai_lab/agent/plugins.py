@@ -8,13 +8,13 @@ scopes it.
 
 Example::
 
-    id: canfar-ray
+    id: astroai-ray
     kind: skill
     tags: [science, ray, canfar]
     summary: Start or resize a CANFAR Ray cluster and run jobs on it
     agents: [skill-hosts]
     install:
-      source: canfar-ray
+      source: astroai-ray
 
 Kinds:
   skill   copy a bundled SKILL.md tree into each target agent's skill dir

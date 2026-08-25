@@ -684,11 +684,11 @@ def test_setup_registry_agent_plugin_errors_mark_failed(
     home.mkdir()
     monkeypatch.setattr(
         "astroai_lab.agent.plugins.apply_agent_plugins",
-        lambda *a, **k: [PluginResult("canfar-ray", "hermes", "failed", "boom")],
+        lambda *a, **k: [PluginResult("astroai-ray", "hermes", "failed", "boom")],
     )
     result = setup_registry_agent("hermes", home=home)
     assert result["ok"] is False
-    assert any("plugin canfar-ray" in e for e in result["errors"])
+    assert any("plugin astroai-ray" in e for e in result["errors"])
 
 
 def test_setup_registry_agent_applies_defaults_only(

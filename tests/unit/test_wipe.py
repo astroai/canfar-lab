@@ -38,9 +38,9 @@ def _make_installed_hermes(bin_dir: Path, home: Path) -> None:
     cfg = home / ".hermes" / "config.yaml"
     cfg.parent.mkdir(parents=True, exist_ok=True)
     cfg.write_text("model: test\n", encoding="utf-8")
-    skill = home / ".hermes" / "skills" / "canfar-ray" / "SKILL.md"
+    skill = home / ".hermes" / "skills" / "astroai-ray" / "SKILL.md"
     skill.parent.mkdir(parents=True, exist_ok=True)
-    skill.write_text("# canfar-ray\n", encoding="utf-8")
+    skill.write_text("# astroai-ray\n", encoding="utf-8")
     stamp = home / ".astroai" / "lab" / "agent-setup-stamp"
     stamp.parent.mkdir(parents=True, exist_ok=True)
     stamp.write_text("2026-08-02T00:00:00Z bundle=test mode=install\n", encoding="utf-8")

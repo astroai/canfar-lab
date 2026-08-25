@@ -17,6 +17,35 @@ from astroai_lab.errors import LabError
 runner = CliRunner()
 
 
+CANFAR_SKILLS_SRC = Path("/data/src/canfar-skills")
+
+
+def _mock_canfar_skills_upstream(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Use local canfar-skills tree instead of GitHub in tests."""
+    from astroai_lab.agent import addons as addons_mod
+
+    def _fake_refresh(cache_root: Path, repo: str, paths):  # noqa: ANN001
+        if repo != "astroai/canfar-skills":
+            return "failed", f"unexpected repo {repo}"
+        path_list = [paths] if isinstance(paths, str) else list(paths)
+        if CANFAR_SKILLS_SRC.is_dir():
+            cache_root.mkdir(parents=True, exist_ok=True)
+            for rel in path_list:
+                src = CANFAR_SKILLS_SRC / rel
+                dst = cache_root / rel
+                if src.is_dir():
+                    if dst.exists():
+                        import shutil
+                        shutil.rmtree(dst)
+                    import shutil
+                    shutil.copytree(src, dst)
+            return "cloned", repo
+        return "failed", "canfar-skills src missing"
+
+    monkeypatch.setattr(addons_mod, "_refresh_upstream_repo", _fake_refresh)
+
+
+
 def _addon(plugin_id: str) -> dict:
     plugin = get_plugin(plugin_id)
     assert plugin is not None
@@ -29,7 +58,7 @@ def test_load_plugins_has_ponytail_and_polars() -> None:
     assert "polars" in ids
     assert "modern-python" in ids
     assert "git-mcp" in ids
-    assert "canfar-ray" in ids
+    assert "astroai-ray" in ids
 
 
 def test_add_agent_skill_installs_to_hermes_and_openclaw(
@@ -38,26 +67,27 @@ def test_add_agent_skill_installs_to_hermes_and_openclaw(
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
-    result = add_addon("canfar-ray", home=home)
+    _mock_canfar_skills_upstream(monkeypatch)
+    result = add_addon("astroai-ray", home=home)
     assert result.status == "installed"
     for rel in (
-        ".hermes/skills/canfar-ray/SKILL.md",
-        ".openclaw/skills/canfar-ray/SKILL.md",
-        ".cursor/skills/canfar-ray/SKILL.md",
-        ".claude/skills/canfar-ray/SKILL.md",
+        ".hermes/skills/astroai-ray/SKILL.md",
+        ".openclaw/skills/astroai-ray/SKILL.md",
+        ".cursor/skills/astroai-ray/SKILL.md",
+        ".claude/skills/astroai-ray/SKILL.md",
     ):
         assert (home / rel).is_file(), f"missing {rel}"
     # Idempotent second call skips.
-    assert add_addon("canfar-ray", home=home).status == "skipped"
+    assert add_addon("astroai-ray", home=home).status == "skipped"
     # Installed detection agrees.
-    assert addon_installed(_addon("canfar-ray"), home)
+    assert addon_installed(_addon("astroai-ray"), home)
 
 
 def test_add_agent_skill_dry_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
-    result = add_addon("canfar-ray", home=home, dry_run=True)
+    result = add_addon("astroai-ray", home=home, dry_run=True)
     assert result.status == "dry-run"
     assert not (home / ".hermes").exists()
 
@@ -66,8 +96,9 @@ def test_add_agent_skill_force_reinstalls(tmp_path: Path, monkeypatch: pytest.Mo
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
-    assert add_addon("canfar-ray", home=home).status == "installed"
-    assert add_addon("canfar-ray", home=home, force=True).status == "installed"
+    _mock_canfar_skills_upstream(monkeypatch)
+    assert add_addon("astroai-ray", home=home).status == "installed"
+    assert add_addon("astroai-ray", home=home, force=True).status == "installed"
 
 
 def test_list_plugins_filter_tag() -> None:
@@ -196,15 +227,16 @@ def test_add_addon_delegates_to_plugins_install(
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
-    addon_result = add_addon("canfar-ray", home=home)
+    _mock_canfar_skills_upstream(monkeypatch)
+    addon_result = add_addon("astroai-ray", home=home)
     assert addon_result.status == "installed"
-    plugin_results = install_plugin("canfar-ray", home=home, installed_only=False)
+    plugin_results = install_plugin("astroai-ray", home=home, installed_only=False)
     # Both paths produced the same skill dirs.
     for agent in ("hermes", "openclaw", "cursor"):
         rel = (
-            ".cursor/skills/canfar-ray/SKILL.md"
+            ".cursor/skills/astroai-ray/SKILL.md"
             if agent == "cursor"
-            else f".{agent}/skills/canfar-ray/SKILL.md"
+            else f".{agent}/skills/astroai-ray/SKILL.md"
         )
         assert (home / rel).is_file()
     assert all(r.status == "skipped" for r in plugin_results)
@@ -218,6 +250,28 @@ def test_add_addon_github_bundle_dry_run(tmp_path: Path, monkeypatch: pytest.Mon
     result = add_addon("ponytail", home=home, dry_run=True)
     assert result.status == "dry-run"
     assert not (home / ".cursor").exists()
+
+
+def test_probabl_skills_plugin_loads() -> None:
+    from astroai_lab.agent.plugins import get_plugin
+
+    plugin = get_plugin("probabl-skills")
+    assert plugin is not None
+    install = plugin["install"]
+    assert install["type"] == "github-bundle"
+    assert install["bundled_skills"] == ["ml-experimentation"]
+    assert install["also_tools"] == ["skore-cli"]
+    assert len(install["skills"]) == 14
+
+
+def test_probabl_skills_bundle_dry_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    result = add_addon("probabl-skills", home=home, dry_run=True)
+    assert result.status == "dry-run"
+    assert "ml-experimentation" in result.detail
+    assert "skore-cli" in result.detail
 
 
 def test_add_unknown_raises() -> None:
@@ -247,3 +301,20 @@ def test_agent_plugins_install_dry_run(tmp_path: Path, monkeypatch: pytest.Monke
     assert result.exit_code == 0
     out = result.stdout + result.stderr
     assert "git-mcp" in out
+
+
+def test_canfar_platform_plugin_loads() -> None:
+    plugin = get_plugin("canfar-platform")
+    assert plugin is not None
+    assert plugin.get("default") is True
+    assert len(plugin["install"]["skills"]) == 23
+
+
+def test_canfar_platform_bundle_dry_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    result = add_addon("canfar-platform", home=home, dry_run=True)
+    assert result.status == "dry-run"
+    assert "astroai/canfar-skills" in result.detail
+    assert "canfar-platform" in result.detail

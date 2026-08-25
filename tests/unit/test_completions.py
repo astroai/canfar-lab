@@ -126,11 +126,11 @@ def test_plugin_completer_offers_plugin_ids() -> None:
 
     with patch(
         "astroai_lab.cli.agent_cmd.agent_plugins.plugin_ids",
-        return_value=["ponytail", "canfar-ray"],
+        return_value=["ponytail", "astroai-ray"],
     ):
         offered = _plugin_completer(None, "")
     assert "ponytail" in offered
-    assert "canfar-ray" in offered
+    assert "astroai-ray" in offered
 
 
 def test_agent_plugins_install_argument_wired() -> None:

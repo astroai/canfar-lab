@@ -1,0 +1,12 @@
+# astroai-ray — included in canfar-platform bundle; kept for explicit install.
+id: astroai-ray
+kind: skill
+addon: true
+tags: [science, ray, compute, astroai]
+summary: Start or resize a Ray cluster on AstroAI images and run jobs (astroai cluster start)
+homepage: https://github.com/astroai/canfar-skills
+agents: [skill-hosts]
+install:
+  type: github-skill
+  repo: astroai/canfar-skills
+  path: skills/astroai-ray

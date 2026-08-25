@@ -1,0 +1,38 @@
+id: canfar-platform
+kind: bundle
+addon: true
+default: true
+tags:
+- science
+- canfar
+- platform
+summary: CANFAR platform — sessions, storage, groups, transfers, quotas, permissions (plain-language router)
+homepage: https://github.com/astroai/canfar-skills
+agents: [skill-hosts]
+install:
+  type: github-bundle
+  repo: astroai/canfar-skills
+  skills:
+  - skills/canfar-platform
+  - skills/canfar-getting-started
+  - skills/canfar-architecture
+  - skills/canfar-sessions
+  - skills/canfar-storage
+  - skills/canfar-vospace
+  - skills/canfar-transfers
+  - skills/canfar-quotas
+  - skills/canfar-groups
+  - skills/canfar-permissions
+  - skills/canfar-batch
+  - skills/canfar-containers
+  - skills/canfar-auth
+  - skills/canfar-cli
+  - skills/canfar-python-client
+  - skills/canfar-doi
+  - skills/canfar-cadc-data
+  - skills/canfar-limits
+  - skills/canfar-cvmfs
+  - skills/canfar-best-practices
+  - skills/canfar-concurrency
+  - skills/canfar-troubleshooting
+  - skills/astroai-ray

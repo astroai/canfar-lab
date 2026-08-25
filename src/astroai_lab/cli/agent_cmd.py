@@ -1280,7 +1280,7 @@ def plugins_install_cmd(
 
     Examples:
       astroai agent plugins install ponytail
-      astroai agent plugins install ponytail canfar-ray
+      astroai agent plugins install ponytail astroai-ray
     """
     opts = get_opts(ctx)
     names = list(plugins)

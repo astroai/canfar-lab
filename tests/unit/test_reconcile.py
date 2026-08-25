@@ -115,4 +115,4 @@ def test_packaged_names_include_bundle_and_plugin_skills() -> None:
     names = packaged_skill_names()
 
     assert "astroai-lab-workflow" in names  # bundle skill
-    assert "canfar-ray" in names  # bundled plugin skill
+    assert "astroai-ray" in names  # bundled plugin skill

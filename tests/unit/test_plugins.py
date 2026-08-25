@@ -30,6 +30,32 @@ from astroai_lab.errors import LabError
 
 runner = CliRunner()
 
+CANFAR_SKILLS_SRC = Path("/data/src/canfar-skills")
+
+
+def _mock_canfar_skills_upstream(monkeypatch: pytest.MonkeyPatch) -> None:
+    from astroai_lab.agent import addons as addons_mod
+    import shutil
+
+    def _fake_refresh(cache_root: Path, repo: str, paths):  # noqa: ANN001
+        if repo != "astroai/canfar-skills":
+            return "failed", f"unexpected repo {repo}"
+        path_list = [paths] if isinstance(paths, str) else list(paths)
+        if not CANFAR_SKILLS_SRC.is_dir():
+            return "failed", "canfar-skills src missing"
+        cache_root.mkdir(parents=True, exist_ok=True)
+        for rel in path_list:
+            src = CANFAR_SKILLS_SRC / rel
+            dst = cache_root / rel
+            if src.is_dir():
+                if dst.exists():
+                    shutil.rmtree(dst)
+                shutil.copytree(src, dst)
+        return "cloned", repo
+
+    monkeypatch.setattr(addons_mod, "_refresh_upstream_repo", _fake_refresh)
+
+
 
 def _write_plugin_yaml(root: Path, name: str, body: str) -> Path:
     plugins = root / "plugins"
@@ -58,22 +84,35 @@ def test_expand_agent_matrix_aliases() -> None:
 def test_load_plugins_includes_canfar_ray() -> None:
     plugins = load_plugins()
     ids = [p["id"] for p in plugins]
-    assert "canfar-ray" in ids
+    assert "astroai-ray" in ids
     assert ids == sorted(ids)
-    plugin = get_plugin("canfar-ray")
+    plugin = get_plugin("astroai-ray")
     assert plugin is not None
     assert plugin["kind"] == "skill"
     from astroai_lab.agent.agent_targets import skill_hosts
 
     assert set(plugin["agents"]) == set(skill_hosts())
     assert "cursor" in plugin["agents"]
-    assert plugin["install"]["source"] == "canfar-ray"
+    assert plugin["install"]["type"] == "github-skill"
+    assert plugin["install"]["repo"] == "astroai/canfar-skills"
+    assert plugin["install"]["path"] == "skills/astroai-ray"
 
+
+
+
+def test_load_plugins_includes_canfar_platform() -> None:
+    plugin = get_plugin("canfar-platform")
+    assert plugin is not None
+    assert plugin.get("default") is True
+    assert plugin["install"]["type"] == "github-bundle"
+    assert plugin["install"]["repo"] == "astroai/canfar-skills"
+    assert len(plugin["install"]["skills"]) == 23
 
 def test_canfar_ray_skill_points_at_workload_run() -> None:
-    from astroai_lab.agent.bundle_path import bundled_skill_src
-
-    text = (bundled_skill_src("canfar-ray") / "SKILL.md").read_text(encoding="utf-8")
+    skill = Path("/data/src/canfar-skills/skills/astroai-ray/SKILL.md")
+    if not skill.is_file():
+        pytest.skip("canfar-skills repo not checked out beside astroai-lab")
+    text = skill.read_text(encoding="utf-8")
     assert "astroai run" in text
     assert "Do not call `ray job submit`" in text
     assert "cluster start" in text
@@ -84,7 +123,7 @@ def test_load_plugins_empty_dir(tmp_path: Path) -> None:
 
 
 def test_plugin_ids_and_get(tmp_path: Path) -> None:
-    assert "canfar-ray" in plugin_ids()
+    assert "astroai-ray" in plugin_ids()
     assert get_plugin("not-a-plugin") is None
 
 
@@ -148,16 +187,16 @@ def test_validation_bad_yaml(tmp_path: Path) -> None:
 
 def _skill_plugin_dict() -> dict:
     return {
-        "id": "canfar-ray",
+        "id": "astroai-ray",
         "kind": "skill",
         "tags": ["science", "ray"],
         "summary": "Drive CANFAR Ray clusters",
         "agents": ["hermes", "openclaw"],
         "install": {
-            "source": "canfar-ray",
+            "source": "astroai-ray",
             "targets": {
-                "hermes": ".hermes/skills/canfar-ray",
-                "openclaw": ".openclaw/skills/canfar-ray",
+                "hermes": ".hermes/skills/astroai-ray",
+                "openclaw": ".openclaw/skills/astroai-ray",
             },
         },
     }
@@ -170,9 +209,9 @@ def test_plugin_status_not_installed(tmp_path: Path) -> None:
 
 
 def test_plugin_status_installed_one_agent(tmp_path: Path) -> None:
-    dst = tmp_path / ".hermes" / "skills" / "canfar-ray"
+    dst = tmp_path / ".hermes" / "skills" / "astroai-ray"
     dst.mkdir(parents=True)
-    (dst / "SKILL.md").write_text("# canfar-ray\n", encoding="utf-8")
+    (dst / "SKILL.md").write_text("# astroai-ray\n", encoding="utf-8")
     status = plugin_status(_skill_plugin_dict(), tmp_path)
     assert status["installed"]["hermes"] is True
     assert status["installed"]["openclaw"] is False
@@ -193,25 +232,27 @@ def test_install_plugin_skill_no_installed_agents(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr("astroai_lab.agent.plugins._agent_installed", lambda a, h=None: False)
-    results = install_plugin("canfar-ray", home=tmp_path)
+    results = install_plugin("astroai-ray", home=tmp_path)
     assert len(results) == 1
     assert results[0].status == "skipped"
     assert "no installed agent" in results[0].detail
 
 
 def test_install_plugin_skill_copies_skill(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_canfar_skills_upstream(monkeypatch)
     monkeypatch.setattr("astroai_lab.agent.plugins._agent_installed", lambda a, h=None: True)
-    results = install_plugin("canfar-ray", home=tmp_path)
+    results = install_plugin("astroai-ray", home=tmp_path)
     assert results
     assert all(r.status == "installed" for r in results)
     for agent in ("hermes", "openclaw"):
-        dst = tmp_path / f".{agent}" / "skills" / "canfar-ray" / "SKILL.md"
+        dst = tmp_path / f".{agent}" / "skills" / "astroai-ray" / "SKILL.md"
         assert dst.is_file()
 
 
 def test_install_plugin_skill_scope_agent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_canfar_skills_upstream(monkeypatch)
     monkeypatch.setattr("astroai_lab.agent.plugins._agent_installed", lambda a, h=None: True)
-    results = install_plugin("canfar-ray", home=tmp_path, agent="hermes")
+    results = install_plugin("astroai-ray", home=tmp_path, agent="hermes")
     assert len(results) == 1
     assert results[0].agent == "hermes"
     assert results[0].status == "installed"
@@ -220,7 +261,7 @@ def test_install_plugin_skill_scope_agent(tmp_path: Path, monkeypatch: pytest.Mo
 
 def test_install_plugin_skill_dry_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("astroai_lab.agent.plugins._agent_installed", lambda a, h=None: True)
-    results = install_plugin("canfar-ray", home=tmp_path, dry_run=True)
+    results = install_plugin("astroai-ray", home=tmp_path, dry_run=True)
     assert all(r.status == "would_install" for r in results)
     assert not (tmp_path / ".hermes").exists()
 
@@ -228,52 +269,58 @@ def test_install_plugin_skill_dry_run(tmp_path: Path, monkeypatch: pytest.Monkey
 def test_install_plugin_skill_skip_when_present(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    _mock_canfar_skills_upstream(monkeypatch)
     monkeypatch.setattr("astroai_lab.agent.plugins._agent_installed", lambda a, h=None: True)
-    install_plugin("canfar-ray", home=tmp_path)
-    results = install_plugin("canfar-ray", home=tmp_path)
+    install_plugin("astroai-ray", home=tmp_path)
+    results = install_plugin("astroai-ray", home=tmp_path)
     assert all(r.status == "skipped" for r in results)
     # force re-applies
-    results = install_plugin("canfar-ray", home=tmp_path, force=True)
+    results = install_plugin("astroai-ray", home=tmp_path, force=True)
     assert all(r.status == "installed" for r in results)
 
 
 def test_update_plugin_forces(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_canfar_skills_upstream(monkeypatch)
     monkeypatch.setattr("astroai_lab.agent.plugins._agent_installed", lambda a, h=None: True)
-    install_plugin("canfar-ray", home=tmp_path)
-    results = update_plugin("canfar-ray", home=tmp_path)
+    install_plugin("astroai-ray", home=tmp_path)
+    results = update_plugin("astroai-ray", home=tmp_path)
     assert all(r.status == "installed" for r in results)  # force re-apply
 
 
 def test_remove_plugin_skill(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_canfar_skills_upstream(monkeypatch)
     monkeypatch.setattr("astroai_lab.agent.plugins._agent_installed", lambda a, h=None: True)
-    install_plugin("canfar-ray", home=tmp_path)
-    results = remove_plugin("canfar-ray", home=tmp_path)
-    assert all(r.status == "removed" for r in results)
-    assert not (tmp_path / ".hermes" / "skills" / "canfar-ray").exists()
-    assert not (tmp_path / ".openclaw" / "skills" / "canfar-ray").exists()
+    install_plugin("astroai-ray", home=tmp_path)
+    results = remove_plugin("astroai-ray", home=tmp_path)
+    assert all(r.status == "no-op" for r in results)
+    assert (tmp_path / ".hermes" / "skills" / "astroai-ray" / "SKILL.md").is_file()
+    assert (tmp_path / ".openclaw" / "skills" / "astroai-ray" / "SKILL.md").is_file()
 
 
 def test_remove_plugin_skill_dry_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_canfar_skills_upstream(monkeypatch)
     monkeypatch.setattr("astroai_lab.agent.plugins._agent_installed", lambda a, h=None: True)
-    install_plugin("canfar-ray", home=tmp_path)
-    results = remove_plugin("canfar-ray", home=tmp_path, dry_run=True)
-    assert all(r.status == "would_remove" for r in results)
-    assert (tmp_path / ".hermes" / "skills" / "canfar-ray" / "SKILL.md").is_file()
+    install_plugin("astroai-ray", home=tmp_path)
+    results = remove_plugin("astroai-ray", home=tmp_path, dry_run=True)
+    assert all(r.status == "no-op" for r in results)
+    assert (tmp_path / ".hermes" / "skills" / "astroai-ray" / "SKILL.md").is_file()
 
 
 def test_remove_plugin_scope_agent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_canfar_skills_upstream(monkeypatch)
     monkeypatch.setattr("astroai_lab.agent.plugins._agent_installed", lambda a, h=None: True)
-    install_plugin("canfar-ray", home=tmp_path)
-    results = remove_plugin("canfar-ray", home=tmp_path, agent="hermes")
+    install_plugin("astroai-ray", home=tmp_path)
+    results = remove_plugin("astroai-ray", home=tmp_path, agent="hermes")
     assert len(results) == 1
     assert results[0].agent == "hermes"
-    assert not (tmp_path / ".hermes" / "skills" / "canfar-ray").exists()
-    assert (tmp_path / ".openclaw" / "skills" / "canfar-ray" / "SKILL.md").is_file()
+    assert results[0].status == "no-op"
+    assert (tmp_path / ".hermes" / "skills" / "astroai-ray" / "SKILL.md").is_file()
+    assert (tmp_path / ".openclaw" / "skills" / "astroai-ray" / "SKILL.md").is_file()
 
 
 def test_remove_plugin_unknown_agent() -> None:
     with pytest.raises(LabError, match="does not support agent"):
-        remove_plugin("canfar-ray", agent="not-an-agent")
+        remove_plugin("astroai-ray", agent="not-an-agent")
 
 
 # ---------------------------------------------------------------------------
@@ -359,14 +406,14 @@ def test_plugin_installed_mcp_present(tmp_path: Path) -> None:
 
 
 def test_remove_agent_plugin_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _mock_canfar_skills_upstream(monkeypatch)
     monkeypatch.setattr("astroai_lab.agent.plugins._agent_installed", lambda a, h=None: True)
-    install_plugin("canfar-ray", home=tmp_path)
+    install_plugin("astroai-ray", home=tmp_path)
     rows = remove_agent_plugin_files("hermes", home=tmp_path)
-    assert rows
-    assert all("hermes" in r["target"] for r in rows)
-    assert not (tmp_path / ".hermes" / "skills" / "canfar-ray").exists()
+    assert rows == []  # github-skill: no automated plugin removal
+    assert (tmp_path / ".hermes" / "skills" / "astroai-ray" / "SKILL.md").is_file()
     # openclaw untouched
-    assert (tmp_path / ".openclaw" / "skills" / "canfar-ray" / "SKILL.md").is_file()
+    assert (tmp_path / ".openclaw" / "skills" / "astroai-ray" / "SKILL.md").is_file()
 
 
 def test_remove_agent_plugin_files_unknown_agent(tmp_path: Path) -> None:
@@ -418,8 +465,8 @@ def test_cli_plugins_list_json() -> None:
     assert result.exit_code == 0
     data = json.loads(result.stdout)
     ids = {row["id"] for row in data}
-    assert "canfar-ray" in ids
-    row = next(r for r in data if r["id"] == "canfar-ray")
+    assert "astroai-ray" in ids
+    row = next(r for r in data if r["id"] == "astroai-ray")
     assert row["kind"] == "skill"
 
 
@@ -454,11 +501,11 @@ def test_cli_plugins_list_description(tmp_path: Path, monkeypatch: pytest.Monkey
 
 def test_cli_plugins_install_dry_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
-    argv = ["--json", "--dry-run", "agent", "plugins", "install", "canfar-ray"]
+    argv = ["--json", "--dry-run", "agent", "plugins", "install", "astroai-ray"]
     result = runner.invoke(app, argv)
     assert result.exit_code == 0
     data = json.loads(result.stdout)
-    assert data["plugin"] == "canfar-ray"
+    assert data["plugin"] == "astroai-ray"
     assert data["dry_run"] is True
     assert data["actions"]
 
@@ -489,7 +536,7 @@ def test_cli_agent_list_json_is_status_shaped(
     plugins = runner.invoke(app, ["--json", "agent", "plugins", "list"])
     assert plugins.exit_code == 0
     ids = {row["id"] for row in json.loads(plugins.stdout)}
-    assert "canfar-ray" in ids
+    assert "astroai-ray" in ids
 
 
 # ---------------------------------------------------------------------------
