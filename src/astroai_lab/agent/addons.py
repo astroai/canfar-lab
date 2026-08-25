@@ -85,8 +85,9 @@ def addon_installed(item: dict[str, Any], home: Path, agent: str | None = None) 
 
     if itype == "github-bundle":
         skills = install.get("skills") or []
+        bundled = install.get("bundled_skills") or []
         rules = install.get("rules") or []
-        if not skills and not rules:
+        if not skills and not bundled and not rules:
             return False
         agents = _matrix_agents(item, agent)
         saw_skill_host = False
@@ -97,7 +98,14 @@ def addon_installed(item: dict[str, Any], home: Path, agent: str | None = None) 
             saw_skill_host = True
             if not all((p / "SKILL.md").is_file() for p in dests.values()):
                 return False
-        if skills and not saw_skill_host:
+        for name in bundled:
+            dests = _skill_dests(item, home, str(name), agent=agent)
+            if not dests:
+                continue
+            saw_skill_host = True
+            if not all((p / "SKILL.md").is_file() for p in dests.values()):
+                return False
+        if (skills or bundled) and not saw_skill_host:
             return False
         if "cursor" in agents:
             for rel in rules:
@@ -320,20 +328,30 @@ def _install_github_bundle(
     install = item["install"]
     repo = install["repo"]
     skills = list(install.get("skills") or [])
+    bundled = list(install.get("bundled_skills") or [])
     rules = list(install.get("rules") or [])
     paths = [*skills, *rules]
-    if not paths:
+    if not paths and not bundled:
         raise LabError(f"Addon {item['id']} bundle has no skills/rules")
 
     agents = _matrix_agents(item, agent)
     if dry_run:
         hosts = ", ".join(agents)
-        return AddonResult(item["id"], "dry-run", f"{repo}: {', '.join(paths)} → {hosts}")
+        detail_parts = []
+        if paths:
+            detail_parts.append(f"{repo}: {', '.join(paths)}")
+        if bundled:
+            detail_parts.append(f"bundled: {', '.join(bundled)}")
+        also_tools = install.get("also_tools") or []
+        if also_tools:
+            detail_parts.append(f"tools: {', '.join(also_tools)}")
+        return AddonResult(item["id"], "dry-run", f"{' · '.join(detail_parts)} → {hosts}")
 
     cache_root = _upstream_cache_root(home, repo)
-    status, detail = _refresh_upstream_repo(cache_root, repo, paths)
-    if status == "failed":
-        return AddonResult(item["id"], "failed", detail)
+    if paths:
+        status, detail = _refresh_upstream_repo(cache_root, repo, paths)
+        if status == "failed":
+            return AddonResult(item["id"], "failed", detail)
 
     installed: list[str] = []
     for rel in skills:
@@ -351,6 +369,28 @@ def _install_github_bundle(
                 continue
             _copy_skill_tree(src, dst)
             installed.append(f"skill:{ag}/{name}")
+
+    for name in bundled:
+        src = bundled_skill_src(name)
+        if not (src / "SKILL.md").is_file():
+            return AddonResult(item["id"], "failed", f"missing bundled SKILL.md at {src}")
+        for ag in agents:
+            dst = skill_path(home, ag, name)
+            if dst is None:
+                continue
+            if not force and (dst / "SKILL.md").is_file():
+                continue
+            _copy_skill_tree(src, dst)
+            installed.append(f"bundled:{ag}/{name}")
+
+    also_tools = list(install.get("also_tools") or [])
+    for tool in also_tools:
+        from astroai_lab.agent.install import install_tool, tool_on_path
+
+        if not force and tool_on_path(tool):
+            continue
+        install_tool(tool, dry_run=False)
+        installed.append(f"tool:{tool}")
 
     # Cursor rules (.mdc) are not SKILL.md — only write them for cursor.
     if "cursor" in agents:

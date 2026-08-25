@@ -17,7 +17,8 @@ gh auth login
 
 Refresh after upgrading lab in-session: `astroai agent update`
 Overview / broken configs: `astroai agent list` · `astroai agent verify`
-Curated lean/science plugins: `astroai agent plugins list` · `astroai agent plugins install ponytail`
+Curated lean/science plugins: `astroai agent plugins list` · `astroai agent plugins install ponytail`  
+CANFAR platform skills (plain language): installed by default via `canfar-platform`; update with `astroai agent plugins update canfar-platform`
 
 ## This repo
 

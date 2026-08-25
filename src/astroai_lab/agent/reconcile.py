@@ -82,6 +82,11 @@ def packaged_skill_names(root: Path | None = None) -> set[str]:
         names.add(str(plugin.get("id") or ""))
         for rel in install.get("skills") or []:
             names.add(PurePosixPath(str(rel)).name)
+        for name in install.get("bundled_skills") or []:
+            names.add(str(name))
+        path = install.get("path")
+        if path:
+            names.add(PurePosixPath(str(path)).name)
         source = str(install.get("source") or "")
         if source and "/" not in source:
             names.add(source)

@@ -17,7 +17,7 @@ gh auth login                       # GitHub for gh + GitHub MCP
 ```
 
 Discover what’s available: `astroai agent list` · plugins: `astroai agent plugins list`  
-Plugins: `astroai agent plugins install ponytail`  
+Plugins: `astroai agent plugins install ponytail` · CANFAR platform skills install on setup (`canfar-platform`)  
 Refresh after upgrading lab in-session: `astroai agent update`  
 Broken agent configs (esp. OpenCode JSON): `astroai agent verify` · `astroai agent verify --fix`
 

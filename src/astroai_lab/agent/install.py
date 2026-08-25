@@ -27,15 +27,18 @@ TOOLS = {
     "openclaw": "OpenClaw (openclaw/openclaw)",
     # Backend for `agent plugins install ast-grep-cli` only (not an agent).
     "ast-grep": "ast-grep (sg)",
+    # Backend for `agent plugins install skore-cli` (binary: skore).
+    "skore-cli": "Skore CLI (skore — skills + Skore Hub)",
 }
 
 # TOOLS entries that are not coding agents (no agents/*.yaml registry row).
 # hyperfine is image-baked — do not list or reinstall it.
-TOOL_UTILITIES = frozenset({"node", "ast-grep"})
+TOOL_UTILITIES = frozenset({"node", "ast-grep", "skore-cli"})
 
 # CLI binary name when it differs from the install tool key.
 TOOL_BINARIES = {
     "ast-grep": "sg",
+    "skore-cli": "skore",
     "qoder": "qodercli",
     "cursor": "agent",  # upstream Cursor Agent binary is still named `agent`
 }
@@ -785,6 +788,14 @@ def install_tool(name: str, *, dry_run: bool = False) -> None:
         (_bin_dir() / "ast-grep").unlink(missing_ok=True)
         (_bin_dir() / "ast-grep").symlink_to(_bin_dir() / "sg")
         _verify_cmd("sg")
+    elif name == "skore-cli":
+        _require("uv")
+        run(
+            ["uv", "tool", "install", "--force", "skore-cli"],
+            env=_session_environ(),
+            timeout=npm_timeout,
+        )
+        _verify_cmd("skore")
     else:
         raise LabError(f"Unknown tool: {name}", hint="astroai agent install  (or agent list)")
 
