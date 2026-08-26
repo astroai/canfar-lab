@@ -662,9 +662,7 @@ def _download_public_gh_release(repo: str, asset: str, dest: Path) -> None:
     run(["curl", "-fsSL", "-o", str(dest), url])
 
 
-def _gh_release_bin(
-    repo: str, asset: str, binary: str, *, requires_gh_auth: bool = False
-) -> None:
+def _gh_release_bin(repo: str, asset: str, binary: str, *, requires_gh_auth: bool = False) -> None:
     _require("curl")
     tmp = Path(os.environ.get("TMPDIR", "").strip() or "/tmp")
     tmp.mkdir(parents=True, exist_ok=True)
