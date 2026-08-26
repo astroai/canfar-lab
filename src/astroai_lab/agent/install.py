@@ -14,7 +14,7 @@ from pathlib import Path
 from astroai_lab.core.paths import npm_prefix_dir, user_bin_dir
 from astroai_lab.errors import LabError
 from astroai_lab.shell.session_env import resolve_session_env
-from astroai_lab.utils.subprocess import run, run_capture
+from astroai_lab.utils.subprocess import run
 
 TOOLS = {
     "node": "Node.js + npm (baked into base image; pixi fallback)",
