@@ -211,6 +211,17 @@ astroai agent update
 astroai agent verify --fix
 ```
 
+Scientific writing add-ons are available through the same registry:
+
+```bash
+astroai agent plugins install writing-skills
+astroai agent plugins install manuscript-writing-review deslop revision-guard
+```
+
+These add-ons are fetched from their upstream repositories at install time and
+retain upstream attribution. `writing-skills`, `deslop`, and `revision-guard`
+are MIT-licensed; `manuscript-writing-review` is CC BY 4.0.
+
 Upgrade lab in a running session (no image rebuild):
 
 ```bash

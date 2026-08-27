@@ -1,0 +1,21 @@
+id: writing-skills
+kind: bundle
+addon: true
+tags: [science, docs, writing]
+summary: Scientific paper structure, academic voice, cadence, and AI-pattern editing
+homepage: https://github.com/msimchowitz/writing-skills
+license: MIT
+attribution: Max Simchowitz
+agents: [skill-hosts]
+install:
+  type: github-bundle
+  repo: msimchowitz/writing-skills
+  skills:
+  - for-agents/abstract-writing
+  - for-agents/academic-voice
+  - for-agents/better-usage
+  - for-agents/general-writing
+  - for-agents/humanizer
+  - for-agents/non-autoregressive-writing-pass
+  - for-agents/paper-writing
+  - for-agents/writing-cadence

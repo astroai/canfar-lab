@@ -79,7 +79,7 @@ def addon_installed(item: dict[str, Any], home: Path, agent: str | None = None) 
         return False
 
     if itype == "github-skill":
-        name = Path(install["path"]).name
+        name = _github_skill_name(item)
         dests = _skill_dests(item, home, name, agent=agent)
         return bool(dests) and all((p / "SKILL.md").is_file() for p in dests.values())
 
@@ -151,6 +151,12 @@ def _agent_skill_targets(
 ) -> dict[str, Path]:
     """Map each configured agent to its skill dir for this addon (known agents only)."""
     return _skill_dests(item, home, item["id"], agent=agent)
+
+
+def _github_skill_name(item: dict[str, Any]) -> str:
+    """Return the install directory name, including repository-root skills."""
+    path = str(item["install"]["path"])
+    return item["id"] if path in ("", ".") else Path(path).name
 
 
 def _skill_dests(
@@ -291,7 +297,7 @@ def _install_github_skill(
     agent: str | None = None,
 ) -> AddonResult:
     install = item["install"]
-    name = Path(install["path"]).name
+    name = _github_skill_name(item)
     dests = _skill_dests(item, home, name, agent=agent)
     if not dests:
         return AddonResult(item["id"], "skipped", "no skill target for this agent")
@@ -305,7 +311,7 @@ def _install_github_skill(
     status, detail = _refresh_upstream_repo(cache_root, install["repo"], install["path"])
     if status == "failed":
         return AddonResult(item["id"], "failed", detail)
-    src = _src_in_cache(cache_root, install["path"])
+    src = cache_root if install["path"] in ("", ".") else _src_in_cache(cache_root, install["path"])
     if isinstance(src, str):
         return AddonResult(item["id"], "failed", src)
     if not (src / "SKILL.md").is_file():

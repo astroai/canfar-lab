@@ -35,6 +35,16 @@ def test_load_plugins_has_ponytail_and_polars() -> None:
     assert "astroai-ray" in ids
 
 
+def test_load_plugins_has_scientific_writing_stack() -> None:
+    ids = {p["id"] for p in load_plugins()}
+    assert {
+        "writing-skills",
+        "manuscript-writing-review",
+        "deslop",
+        "revision-guard",
+    } <= ids
+
+
 def test_add_agent_skill_installs_to_hermes_and_openclaw(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -127,6 +137,28 @@ def test_github_skill_copies_only_scoped_host(
     assert result.status == "installed"
     assert (home / ".hermes" / "skills" / "polars" / "SKILL.md").is_file()
     assert not (home / ".cursor" / "skills" / "polars").exists()
+
+
+def test_github_skill_supports_repository_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Root-layout skills install under their registry id."""
+    from astroai_lab.agent import addons as addons_mod
+    from astroai_lab.agent.addons import _apply_addon
+
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    item = _addon("deslop")
+    cache = home / ".cache" / "astroai-lab" / "upstream-skills" / "stephenturner_skill-deslop"
+    cache.mkdir(parents=True)
+    (cache / "SKILL.md").write_text("---\nname: deslop\n---\n", encoding="utf-8")
+    monkeypatch.setattr(
+        addons_mod, "_refresh_upstream_repo", lambda *a, **k: ("cloned", item["install"]["repo"])
+    )
+    result = _apply_addon(item, home=home, agent="hermes")
+    assert result.status == "installed"
+    assert (home / ".hermes" / "skills" / "deslop" / "SKILL.md").is_file()
 
 
 def test_add_mcp_merge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1,0 +1,13 @@
+id: manuscript-writing-review
+kind: skill
+addon: true
+tags: [science, docs, writing]
+summary: Five-pass clarity and precision review for scientific manuscripts
+homepage: https://github.com/labarba/sciwrite
+license: CC BY 4.0
+attribution: Lorena A. Barba
+agents: [skill-hosts]
+install:
+  type: github-skill
+  repo: labarba/sciwrite
+  path: .
