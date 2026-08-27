@@ -14,6 +14,182 @@ from astroai_lab.errors import LabError
 from astroai_lab.utils.json_utils import read_json
 
 OPENROUTER_KEY_ENV = "OPENROUTER_API_KEY"
+_OPENROUTER_DOTENV_MARKER = "# astroai openrouter dotenv"
+
+
+def openrouter_dotenv_path(home: Path | None = None) -> Path:
+    """Single shared secrets file for OpenRouter (marimo + agent CLIs)."""
+    return (home or Path.home()) / ".astroai" / "lab" / ".env"
+
+
+def _read_dotenv_value(path: Path, name: str) -> str | None:
+    if not path.is_file():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        if key.strip() == name:
+            return val.strip().strip("'\"") or None
+    return None
+
+
+def _write_dotenv_value(path: Path, name: str, value: str, *, dry_run: bool) -> None:
+    """Set NAME=value in a dotenv file; preserve other keys."""
+    if dry_run:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines: list[str] = []
+    if path.is_file():
+        lines = path.read_text(encoding="utf-8").splitlines()
+    out: list[str] = []
+    found = False
+    for raw in lines:
+        stripped = raw.strip()
+        if stripped.startswith("#") or "=" not in stripped:
+            out.append(raw)
+            continue
+        key, _, _ = stripped.partition("=")
+        if key.strip() == name:
+            out.append(f"{name}={value}")
+            found = True
+        else:
+            out.append(raw)
+    if not found:
+        if out and out[-1].strip():
+            out.append("")
+        out.append(f"{name}={value}")
+    path.write_text("\n".join(out) + "\n", encoding="utf-8")
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+
+
+def _key_from_marimo_toml(cfg: Path) -> str | None:
+    if not cfg.is_file():
+        return None
+    try:
+        from astroai_lab.utils.toml_compat import tomllib
+
+        data = tomllib.loads(cfg.read_text(encoding="utf-8"))
+        key = _toml_get(data, "ai", "openrouter", "api_key")
+        if isinstance(key, str) and key.strip():
+            return key.strip()
+    except Exception:  # noqa: BLE001 — fall through to line scan
+        pass
+    try:
+        text = cfg.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    in_section = False
+    for raw in text.splitlines():
+        stripped = raw.strip()
+        if stripped == "[ai.openrouter]":
+            in_section = True
+            continue
+        if in_section and stripped.startswith("[") and stripped.endswith("]"):
+            break
+        if in_section and stripped.startswith("api_key"):
+            _, _, val = stripped.partition("=")
+            return val.strip().strip("'\"") or None
+    return None
+
+
+def discover_openrouter_key(home: Path | None = None) -> str | None:
+    """Resolve OpenRouter key once: env → shared .env → existing ~/.marimo.toml."""
+    home = home or Path.home()
+    for candidate in (
+        os.environ.get(OPENROUTER_KEY_ENV),
+        os.environ.get("OPENROUTER_KEY"),
+        _read_dotenv_value(openrouter_dotenv_path(home), OPENROUTER_KEY_ENV),
+        _key_from_marimo_toml(home / ".marimo.toml"),
+    ):
+        if candidate and candidate.strip():
+            return candidate.strip()
+    return None
+
+
+def ensure_pi_openrouter_auth(home: Path, *, dry_run: bool = False, force: bool = False) -> bool:
+    """Seed Pi ``~/.pi/agent/auth.json`` from the shared AstroAI OpenRouter key."""
+    key = discover_openrouter_key(home)
+    if not key:
+        return False
+    auth_path = home / ".pi" / "agent" / "auth.json"
+    data: dict[str, object] = {}
+    if auth_path.is_file():
+        from astroai_lab.utils.json_utils import read_json
+
+        try:
+            loaded = read_json(auth_path)
+            if isinstance(loaded, dict):
+                data = loaded
+        except (OSError, ValueError, TypeError):
+            data = {}
+    existing = data.get("openrouter")
+    if isinstance(existing, dict) and existing.get("key") and not force:
+        return False
+    data["openrouter"] = {"type": "api_key", "key": key}
+    if dry_run:
+        return True
+    from astroai_lab.utils.json_utils import write_json
+
+    auth_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(auth_path, data)
+    return True
+
+
+def ensure_openrouter_dotenv(home: Path, *, dry_run: bool = False) -> str | None:
+    """Persist discovered OpenRouter key to ~/.astroai/lab/.env and agent-env.sh.
+
+    One key for marimo AI + every agent that reads OPENROUTER_API_KEY — stop
+    pasting the same sk-or-… into each tool.
+    """
+    key = discover_openrouter_key(home)
+    if not key:
+        return None
+    dotenv = openrouter_dotenv_path(home)
+    existing = _read_dotenv_value(dotenv, OPENROUTER_KEY_ENV)
+    if existing != key:
+        _write_dotenv_value(dotenv, OPENROUTER_KEY_ENV, key, dry_run=dry_run)
+    os.environ[OPENROUTER_KEY_ENV] = key
+
+    hook = home / ".astroai" / "lab" / "agent-env.sh"
+    source_block = (
+        f"{_OPENROUTER_DOTENV_MARKER}\n"
+        '_astroai_dotenv="${HOME}/.astroai/lab/.env"\n'
+        'if [[ -f "${_astroai_dotenv}" ]]; then\n'
+        "  set -a\n"
+        "  # shellcheck disable=SC1090\n"
+        '  source "${_astroai_dotenv}"\n'
+        "  set +a\n"
+        "fi\n"
+    )
+    if not dry_run:
+        hook.parent.mkdir(parents=True, exist_ok=True)
+        if hook.is_file():
+            text = hook.read_text(encoding="utf-8")
+            if _OPENROUTER_DOTENV_MARKER not in text:
+                from astroai_lab.utils.json_utils import atomic_write_text
+
+                atomic_write_text(hook, source_block + ("\n" if text and not text.startswith("\n") else "") + text)
+        else:
+            from astroai_lab.utils.json_utils import atomic_write_text
+
+            atomic_write_text(
+                hook,
+                source_block
+                + "\n# AstroAI lab agent setup: GitHub token for gh + GitHub MCP\n"
+                "if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then\n"
+                '  export GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"\n'
+                "fi\n",
+            )
+    return key
 
 
 def install_file(src: Path, dst: Path, *, force: bool, dry_run: bool) -> bool:
@@ -98,16 +274,98 @@ def _toml_get(data: dict[str, Any], *keys: str) -> Any:
     return current
 
 
+def _ensure_marimo_toml_kv(
+    cfg: Path,
+    section: str,
+    key: str,
+    value: str,
+    *,
+    dry_run: bool,
+    force: bool = False,
+) -> None:
+    """Ensure ``[section] key = value`` exists in a marimo.toml (line-based)."""
+    if dry_run or not cfg.is_file():
+        return
+    text = cfg.read_text(encoding="utf-8")
+    header = f"[{section}]"
+    # Quoted string values
+    desired = f'{key} = "{value}"' if not value.startswith("[") else f"{key} = {value}"
+    lines = text.splitlines()
+    section_idx: int | None = None
+    next_section_idx: int | None = None
+    for i, raw in enumerate(lines):
+        stripped = raw.strip()
+        if stripped == header:
+            section_idx = i
+        elif section_idx is not None and stripped.startswith("[") and stripped.endswith("]"):
+            next_section_idx = i
+            break
+    if section_idx is not None:
+        section_end = next_section_idx if next_section_idx is not None else len(lines)
+        for i in range(section_idx + 1, section_end):
+            left = lines[i].split("=", 1)[0].strip() if "=" in lines[i] else ""
+            if left == key:
+                if force or not lines[i].split("=", 1)[1].strip().strip("'\""):
+                    lines[i] = desired
+                    cfg.write_text("\n".join(lines) + "\n", encoding="utf-8")
+                return
+        lines.insert(section_idx + 1, desired)
+        cfg.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return
+    sep = "\n\n" if text.rstrip() else ""
+    cfg.write_text(f"{text.rstrip()}{sep}{header}\n{desired}\n", encoding="utf-8")
+
+
+def _ensure_marimo_runtime_dotenv(cfg: Path, dotenv: Path, *, dry_run: bool) -> None:
+    """Point marimo [runtime].dotenv at the shared AstroAI secrets file."""
+    _ensure_marimo_toml_kv(
+        cfg,
+        "runtime",
+        "dotenv",
+        f'["{dotenv}"]',
+        dry_run=dry_run,
+        force=True,
+    )
+
+
+def _ensure_marimo_package_manager(cfg: Path, *, dry_run: bool, manager: str = "pixi") -> None:
+    """Prefer pixi/uv over pip — CANFAR sessions cannot pip-install into the image Python."""
+    if dry_run or not cfg.is_file():
+        return
+    force = True
+    try:
+        from astroai_lab.utils.toml_compat import tomllib
+
+        data = tomllib.loads(cfg.read_text(encoding="utf-8"))
+        current = _toml_get(data, "package_management", "manager")
+        if isinstance(current, str) and current.strip() and current.strip() not in ("pip",):
+            force = False  # keep explicit uv/poetry/rye/pixi
+    except Exception:  # noqa: BLE001
+        force = True
+    _ensure_marimo_toml_kv(
+        cfg,
+        "package_management",
+        "manager",
+        manager,
+        dry_run=dry_run,
+        force=force,
+    )
+
+
 def _merge_marimo_openrouter(cfg: Path, *, force: bool, dry_run: bool) -> None:
-    """Ensure ~/.marimo.toml has [ai.openrouter] api_key from OPENROUTER_API_KEY env.
+    """Ensure ~/.marimo.toml has OpenRouter AI config from the shared key store.
 
     Merge strategy (never overwrites user settings outside the AI sections):
     1. If file missing, copy template from bundle data.
-    2. Check if api_key already set (tomllib).
-    3. If not set and env var present, inject api_key under [ai.openrouter].
+    2. Discover key (env → ~/.astroai/lab/.env → existing marimo.toml).
+    3. Persist to shared .env so agents share one key.
+    4. Inject api_key under [ai.openrouter] when missing (or force).
+    5. Point [runtime].dotenv at the shared .env.
+    6. Default [package_management] manager to pixi (not pip — no root on CANFAR).
     """
     root = bundle_root()
     template = root / "marimo" / "marimo.toml"
+    home = Path.home()
 
     if not cfg.is_file() and not dry_run:
         cfg.parent.mkdir(parents=True, exist_ok=True)
@@ -116,12 +374,19 @@ def _merge_marimo_openrouter(cfg: Path, *, force: bool, dry_run: bool) -> None:
         else:
             cfg.write_text(
                 "# Marimo AI assistant — astroai agent setup\n\n"
+                "[package_management]\n"
+                'manager = "pixi"\n\n'
                 "[ai.openrouter]\n"
                 'base_url = "https://openrouter.ai/api/v1"\n',
                 encoding="utf-8",
             )
 
-    key = os.environ.get(OPENROUTER_KEY_ENV) or os.environ.get("OPENROUTER_KEY")
+    key = ensure_openrouter_dotenv(home, dry_run=dry_run)
+    dotenv = openrouter_dotenv_path(home)
+    if cfg.is_file():
+        _ensure_marimo_runtime_dotenv(cfg, dotenv, dry_run=dry_run)
+        _ensure_marimo_package_manager(cfg, dry_run=dry_run)
+
     if not key:
         return
 
@@ -133,6 +398,8 @@ def _merge_marimo_openrouter(cfg: Path, *, force: bool, dry_run: bool) -> None:
         data = tomllib.loads(text)
         current_key = _toml_get(data, "ai", "openrouter", "api_key")
         if current_key and not force:
+            _ensure_marimo_runtime_dotenv(cfg, dotenv, dry_run=dry_run)
+            _ensure_marimo_package_manager(cfg, dry_run=dry_run)
             return
     except Exception:  # noqa: BLE001 — unparseable TOML falls through to line-based merge
         pass
@@ -168,6 +435,8 @@ def _merge_marimo_openrouter(cfg: Path, *, force: bool, dry_run: bool) -> None:
                 indent = len(lines[api_key_idx]) - len(lines[api_key_idx].lstrip())
                 lines[api_key_idx] = " " * indent + f'api_key = "{key}"'
                 cfg.write_text("\n".join(lines) + "\n", encoding="utf-8")
+                _ensure_marimo_runtime_dotenv(cfg, dotenv, dry_run=False)
+                _ensure_marimo_package_manager(cfg, dry_run=False)
             return
 
         # No api_key yet — insert right after the section header line
@@ -180,6 +449,8 @@ def _merge_marimo_openrouter(cfg: Path, *, force: bool, dry_run: bool) -> None:
             f'{text.rstrip()}{sep}[ai.openrouter]\napi_key = "{key}"\n',
             encoding="utf-8",
         )
+    _ensure_marimo_runtime_dotenv(cfg, dotenv, dry_run=False)
+    _ensure_marimo_package_manager(cfg, dry_run=False)
 
 
 def install_goose_config(root: Path, home: Path, *, force: bool, dry_run: bool) -> None:
@@ -272,6 +543,28 @@ def run_bundle(
             force=force,
             dry_run=dry_run,
         )
+    elif name == "codewhale":
+        install_file(
+            root / "codewhale" / "config.toml",
+            home / ".codewhale" / "config.toml",
+            force=force,
+            dry_run=dry_run,
+        )
+    elif name == "pi":
+        install_file(
+            root / "pi" / "settings.json",
+            home / ".pi" / "agent" / "settings.json",
+            force=force,
+            dry_run=dry_run,
+        )
+        ensure_pi_openrouter_auth(home, dry_run=dry_run, force=force)
+    elif name in ("omp", "freebuff", "qoder", "swival", "zcode"):
+        install_file(
+            root / name / "astroai-notes.md",
+            home / ".config" / name / "astroai-notes.md",
+            force=force,
+            dry_run=dry_run,
+        )
     elif name == "codex":
         install_file(
             root / "codex" / "config.toml",
@@ -293,17 +586,37 @@ def run_bundle(
             force=force,
             dry_run=dry_run,
         )
+        ensure_openrouter_dotenv(home, dry_run=dry_run)
         hook = home / ".astroai" / "lab" / "agent-env.sh"
         if (force or not hook.is_file()) and not dry_run:
             from astroai_lab.utils.json_utils import atomic_write_text
 
-            atomic_write_text(
-                hook,
-                "# AstroAI lab agent setup: GitHub token for gh + GitHub MCP\n"
-                "if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then\n"
-                '  export GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"\n'
-                "fi\n",
-            )
+            # ensure_openrouter_dotenv may have already created the hook with
+            # the dotenv source block; only write the gh stub when still missing.
+            if not hook.is_file():
+                atomic_write_text(
+                    hook,
+                    f"{_OPENROUTER_DOTENV_MARKER}\n"
+                    '_astroai_dotenv="${HOME}/.astroai/lab/.env"\n'
+                    'if [[ -f "${_astroai_dotenv}" ]]; then\n'
+                    "  set -a\n"
+                    "  # shellcheck disable=SC1090\n"
+                    '  source "${_astroai_dotenv}"\n'
+                    "  set +a\n"
+                    "fi\n"
+                    "\n# AstroAI lab agent setup: GitHub token for gh + GitHub MCP\n"
+                    "if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then\n"
+                    '  export GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"\n'
+                    "fi\n",
+                )
+            elif "GITHUB_TOKEN" not in hook.read_text(encoding="utf-8"):
+                with hook.open("a", encoding="utf-8") as fh:
+                    fh.write(
+                        "\n# AstroAI lab agent setup: GitHub token for gh + GitHub MCP\n"
+                        "if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then\n"
+                        '  export GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"\n'
+                        "fi\n"
+                    )
         bashrc = home / ".bashrc"
         marker = "# astroai agent setup"
         source_line = (

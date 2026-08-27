@@ -153,18 +153,14 @@ def _print_status_table(
     for row in report["agents"]:
         binary_ok = bool(row.get("binary_ok", row.get("binary")))
         b = "✓" if binary_ok else "-"
-        # Cfg: logged in or settings dir on home.
-        if "config_present" in row:
-            config_installed = bool(row["config_present"])
-        else:
-            config_installed = bool(row.get("config_declared")) and bool(
-                row.get("config_ok", row.get("config"))
-            )
+        # Cfg: logged in or settings on home (declared file or upstream state dirs).
+        config_installed = bool(row.get("config_present", False))
+        if not config_installed and row.get("config_declared"):
+            config_installed = bool(row.get("config_ok", row.get("config")))
         c = "✓" if config_installed else "-"
         ver = (row.get("version") or "-")[:12]
         name = row.get("id") or row.get("agent") or "?"
-        # cursor runs as upstream binary `agent` — note when installed.
-        name_disp = "cursor→agent" if name == "cursor" and binary_ok else name
+        name_disp = name
         src_raw = row.get("binary_source") or ("managed" if row.get("managed") else "-")
         if not binary_ok:
             src = "-"
@@ -949,20 +945,48 @@ def _install_one_agent(tool: str, *, dry_run: bool) -> None:
         setup_registry_agent,
     )
 
+    agent = get_registry_agent(tool)
     if tool in agent_install.TOOLS:
         agent_install.install_tool(tool, dry_run=dry_run)
-    elif get_registry_agent(tool) is not None:
+    elif agent is not None:
         install_registry_agent(tool, dry_run=dry_run)
-        if not dry_run:
-            setup = setup_registry_agent(tool, dry_run=False)
-            if setup["errors"]:
-                detail = "; ".join(setup["errors"])
-                raise LabError(
-                    f"Installed {tool}, but setup failed: {detail}",
-                    hint=f"Retry: astroai agent setup {tool}",
-                )
     else:
         raise LabError(f"Unknown tool: {tool}", hint="astroai agent list")
+
+    # Always seed config/skills after a real install when the tool is registered
+    # (TOOLS-backed agents like claude/cursor used to skip this).
+    if dry_run or agent is None:
+        return
+    setup = setup_registry_agent(tool, dry_run=False)
+    if setup["errors"]:
+        detail = "; ".join(setup["errors"])
+        raise LabError(
+            f"Installed {tool}, but setup failed: {detail}",
+            hint=f"Retry: astroai agent setup {tool}",
+        )
+
+
+def _post_install_hint(tool: str) -> None:
+    """Next-step hint after a successful install (config path when we know it)."""
+    from astroai_lab.agent.registry import get_registry_agent
+    from astroai_lab.agent.agent_targets import expand_home
+
+    agent = get_registry_agent(tool)
+    if agent is None:
+        return
+    cfg = (agent.get("config") or {}).get("path")
+    if not cfg:
+        ui.print_hint(f"  astroai agent setup {tool}   # skills / plugins")
+        return
+    path = expand_home(str(cfg), Path.home())
+    if path.is_file():
+        ui.print_hint(f"  config: {path}")
+        if str((agent.get("config") or {}).get("format")) == "markdown":
+            ui.print_hint(f"  astroai agent config {tool}   # show notes")
+        else:
+            ui.print_hint(f"  astroai agent config {tool}")
+    else:
+        ui.print_hint(f"  astroai agent setup {tool}   # create {path}")
 
 
 @agent_app.command("install")
@@ -1032,10 +1056,16 @@ def agent_install_cmd(
                 ui.print_ok(f"dry-run: would install {tool}")
             else:
                 ui.print_ok(f"Installed {tool} → {user_bin_dir()}")
-                if tool in ("kilo", "goose", "cline", "opencode", "codex"):
-                    ui.print_hint("  astroai agent config " + tool)
+                _post_install_hint(tool)
 
     failed = [r for r in results if not r["ok"]]
+    if failed and not opts.json and len(names) > 1:
+        ok_count = len(results) - len(failed)
+        failed_names = ", ".join(r["tool"] for r in failed)
+        ui.print_error(
+            f"{len(failed)}/{len(names)} install(s) failed ({ok_count} succeeded): {failed_names}"
+        )
+        ui.print_hint("  Fix each error above, then re-run failed names only.")
     if opts.json:
         if len(results) == 1:
             ui.print_json(results[0])

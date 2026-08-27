@@ -1,11 +1,15 @@
+# AstroAI Codex defaults. Cold uvx/npx on CANFAR needs a long MCP startup window.
+
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"
 enabled = true
+startup_timeout_sec = 60
 
 [mcp_servers.memory]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-memory"]
 enabled = true
+startup_timeout_sec = 120
 
 [mcp_servers.memory.env]
 MEMORY_FILE_PATH = "${HOME}/.local/share/astroai-lab/agent/memory.jsonl"
@@ -14,6 +18,7 @@ MEMORY_FILE_PATH = "${HOME}/.local/share/astroai-lab/agent/memory.jsonl"
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
 enabled = true
+startup_timeout_sec = 120
 
 [mcp_servers.github.env]
 GITHUB_PERSONAL_ACCESS_TOKEN = "${GITHUB_TOKEN}"
@@ -22,3 +27,4 @@ GITHUB_PERSONAL_ACCESS_TOKEN = "${GITHUB_TOKEN}"
 command = "uvx"
 args = ["mcp-server-fetch"]
 enabled = true
+startup_timeout_sec = 120

@@ -35,6 +35,54 @@ def test_gh_release_uses_public_curl_when_gh_not_authed(
     assert (tmp_path / "bin" / "codex").is_file()
 
 
+def test_gh_release_lands_codex_package_layout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Package archives land share/codex + sibling host + bwrap on PATH."""
+    import tarfile
+
+    monkeypatch.setenv("TMPDIR", str(tmp_path / "tmp"))
+    (tmp_path / "tmp").mkdir()
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    monkeypatch.setattr(install_mod, "_gh_auth_ok", lambda: False)
+    monkeypatch.setattr(install_mod, "_bin_dir", lambda: bin_dir)
+
+    def fake_curl(repo: str, asset: str, dest: Path) -> None:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        pkg = tmp_path / "pkg"
+        (pkg / "bin").mkdir(parents=True)
+        (pkg / "codex-resources").mkdir()
+        (pkg / "codex-path").mkdir()
+        (pkg / "codex-package.json").write_text('{"layoutVersion":1}\n', encoding="utf-8")
+        for name in ("codex", "codex-code-mode-host"):
+            p = pkg / "bin" / name
+            p.write_text(f"#!/bin/sh\necho {name}\n", encoding="utf-8")
+            p.chmod(0o755)
+        bwrap = pkg / "codex-resources" / "bwrap"
+        bwrap.write_text("#!/bin/sh\n", encoding="utf-8")
+        bwrap.chmod(0o755)
+        (pkg / "codex-path" / "rg").write_text("#!/bin/sh\n", encoding="utf-8")
+        with tarfile.open(dest, "w:gz") as tf:
+            for path in pkg.rglob("*"):
+                if path.is_file():
+                    tf.add(path, arcname=str(path.relative_to(pkg)))
+
+    monkeypatch.setattr(install_mod, "_download_public_gh_release", fake_curl)
+    install_mod._gh_release_bin(
+        "openai/codex",
+        "codex-package-x86_64-unknown-linux-musl.tar.gz",
+        "codex",
+    )
+
+    assert (bin_dir / "codex").is_symlink()
+    assert (bin_dir / "codex-code-mode-host").is_symlink()
+    assert (bin_dir / "bwrap").is_symlink()
+    share = tmp_path / "share" / "codex" / "current"
+    assert (share / "codex-package.json").is_file()
+    assert (bin_dir / "codex").resolve() == (share / "bin" / "codex").resolve()
+
+
 def test_gh_release_requires_auth_when_flag_set(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(install_mod, "_gh_auth_ok", lambda: False)
     with pytest.raises(LabError, match="requires GitHub CLI authentication"):

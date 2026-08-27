@@ -14,6 +14,13 @@ install:
     PI_INSTALL_DIR: "{bin_dir}"
   post_binary_paths:
     - ~/.local/bin/omp
+config:
+  path: "~/.config/omp/astroai-notes.md"
+  format: markdown
+  provider_key: OPENROUTER_API_KEY
+  markers:
+    - "~/.omp"
+    - "~/.omp/agent"
 verify:
   - "omp --version"
 plugins: [skill, mcp, config, addon]

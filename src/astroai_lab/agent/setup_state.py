@@ -204,6 +204,7 @@ def build_agent_report(home: Path | None = None, *, probe_ver: bool = False) -> 
             "home_install": status.get("home_install", False),
             "config": status["config_ok"],
             "config_path": status["config"],
+            "config_present": status.get("config_present", status["config_ok"]),
             "binary_ok": status["binary_ok"],
             "config_ok": status["config_ok"],
             "config_declared": status.get("config_declared", True),

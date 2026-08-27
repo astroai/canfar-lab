@@ -1,19 +1,30 @@
 # Installable via: astroai agent install pi
 id: pi
 name: Pi Coding Agent
-homepage: https://www.npmjs.com/package/@earendil-works/pi-coding-agent
+homepage: https://github.com/earendil-works/pi
 summary: Pi coding agent CLI (earendil-works); distinct from omp
 binary: pi
 tags:
-- agent
-- cli
+  - agent
+  - cli
 install:
   method: npm
-  source: '@earendil-works/pi-coding-agent@latest'
+  source: "@earendil-works/pi-coding-agent@latest"
+config:
+  path: "~/.pi/agent/settings.json"
+  format: json
+  provider_key: OPENROUTER_API_KEY
+  markers:
+    - "~/.pi"
+    - "~/.pi/agent"
 verify:
-- pi --version
+  - pi --version
+  - test -f ~/.pi/agent/settings.json
 plugins:
-- skill
-- mcp
-- config
-- addon
+  - skill
+  - mcp
+  - config
+  - addon
+notes: >-
+  Settings ~/.pi/agent/settings.json; auth ~/.pi/agent/auth.json (seeded from
+  OPENROUTER_API_KEY on setup). Or `pi` then `/login openrouter`.

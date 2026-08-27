@@ -12,6 +12,9 @@ install:
   source: https://qoder.com/install
   post_binary_paths:
   - ~/.local/bin/qodercli
+config:
+  path: "~/.config/qoder/astroai-notes.md"
+  format: markdown
 verify:
 - qodercli --version
 notes: Binary on PATH is qodercli; install id is qoder.

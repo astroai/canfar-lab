@@ -13,6 +13,10 @@ install:
 config:
   path: ~/.copilot/mcp-config.json
   format: json
+  markers:
+    - ~/.copilot
+version:
+  args: ["--version", "--no-auto-update"]
 verify:
 - copilot --version
 plugins:
