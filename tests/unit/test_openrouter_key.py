@@ -74,8 +74,10 @@ def test_merge_marimo_seeds_api_key_and_runtime_dotenv(
     assert "[runtime]" in text
     assert str(openrouter_dotenv_path(tmp_path)) in text
     assert 'manager = "pixi"' in text
-    assert openrouter_dotenv_path(tmp_path).read_text(encoding="utf-8").startswith(
-        f"{OPENROUTER_KEY_ENV}=sk-setup-key"
+    assert (
+        openrouter_dotenv_path(tmp_path)
+        .read_text(encoding="utf-8")
+        .startswith(f"{OPENROUTER_KEY_ENV}=sk-setup-key")
     )
 
 

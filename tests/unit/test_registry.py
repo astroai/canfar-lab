@@ -1142,10 +1142,7 @@ def test_fix_registry_agent_sets_codex_mcp_timeouts(tmp_path: Path) -> None:
     cfg = home / ".codex" / "config.toml"
     cfg.parent.mkdir(parents=True)
     cfg.write_text(
-        "[mcp_servers.fetch]\n"
-        'command = "uvx"\n'
-        'args = ["mcp-server-fetch"]\n'
-        "enabled = true\n",
+        '[mcp_servers.fetch]\ncommand = "uvx"\nargs = ["mcp-server-fetch"]\nenabled = true\n',
         encoding="utf-8",
     )
     result = fix_registry_agent("codex", home=home)

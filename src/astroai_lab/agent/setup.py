@@ -183,8 +183,7 @@ def ensure_openrouter_dotenv(home: Path, *, dry_run: bool = False) -> str | None
 
             atomic_write_text(
                 hook,
-                source_block
-                + "\n# AstroAI lab agent setup: GitHub token for gh + GitHub MCP\n"
+                source_block + "\n# AstroAI lab agent setup: GitHub token for gh + GitHub MCP\n"
                 "if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then\n"
                 '  export GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"\n'
                 "fi\n",

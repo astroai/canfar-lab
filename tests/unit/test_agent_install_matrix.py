@@ -229,7 +229,6 @@ def test_new_user_bundle_template_not_empty_scaffold(
     assert not text.strip().endswith("{}\n") or needle in text
 
 
-
 @pytest.mark.parametrize("agent_id", REGISTRY_IDS, ids=REGISTRY_IDS)
 def test_new_user_mocked_install_lands_managed_binary(
     agent_id: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -467,7 +466,7 @@ def test_codex_fix_adds_mcp_timeouts_for_legacy_config(
     cfg = home / ".codex" / "config.toml"
     cfg.parent.mkdir(parents=True)
     cfg.write_text(
-        "[mcp_servers.fetch]\ncommand = \"uvx\"\nargs = [\"mcp-server-fetch\"]\nenabled = true\n",
+        '[mcp_servers.fetch]\ncommand = "uvx"\nargs = ["mcp-server-fetch"]\nenabled = true\n',
         encoding="utf-8",
     )
     result = fix_registry_agent("codex", home=home)

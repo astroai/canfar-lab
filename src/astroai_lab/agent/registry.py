@@ -765,9 +765,7 @@ _CODEX_MCP_TIMEOUT_KEYS = (
 )
 
 
-def _ensure_codex_mcp_timeouts(
-    cfg: Path, *, home: Path, dry_run: bool
-) -> str | None:
+def _ensure_codex_mcp_timeouts(cfg: Path, *, home: Path, dry_run: bool) -> str | None:
     """Ensure Codex MCP servers have a long enough startup_timeout_sec.
 
     Returns an action string when something would change / changed, else None.

@@ -391,9 +391,7 @@ def test_cli_config_missing_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "config not found" in json.loads(result.stdout)["errors"][0]
 
 
-def test_cli_config_codewhale_seeds_toml(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cli_config_codewhale_seeds_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(
         "astroai_lab.agent.plugins.apply_agent_plugins",
@@ -408,9 +406,7 @@ def test_cli_config_codewhale_seeds_toml(
     assert "OPENROUTER_API_KEY" in text
 
 
-def test_cli_config_pi_seeds_settings(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cli_config_pi_seeds_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test-key")
     monkeypatch.setattr(
@@ -429,9 +425,7 @@ def test_cli_config_pi_seeds_settings(
     assert auth_data["openrouter"]["key"] == "sk-or-test-key"
 
 
-def test_cli_install_cline_runs_setup(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cli_install_cline_runs_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Regression: install printed `agent config cline` but never wrote notes."""
     from astroai_lab.cli import agent_cmd as agent_cmd_mod
 
@@ -441,9 +435,7 @@ def test_cli_install_cline_runs_setup(
     bin_dir.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setattr(agent_cmd_mod, "user_bin_dir", lambda: bin_dir)
-    monkeypatch.setattr(
-        "astroai_lab.agent.install.refuse_if_home_owned", lambda *a, **k: None
-    )
+    monkeypatch.setattr("astroai_lab.agent.install.refuse_if_home_owned", lambda *a, **k: None)
     monkeypatch.setattr(
         "astroai_lab.agent.registry._install_npm",
         lambda agent: (bin_dir / "cline").write_text("#!/bin/sh\n") or "cline",
@@ -464,4 +456,3 @@ def test_cli_install_cline_runs_setup(
     assert notes.is_file(), result.output
     assert "Cline on CANFAR" in notes.read_text(encoding="utf-8")
     assert "config:" in result.output or "cline-notes" in result.output
-
