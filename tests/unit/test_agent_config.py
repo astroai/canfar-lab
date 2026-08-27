@@ -102,9 +102,14 @@ def test_read_yaml(tmp_path: Path) -> None:
     assert data["provider"] == "openrouter"
 
 
-def test_read_missing_file(tmp_path: Path) -> None:
+def test_read_missing_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "home"
     home.mkdir()
+    # Block setup so a truly missing config still errors (no silent invent).
+    monkeypatch.setattr(
+        "astroai_lab.agent.registry.setup_registry_agent",
+        lambda *a, **k: {"ok": True, "errors": [], "actions": [], "agent": "hermes"},
+    )
     with pytest.raises(LabError, match="config not found"):
         ac.read_agent_config("hermes", home=home)
 
@@ -124,8 +129,38 @@ def test_read_broken_json_raises(tmp_path: Path) -> None:
 
 def test_read_markdown_readonly(tmp_path: Path) -> None:
     home = _home(tmp_path, "cline", ".config/cline/cline-notes.md", "# notes\n")
-    with pytest.raises(LabError, match="read-only"):
-        ac.read_agent_config("cline", home=home)
+    path, data = ac.read_agent_config("cline", home=home)
+    assert path.name == "cline-notes.md"
+    assert data == {}
+
+
+def test_read_missing_cline_auto_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Older installs skipped setup — first `agent config cline` seeds notes."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(
+        "astroai_lab.agent.plugins.apply_agent_plugins",
+        lambda *a, **k: [],
+    )
+    path, data = ac.read_agent_config("cline", home=home)
+    assert path.is_file()
+    assert "Cline on CANFAR" in path.read_text(encoding="utf-8")
+    assert data == {}
+
+
+def test_read_missing_hermes_still_errors_when_setup_cannot_create(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    # hermes has no config bundle that writes config.yaml — scaffold creates it.
+    monkeypatch.setattr(
+        "astroai_lab.agent.plugins.apply_agent_plugins",
+        lambda *a, **k: [],
+    )
+    path, data = ac.read_agent_config("hermes", home=home)
+    assert path.is_file()
+    assert isinstance(data, dict)
 
 
 def test_get_config_value_dotted(tmp_path: Path) -> None:
@@ -346,6 +381,78 @@ def test_cli_config_unset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
 
 def test_cli_config_missing_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
+    # Setup would scaffold hermes; stub it so "missing" stays missing.
+    monkeypatch.setattr(
+        "astroai_lab.agent.registry.setup_registry_agent",
+        lambda *a, **k: {"ok": True, "errors": [], "actions": [], "agent": "hermes"},
+    )
     result = runner.invoke(app, ["--json", "agent", "config", "hermes"])
     assert result.exit_code == 1
     assert "config not found" in json.loads(result.stdout)["errors"][0]
+
+
+def test_cli_config_codewhale_seeds_toml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(
+        "astroai_lab.agent.plugins.apply_agent_plugins",
+        lambda *a, **k: [],
+    )
+    result = runner.invoke(app, ["agent", "config", "codewhale"])
+    assert result.exit_code == 0, result.output
+    cfg = tmp_path / ".codewhale" / "config.toml"
+    assert cfg.is_file()
+    text = cfg.read_text(encoding="utf-8")
+    assert 'provider = "openrouter"' in text
+    assert "OPENROUTER_API_KEY" in text
+
+
+def test_cli_config_pi_seeds_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("OPENROUTER_API_KEY", "sk-or-test-key")
+    monkeypatch.setattr(
+        "astroai_lab.agent.plugins.apply_agent_plugins",
+        lambda *a, **k: [],
+    )
+    result = runner.invoke(app, ["agent", "config", "pi"])
+    assert result.exit_code == 0, result.output
+    settings = tmp_path / ".pi" / "agent" / "settings.json"
+    assert settings.is_file()
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    assert data.get("defaultProvider") == "openrouter"
+    auth = tmp_path / ".pi" / "agent" / "auth.json"
+    assert auth.is_file()
+    auth_data = json.loads(auth.read_text(encoding="utf-8"))
+    assert auth_data["openrouter"]["key"] == "sk-or-test-key"
+
+
+def test_cli_install_cline_runs_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: install printed `agent config cline` but never wrote notes."""
+    from astroai_lab.cli import agent_cmd as agent_cmd_mod
+
+    home = tmp_path / "home"
+    bin_dir = tmp_path / "bin"
+    home.mkdir()
+    bin_dir.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(agent_cmd_mod, "user_bin_dir", lambda: bin_dir)
+    monkeypatch.setattr("astroai_lab.agent.install.refuse_if_home_owned", lambda *a, **k: None)
+    monkeypatch.setattr(
+        "astroai_lab.agent.registry._install_npm",
+        lambda agent: (bin_dir / "cline").write_text("#!/bin/sh\n") or "cline",
+    )
+    monkeypatch.setattr(
+        "astroai_lab.agent.plugins.apply_agent_plugins",
+        lambda *a, **k: [],
+    )
+    # cline is registry-only (not in TOOLS) — install_registry_agent path.
+    from astroai_lab.agent import install as install_mod
+
+    tools = {k: v for k, v in install_mod.TOOLS.items() if k != "cline"}
+    monkeypatch.setattr("astroai_lab.agent.install.TOOLS", tools, raising=False)
+
+    result = runner.invoke(app, ["--yes", "agent", "install", "cline"])
+    assert result.exit_code == 0, result.output
+    notes = home / ".config" / "cline" / "cline-notes.md"
+    assert notes.is_file(), result.output
+    assert "Cline on CANFAR" in notes.read_text(encoding="utf-8")
+    assert "config:" in result.output or "cline-notes" in result.output

@@ -8,6 +8,17 @@ tags: [agent, cli, open, glm]
 install:
   method: npm
   source: zcode-app-cli@latest
+config:
+  path: "~/.config/zcode/astroai-notes.md"
+  format: markdown
+  markers:
+    - "~/.zcode"
+    - "~/.zcode/cli"
+version:
+  args: ["--version"]
+  env:
+    ZCODE_DISABLE_UPDATE_CHECK: "1"
+    NO_UPDATE_NOTIFIER: "1"
 verify:
   - "zcode --version"
 plugins: [skill, mcp, config, addon]

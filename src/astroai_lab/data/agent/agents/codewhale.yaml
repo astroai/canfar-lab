@@ -1,19 +1,29 @@
 # Installable via: astroai agent install codewhale
 id: codewhale
 name: CodeWhale
-homepage: https://www.npmjs.com/package/codewhale
-summary: CodeWhale coding agent CLI
+homepage: https://github.com/Hmbown/CodeWhale
+summary: Terminal coding agent CLI (Rust) — OpenRouter and many providers
 binary: codewhale
 tags:
-- agent
-- cli
+  - agent
+  - cli
 install:
   method: npm
   source: codewhale@latest
+config:
+  path: "~/.codewhale/config.toml"
+  format: toml
+  provider_key: OPENROUTER_API_KEY
+  markers:
+    - "~/.codewhale"
 verify:
-- codewhale --version
+  - codewhale --version
+  - test -f ~/.codewhale/config.toml
 plugins:
-- skill
-- mcp
-- config
-- addon
+  - skill
+  - mcp
+  - config
+  - addon
+notes: >-
+  Config is ~/.codewhale/config.toml. Prefer OpenRouter via OPENROUTER_API_KEY
+  or `codewhale auth set --provider openrouter`.

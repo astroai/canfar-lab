@@ -1,7 +1,13 @@
 # Marimo AI assistant — pre-configured for OpenRouter by astroai agent setup.
 #
-# Customize models via the AI settings panel (⚙️ in the chat sidebar) or edit this file.
-# The API key is injected by `astroai agent setup` from OPENROUTER_API_KEY.
+# One shared key: ~/.astroai/lab/.env (OPENROUTER_API_KEY). Set once, then
+# `astroai agent setup` (or `… marimo`) wires marimo + agent CLIs.
+# Customize models via the AI settings panel (⚙️ in the chat sidebar).
+#
+# Packages: use pixi (not pip) — CANFAR sessions cannot write to the image Python.
+
+[package_management]
+manager = "pixi"
 
 [ai.models]
 chat_model = "openrouter/google/gemini-2.5-flash"

@@ -10,8 +10,17 @@ tags:
 install:
   method: npm
   source: freebuff@latest
+config:
+  path: "~/.config/freebuff/astroai-notes.md"
+  format: markdown
+  provider_key: OPENROUTER_API_KEY
+  markers:
+    - "~/.config/manicode"
+    - "~/.config/manicode/credentials.json"
+version:
+  args: ["-v"]
 verify:
-- freebuff --version
+- freebuff -v
 plugins:
 - skill
 - mcp
