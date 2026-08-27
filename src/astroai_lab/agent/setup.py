@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 from dataclasses import dataclass
@@ -65,10 +66,8 @@ def _write_dotenv_value(path: Path, name: str, value: str, *, dry_run: bool) -> 
             out.append("")
         out.append(f"{name}={value}")
     path.write_text("\n".join(out) + "\n", encoding="utf-8")
-    try:
+    with contextlib.suppress(OSError):
         path.chmod(0o600)
-    except OSError:
-        pass
 
 
 def _key_from_marimo_toml(cfg: Path) -> str | None:
@@ -177,7 +176,8 @@ def ensure_openrouter_dotenv(home: Path, *, dry_run: bool = False) -> str | None
             if _OPENROUTER_DOTENV_MARKER not in text:
                 from astroai_lab.utils.json_utils import atomic_write_text
 
-                atomic_write_text(hook, source_block + ("\n" if text and not text.startswith("\n") else "") + text)
+                sep = "\n" if text and not text.startswith("\n") else ""
+                atomic_write_text(hook, source_block + sep + text)
         else:
             from astroai_lab.utils.json_utils import atomic_write_text
 

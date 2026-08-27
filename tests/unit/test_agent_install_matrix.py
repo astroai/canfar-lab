@@ -30,7 +30,6 @@ from astroai_lab.agent.registry import (
     fix_registry_agent,
     get_registry_agent,
     install_registry_agent,
-    list_registry_agents,
     load_registry,
     remove_registry_agent,
     setup_registry_agent,
@@ -43,7 +42,7 @@ from astroai_lab.errors import LabError
 
 REGISTRY_IDS = [a["id"] for a in load_registry()]
 assert REGISTRY_IDS, "registry must not be empty"
-assert REGISTRY_IDS == sorted(REGISTRY_IDS)
+assert sorted(REGISTRY_IDS) == REGISTRY_IDS
 
 # Tools that are not coding agents (still installable via agent install).
 UTILITY_IDS = sorted(install_mod.TOOL_UTILITIES)

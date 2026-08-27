@@ -7,6 +7,7 @@ bad entry fails loudly instead of silently degrading the CLI.
 
 from __future__ import annotations
 
+import contextlib
 import re
 from pathlib import Path
 from typing import Any
@@ -184,8 +185,10 @@ def probe_version(
     return match.group(1) if match else None
 
 
-def probe_agent_version(agent: dict[str, Any], *, timeout: float | None = None) -> str | None:
-    """Version probe honoring registry ``version.args`` / ``version.env``."""
+def _version_probe_opts(
+    agent: dict[str, Any], *, timeout: float | None = None
+) -> tuple[str, list[str] | None, dict[str, str] | None, float | None]:
+    """Resolve binary name + argv/env/timeout from registry ``version:``."""
     from astroai_lab.agent.install import TOOLS, tool_binary
 
     probe_name = tool_binary(agent["id"]) if agent["id"] in TOOLS else str(agent["binary"])
@@ -197,16 +200,15 @@ def probe_agent_version(agent: dict[str, Any], *, timeout: float | None = None) 
     env = {str(k): str(v) for k, v in env_raw.items()} if isinstance(env_raw, dict) else None
     agent_timeout = version_cfg.get("timeout")
     if agent_timeout is not None:
-        try:
+        with contextlib.suppress(TypeError, ValueError):
             timeout = float(agent_timeout)
-        except (TypeError, ValueError):
-            pass
-    return probe_version(
-        probe_name,
-        timeout=timeout,
-        args=args,
-        env=env,
-    )
+    return probe_name, args, env, timeout
+
+
+def probe_agent_version(agent: dict[str, Any], *, timeout: float | None = None) -> str | None:
+    """Version probe honoring registry ``version.args`` / ``version.env``."""
+    probe_name, args, env, timeout = _version_probe_opts(agent, timeout=timeout)
+    return probe_version(probe_name, timeout=timeout, args=args, env=env)
 
 
 def probe_launch(
@@ -263,21 +265,7 @@ def probe_launch(
 
 def probe_agent_launch(agent: dict[str, Any], *, timeout: float | None = None) -> str | None:
     """Launch smoke-test honoring registry ``version.args`` / ``version.env``."""
-    from astroai_lab.agent.install import TOOLS, tool_binary
-
-    probe_name = tool_binary(agent["id"]) if agent["id"] in TOOLS else str(agent["binary"])
-    version_cfg = agent.get("version") or {}
-    args = version_cfg.get("args")
-    if args is not None and not isinstance(args, list):
-        args = None
-    env_raw = version_cfg.get("env") or {}
-    env = {str(k): str(v) for k, v in env_raw.items()} if isinstance(env_raw, dict) else None
-    agent_timeout = version_cfg.get("timeout")
-    if agent_timeout is not None:
-        try:
-            timeout = float(agent_timeout)
-        except (TypeError, ValueError):
-            pass
+    probe_name, args, env, timeout = _version_probe_opts(agent, timeout=timeout)
     return probe_launch(probe_name, timeout=timeout, args=args, env=env)
 
 

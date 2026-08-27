@@ -453,11 +453,10 @@ def test_cli_install_cline_runs_setup(
         lambda *a, **k: [],
     )
     # cline is registry-only (not in TOOLS) — install_registry_agent path.
-    monkeypatch.setattr(
-        "astroai_lab.agent.install.TOOLS",
-        {k: v for k, v in __import__("astroai_lab.agent.install", fromlist=["TOOLS"]).TOOLS.items() if k != "cline"},
-        raising=False,
-    )
+    from astroai_lab.agent import install as install_mod
+
+    tools = {k: v for k, v in install_mod.TOOLS.items() if k != "cline"}
+    monkeypatch.setattr("astroai_lab.agent.install.TOOLS", tools, raising=False)
 
     result = runner.invoke(app, ["--yes", "agent", "install", "cline"])
     assert result.exit_code == 0, result.output

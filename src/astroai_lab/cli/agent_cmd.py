@@ -968,8 +968,8 @@ def _install_one_agent(tool: str, *, dry_run: bool) -> None:
 
 def _post_install_hint(tool: str) -> None:
     """Next-step hint after a successful install (config path when we know it)."""
-    from astroai_lab.agent.registry import get_registry_agent
     from astroai_lab.agent.agent_targets import expand_home
+    from astroai_lab.agent.registry import get_registry_agent
 
     agent = get_registry_agent(tool)
     if agent is None:
