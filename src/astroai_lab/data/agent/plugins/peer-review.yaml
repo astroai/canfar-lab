@@ -1,0 +1,13 @@
+id: peer-review
+kind: skill
+addon: true
+tags: [science, review]
+summary: Claim-evidence alignment, methods, statistics, and reproducibility review
+homepage: https://github.com/K-Dense-AI/scientific-agent-skills
+license: MIT
+attribution: K-Dense Inc.
+agents: [skill-hosts]
+install:
+  type: github-skill
+  repo: K-Dense-AI/scientific-agent-skills
+  path: skills/peer-review

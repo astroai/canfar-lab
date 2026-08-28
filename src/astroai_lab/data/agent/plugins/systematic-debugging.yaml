@@ -1,11 +1,8 @@
-id: test-driven-development
+id: systematic-debugging
 kind: skill
 addon: true
-tags:
-- lean
-- test
-- python
-summary: Red-green-refactor TDD discipline
+tags: [coding, debugging, epistemic]
+summary: Find and test root causes before attempting fixes
 homepage: https://github.com/obra/superpowers
 license: MIT
 attribution: Jesse Vincent / obra
@@ -13,4 +10,4 @@ agents: [skill-hosts]
 install:
   type: github-skill
   repo: obra/superpowers
-  path: skills/test-driven-development
+  path: skills/systematic-debugging

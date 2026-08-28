@@ -1,0 +1,13 @@
+id: scientific-critical-thinking
+kind: skill
+addon: true
+tags: [science, epistemic]
+summary: Evidence quality, confounding, bias, validity, and claim strength
+homepage: https://github.com/K-Dense-AI/scientific-agent-skills
+license: MIT
+attribution: K-Dense Inc.
+agents: [skill-hosts]
+install:
+  type: github-skill
+  repo: K-Dense-AI/scientific-agent-skills
+  path: skills/scientific-critical-thinking

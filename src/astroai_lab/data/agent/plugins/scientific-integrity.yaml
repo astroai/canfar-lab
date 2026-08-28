@@ -1,0 +1,12 @@
+id: scientific-integrity
+kind: skill
+addon: true
+default: true
+tags: [science, epistemic, review]
+summary: Fourteen-point evidence, dissent, rival-hypothesis, and verification invariant
+homepage: https://github.com/sfabbro/agent-home
+license: Original
+attribution: AstroAI agent-home contributors
+agents: [skill-hosts]
+install:
+  source: scientific-integrity

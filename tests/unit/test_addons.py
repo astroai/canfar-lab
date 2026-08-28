@@ -45,6 +45,34 @@ def test_load_plugins_has_scientific_writing_stack() -> None:
     } <= ids
 
 
+def test_load_plugins_has_epistemic_stack() -> None:
+    plugins = {p["id"]: p for p in load_plugins()}
+    assert {
+        "ask-dont-tell",
+        "ground-truth",
+        "scientific-integrity",
+        "scientific-critical-thinking",
+        "hypothesis-generation",
+        "scientific-brainstorming",
+        "peer-review",
+        "experimental-design",
+        "statistical-analysis",
+        "receiving-code-review",
+        "requesting-code-review",
+        "systematic-debugging",
+        "verification-before-completion",
+        "test-driven-development",
+        "test-drive",
+        "the-quorum",
+    } <= plugins.keys()
+    assert plugins["ask-dont-tell"]["default"] is True
+    assert plugins["ground-truth"]["default"] is True
+    assert plugins["scientific-integrity"]["default"] is True
+    assert plugins["test-drive"]["invocation"] == "explicit-only"
+    assert plugins["the-quorum"]["invocation"] == "explicit-only"
+    assert plugins["test-driven-development"]["install"]["repo"] == "obra/superpowers"
+
+
 def test_add_agent_skill_installs_to_hermes_and_openclaw(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
