@@ -10,6 +10,10 @@ tags:
 install:
   method: uv-tool
   source: swival
+config:
+  path: "~/.config/swival/astroai-notes.md"
+  format: markdown
+  provider_key: OPENROUTER_API_KEY
 verify:
 - swival --version
 plugins:

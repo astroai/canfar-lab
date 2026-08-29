@@ -41,7 +41,14 @@ def _agent_and_config(
     config = agent.get("config") or {}
     path = config.get("path")
     if not path:
-        raise LabError(f"Agent {agent_id} has no declared config file", hint="registry YAML")
+        binary = str(agent.get("binary") or agent_id)
+        raise LabError(
+            f"Agent {agent_id} has no managed config file in the lab registry",
+            hint=(
+                f"Configure via `{binary}` itself (see {agent.get('homepage', 'upstream docs')}). "
+                f"Optional: astroai agent setup {agent_id}"
+            ),
+        )
     home = home or Path.home()
     return agent, config, _resolve_path(str(path), home)
 
@@ -109,14 +116,28 @@ def validate_config_text(agent_id: str, text: str, *, home: Path | None = None) 
 
 
 def read_agent_config(agent_id: str, *, home: Path | None = None) -> tuple[Path, dict[str, Any]]:
-    """Parse the agent's config file by format; LabError when missing/broken."""
+    """Parse the agent's config file by format; LabError when missing/broken.
+
+    When the file is missing, run a one-shot ``setup_registry_agent`` so
+    ``agent install`` leftovers / older images that skipped setup still recover
+    on the first ``agent config`` read.
+
+    Markdown configs are showable but not structured: returns ``({},)`` with the
+    path so callers can print the raw file.
+    """
     _, config, path = _agent_and_config(agent_id, home)
     fmt = str(config.get("format", "json"))
+    if not path.is_file():
+        from astroai_lab.agent.registry import setup_registry_agent
+
+        setup_registry_agent(agent_id, home=home or Path.home(), dry_run=False)
     if not path.is_file():
         raise LabError(
             f"{agent_id} config not found: {path}",
             hint=f"astroai agent setup {agent_id}",
         )
+    if fmt == "markdown":
+        return path, {}
     data = _parse_config(path.read_text(encoding="utf-8"), fmt, agent_id, path)
     return path, data
 

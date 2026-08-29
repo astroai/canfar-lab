@@ -247,5 +247,5 @@ hash -r
 
 ## See also
 
-- [astroai-containers USAGE](https://github.com/astroai/canfar-containers/blob/main/docs/USAGE.md)
+- [canfar-containers USAGE](https://github.com/astroai/canfar-containers/blob/main/docs/USAGE.md)
 - [CANFAR client docs](https://opencadc.github.io/canfar/)

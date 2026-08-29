@@ -21,6 +21,27 @@
     "cline": {
       "description": "Cline CLI notes (~/.config/cline/cline-notes.md)"
     },
+    "codewhale": {
+      "description": "CodeWhale starter config (~/.codewhale/config.toml)"
+    },
+    "pi": {
+      "description": "Pi settings + OpenRouter auth (~/.pi/agent/)"
+    },
+    "omp": {
+      "description": "Oh My Pi CANFAR notes (~/.config/omp/astroai-notes.md)"
+    },
+    "freebuff": {
+      "description": "Freebuff CANFAR notes (~/.config/freebuff/astroai-notes.md)"
+    },
+    "qoder": {
+      "description": "Qoder CLI CANFAR notes (~/.config/qoder/astroai-notes.md)"
+    },
+    "swival": {
+      "description": "Swival CANFAR notes (~/.config/swival/astroai-notes.md)"
+    },
+    "zcode": {
+      "description": "ZCode CLI CANFAR notes (~/.config/zcode/astroai-notes.md)"
+    },
     "codex": {
       "description": "Codex CLI MCP (~/.codex/config.toml)"
     },

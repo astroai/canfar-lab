@@ -7,6 +7,7 @@ bad entry fails loudly instead of silently degrading the CLI.
 
 from __future__ import annotations
 
+import contextlib
 import re
 from pathlib import Path
 from typing import Any
@@ -138,14 +139,20 @@ def resolve_agent_binary(binary: str) -> str | None:
     return None
 
 
-def probe_version(binary: str, *, timeout: float | None = None) -> str | None:
-    """Best-effort installed version from ``binary --version`` (no network).
+def probe_version(
+    binary: str,
+    *,
+    timeout: float | None = None,
+    args: list[str] | None = None,
+    env: dict[str, str] | None = None,
+) -> str | None:
+    """Best-effort installed version from ``binary <args>`` (default ``--version``).
 
     Returns the first semver-ish token, or None when the binary is missing /
     hangs / prints nothing parseable. Default timeout is 3s (cold Go/Node
     CLIs); set ``ASTROAI_LAB_PROBE_VERSION=0`` to skip, or
-    ``ASTROAI_LAB_PROBE_VERSION_TIMEOUT`` to override seconds. Optional
-    per-agent version argv can land in registry YAML later.
+    ``ASTROAI_LAB_PROBE_VERSION_TIMEOUT`` to override seconds. Per-agent
+    overrides live in registry YAML under ``version:``.
     """
     import os
     import subprocess
@@ -157,14 +164,19 @@ def probe_version(binary: str, *, timeout: float | None = None) -> str | None:
     cmd = resolve_agent_binary(binary)
     if cmd is None:
         return None
+    argv = [cmd, *(args or ["--version"])]
+    run_env = os.environ.copy()
+    if env:
+        run_env.update(env)
     try:
         proc = subprocess.run(
-            [cmd, "--version"],
+            argv,
             capture_output=True,
             text=True,
             timeout=_probe_timeout_sec(timeout),
             check=False,
             stdin=subprocess.DEVNULL,
+            env=run_env,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -173,11 +185,45 @@ def probe_version(binary: str, *, timeout: float | None = None) -> str | None:
     return match.group(1) if match else None
 
 
-def probe_launch(binary: str, *, timeout: float | None = None) -> str | None:
-    """Return an error string if ``binary --version`` cannot run, else None.
+def _version_probe_opts(
+    agent: dict[str, Any], *, timeout: float | None = None
+) -> tuple[str, list[str] | None, dict[str, str] | None, float | None]:
+    """Resolve binary name + argv/env/timeout from registry ``version:``."""
+    from astroai_lab.agent.install import TOOLS, tool_binary
 
-    Used by ``agent verify`` so a present-but-broken CLI fails the gate.
-    Skipped when ``ASTROAI_LAB_PROBE_VERSION=0`` (same opt-out as version probe).
+    probe_name = tool_binary(agent["id"]) if agent["id"] in TOOLS else str(agent["binary"])
+    version_cfg = agent.get("version") or {}
+    args = version_cfg.get("args")
+    if args is not None and not isinstance(args, list):
+        args = None
+    env_raw = version_cfg.get("env") or {}
+    env = {str(k): str(v) for k, v in env_raw.items()} if isinstance(env_raw, dict) else None
+    agent_timeout = version_cfg.get("timeout")
+    if agent_timeout is not None:
+        with contextlib.suppress(TypeError, ValueError):
+            timeout = float(agent_timeout)
+    return probe_name, args, env, timeout
+
+
+def probe_agent_version(agent: dict[str, Any], *, timeout: float | None = None) -> str | None:
+    """Version probe honoring registry ``version.args`` / ``version.env``."""
+    probe_name, args, env, timeout = _version_probe_opts(agent, timeout=timeout)
+    return probe_version(probe_name, timeout=timeout, args=args, env=env)
+
+
+def probe_launch(
+    binary: str,
+    *,
+    timeout: float | None = None,
+    args: list[str] | None = None,
+    env: dict[str, str] | None = None,
+) -> str | None:
+    """Return an error string if ``binary <args>`` cannot run, else None.
+
+    Default args are ``--version``. Used by ``agent verify`` so a present-but-
+    broken CLI fails the gate. Honors the same registry ``version.args`` /
+    ``version.env`` overrides as ``probe_agent_version`` via
+    ``probe_agent_launch``. Skipped when ``ASTROAI_LAB_PROBE_VERSION=0``.
     """
     import os
     import subprocess
@@ -188,27 +234,39 @@ def probe_launch(binary: str, *, timeout: float | None = None) -> str | None:
     cmd = resolve_agent_binary(binary)
     if cmd is None:
         return f"not found ({binary})"
+    argv_tail = args or ["--version"]
+    label = " ".join(argv_tail)
+    run_env = os.environ.copy()
+    if env:
+        run_env.update(env)
     try:
         proc = subprocess.run(
-            [cmd, "--version"],
+            [cmd, *argv_tail],
             capture_output=True,
             text=True,
             timeout=_probe_timeout_sec(timeout),
             check=False,
             stdin=subprocess.DEVNULL,
+            env=run_env,
         )
     except subprocess.TimeoutExpired:
-        return f"{binary} hung on --version"
+        return f"{binary} hung on {label}"
     except OSError as exc:
         return f"{binary} failed to launch: {exc}"
     text = ((proc.stdout or "") + "\n" + (proc.stderr or "")).strip()
     if proc.returncode != 0 and not text:
-        return f"{binary} --version exited {proc.returncode}"
+        return f"{binary} {label} exited {proc.returncode}"
     if proc.returncode != 0 and not _VERSION_RE.search(text):
         # Non-zero with no version token — treat as launch failure (e.g. bad config).
         detail = text.splitlines()[0][:120] if text else f"exit {proc.returncode}"
-        return f"{binary} --version failed ({detail})"
+        return f"{binary} {label} failed ({detail})"
     return None
+
+
+def probe_agent_launch(agent: dict[str, Any], *, timeout: float | None = None) -> str | None:
+    """Launch smoke-test honoring registry ``version.args`` / ``version.env``."""
+    probe_name, args, env, timeout = _version_probe_opts(agent, timeout=timeout)
+    return probe_launch(probe_name, timeout=timeout, args=args, env=env)
 
 
 def _path_has_state(path: Path) -> bool:
@@ -294,7 +352,7 @@ def registry_agent_status(
     # Declared settings file missing is still ok when login/state dirs exist
     # (agy writes settings sparsely; auth lives in the keyring).
     config_ok = config_present if config_declared else True
-    version = probe_version(probe_name) if (probe_ver and binary_ok) else None
+    version = probe_agent_version(agent) if (probe_ver and binary_ok) else None
     return {
         "id": agent["id"],
         "name": agent["name"],
@@ -366,10 +424,7 @@ def registry_verify_issues(
                 except OSError as exc:
                     issues.append(f"{agent['name']} config unreadable ({cfg}): {exc}")
         if probe_binaries:
-            from astroai_lab.agent.install import TOOLS, tool_binary
-
-            probe_name = tool_binary(agent["id"]) if agent["id"] in TOOLS else status["binary"]
-            launch_err = probe_launch(probe_name)
+            launch_err = probe_agent_launch(agent)
             if launch_err:
                 issues.append(f"{agent['name']} failed to launch: {launch_err}")
     return issues
@@ -700,6 +755,54 @@ def _config_scaffold(agent: dict[str, Any]) -> str:
     return header + "\n"
 
 
+# Cold uvx/npx MCP startup on CANFAR (NFS home + first download) often exceeds
+# Codex's 30s default — bump known slow servers without clobbering larger values.
+_CODEX_MCP_STARTUP_TIMEOUT_SEC = 120
+_CODEX_MCP_TIMEOUT_KEYS = (
+    "mcp_servers.fetch.startup_timeout_sec",
+    "mcp_servers.memory.startup_timeout_sec",
+    "mcp_servers.github.startup_timeout_sec",
+)
+
+
+def _ensure_codex_mcp_timeouts(cfg: Path, *, home: Path, dry_run: bool) -> str | None:
+    """Ensure Codex MCP servers have a long enough startup_timeout_sec.
+
+    Returns an action string when something would change / changed, else None.
+    """
+    from astroai_lab.agent import agent_config as agent_config_mod
+    from astroai_lab.utils.toml_compat import tomllib
+
+    text = cfg.read_text(encoding="utf-8", errors="replace")
+    try:
+        data = tomllib.loads(text)
+    except Exception:  # noqa: BLE001 — leave broken configs to the repair path
+        return None
+    servers = data.get("mcp_servers")
+    if not isinstance(servers, dict):
+        return None
+
+    needed: dict[str, int] = {}
+    for dotted in _CODEX_MCP_TIMEOUT_KEYS:
+        parts = dotted.split(".")
+        if len(parts) != 3:
+            continue
+        server = servers.get(parts[1])
+        if not isinstance(server, dict):
+            continue
+        current = server.get("startup_timeout_sec")
+        if isinstance(current, (int, float)) and int(current) >= _CODEX_MCP_STARTUP_TIMEOUT_SEC:
+            continue
+        needed[dotted] = _CODEX_MCP_STARTUP_TIMEOUT_SEC
+    if not needed:
+        return None
+    labels = ", ".join(sorted(k.split(".")[1] for k in needed))
+    if dry_run:
+        return f"would set Codex MCP startup_timeout_sec ({labels})"
+    agent_config_mod.edit_agent_config("codex", home=home, set_items=needed)
+    return f"set Codex MCP startup_timeout_sec ({labels})"
+
+
 def _run_post_install(command: str) -> None:
     """Run a ``setup.post_install`` shell command (interactive agents only)."""
     import subprocess
@@ -727,11 +830,13 @@ def setup_registry_agent(
 ) -> dict[str, Any]:
     """Write configs, skills, and MCP for one registered agent.
 
-    1. Scaffold the declared config file when missing (never clobber existing).
-    2. Create the agent's skills dir (AGENT_SKILL_DIRS, when declared).
-    3. Re-apply every plugin whose support matrix includes this agent.
-    4. Optionally run ``setup.post_install`` (interactive, opt-in).
-    5. Record the setup stamp (mode=setup:<id>).
+    1. Apply the manifest config bundle when one shares this agent id (real
+       starter templates — must run *before* any empty scaffold).
+    2. Scaffold the declared config file when still missing (never clobber).
+    3. Create the agent's skills dir (AGENT_SKILL_DIRS, when declared).
+    4. Re-apply every plugin whose support matrix includes this agent.
+    5. Optionally run ``setup.post_install`` (interactive, opt-in).
+    6. Record the setup stamp (mode=setup:<id>).
 
     Returns ``{ok, partial, agent, actions, errors}`` (human-readable action
     strings) for JSON output.
@@ -743,37 +848,13 @@ def setup_registry_agent(
     actions: list[str] = []
     errors: list[str] = []
 
-    config = agent.get("config") or {}
-    if config.get("path"):
-        cfg = expand_home(str(config["path"]), home)
-        if cfg.is_file():
-            actions.append(f"config exists ({cfg})")
-        elif dry_run:
-            actions.append(f"would create config ({cfg})")
-        else:
-            cfg.parent.mkdir(parents=True, exist_ok=True)
-            cfg.write_text(_config_scaffold(agent), encoding="utf-8")
-            actions.append(f"created config ({cfg})")
-
     from astroai_lab.agent.agent_targets import AGENT_SKILL_DIRS
-
-    rel = AGENT_SKILL_DIRS.get(agent_id)
-    if rel:
-        skills_dir = home / rel
-        if skills_dir.is_dir():
-            actions.append(f"skills dir present ({skills_dir})")
-        elif dry_run:
-            actions.append(f"would create skills dir ({skills_dir})")
-        else:
-            skills_dir.mkdir(parents=True, exist_ok=True)
-            actions.append(f"created skills dir ({skills_dir})")
-
-    # When a manifest bundle shares this agent id, run it so setup <id> delivers
-    # real MCP/rules/skills (not just an empty stamp). Bundles merge safely.
     from astroai_lab.agent.bundle_path import bundle_root
     from astroai_lab.agent.inventory import list_bundles
     from astroai_lab.agent.setup import run_bundle
 
+    # Bundle first when one exists — otherwise an empty scaffold would block
+    # install_file() from writing the real starter template (new-user footgun).
     if agent_id in list_bundles():
         if dry_run:
             actions.append(f"would apply config bundle ({agent_id})")
@@ -787,6 +868,36 @@ def setup_registry_agent(
                 dry_run=False,
             )
             actions.append(f"applied config bundle ({agent_id})")
+
+    config = agent.get("config") or {}
+    if config.get("path"):
+        cfg = expand_home(str(config["path"]), home)
+        if cfg.is_file():
+            actions.append(f"config exists ({cfg})")
+        elif dry_run:
+            actions.append(f"would create config ({cfg})")
+        else:
+            cfg.parent.mkdir(parents=True, exist_ok=True)
+            cfg.write_text(_config_scaffold(agent), encoding="utf-8")
+            actions.append(f"created config ({cfg})")
+
+    rel = AGENT_SKILL_DIRS.get(agent_id)
+    if rel:
+        skills_dir = home / rel
+        if skills_dir.is_dir():
+            actions.append(f"skills dir present ({skills_dir})")
+        elif dry_run:
+            actions.append(f"would create skills dir ({skills_dir})")
+        else:
+            skills_dir.mkdir(parents=True, exist_ok=True)
+            actions.append(f"created skills dir ({skills_dir})")
+
+    if agent_id == "codex":
+        cfg = expand_home("~/.codex/config.toml", home)
+        if cfg.is_file():
+            patched = _ensure_codex_mcp_timeouts(cfg, home=home, dry_run=dry_run)
+            if patched:
+                actions.append(patched)
 
     from astroai_lab.agent import plugins as agent_plugins
 
@@ -963,6 +1074,12 @@ def fix_registry_agent(
                                 )
                         else:
                             actions.append(f"config healthy ({cfg})")
+                    else:
+                        actions.append(f"config healthy ({cfg})")
+                elif agent_id == "codex":
+                    patched = _ensure_codex_mcp_timeouts(cfg, home=home, dry_run=dry_run)
+                    if patched:
+                        actions.append(patched)
                     else:
                         actions.append(f"config healthy ({cfg})")
                 else:

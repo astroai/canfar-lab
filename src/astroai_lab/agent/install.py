@@ -662,6 +662,58 @@ def _download_public_gh_release(repo: str, asset: str, dest: Path) -> None:
     run(["curl", "-fsSL", "-o", str(dest), url])
 
 
+def _symlink_into_bin(src: Path, name: str) -> None:
+    """Point ``$BIN_DIR/name`` at ``src`` (replace any prior file/symlink)."""
+    if not src.is_file():
+        return
+    dst = _bin_dir() / name
+    _bin_dir().mkdir(parents=True, exist_ok=True)
+    if dst.exists() or dst.is_symlink():
+        dst.unlink()
+    dst.symlink_to(src.resolve())
+    with contextlib.suppress(OSError):
+        src.chmod(src.stat().st_mode | 0o111)
+
+
+def _land_codex_package(package_root: Path, binary: str) -> None:
+    """Install OpenAI's canonical Codex package under scratch ``share/codex``.
+
+    Layout (see openai/codex ``scripts/codex_package``)::
+
+        share/codex/current/
+          codex-package.json
+          bin/codex
+          bin/codex-code-mode-host
+          codex-resources/bwrap
+          codex-path/rg
+
+    Symlinks ``codex``, ``codex-code-mode-host``, and ``bwrap`` into the
+    managed bin dir so sibling host resolution and PATH lookups work even when
+    ``current_exe()`` returns the symlink path (not the package tree).
+    """
+    dest = _managed_share_dir() / "codex" / "current"
+    if dest.exists() or dest.is_symlink():
+        if dest.is_dir() and not dest.is_symlink():
+            shutil.rmtree(dest)
+        else:
+            dest.unlink()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(package_root, dest, symlinks=True)
+
+    entry = dest / "bin" / binary
+    if not entry.is_file():
+        raise LabError(f"Package missing bin/{binary}")
+    _symlink_into_bin(entry, binary)
+
+    host = dest / "bin" / "codex-code-mode-host"
+    if host.is_file():
+        _symlink_into_bin(host, "codex-code-mode-host")
+
+    bwrap = dest / "codex-resources" / "bwrap"
+    if bwrap.is_file():
+        _symlink_into_bin(bwrap, "bwrap")
+
+
 def _gh_release_bin(repo: str, asset: str, binary: str, *, requires_gh_auth: bool = False) -> None:
     _require("curl")
     tmp = Path(os.environ.get("TMPDIR", "").strip() or "/tmp")
@@ -683,28 +735,50 @@ def _gh_release_bin(repo: str, asset: str, binary: str, *, requires_gh_auth: boo
                 f"Could not download {asset} from {repo}.",
                 hint="Check network access, or run: gh auth login (private releases)",
             ) from exc
+    # Extract into a dedicated dir so rglob does not see sibling downloads.
+    extract_root = tmp / f"extract-{asset}"
+    if extract_root.exists():
+        shutil.rmtree(extract_root)
+    extract_root.mkdir(parents=True, exist_ok=True)
     if asset.endswith(".tar.gz"):
         with tarfile.open(archive, "r:gz") as tf:
-            tf.extractall(tmp)
+            try:
+                tf.extractall(extract_root, filter="data")
+            except TypeError:  # pragma: no cover — Python < 3.12
+                tf.extractall(extract_root)
     elif asset.endswith(".zip"):
         with zipfile.ZipFile(archive) as zf:
-            zf.extractall(tmp)
+            zf.extractall(extract_root)
     else:
         raise LabError(f"Unsupported archive: {asset}")
-    found = next(tmp.rglob(binary), None)
+
+    package_json = next(extract_root.rglob("codex-package.json"), None)
+    if package_json is not None:
+        _land_codex_package(package_json.parent, binary)
+        archive.unlink(missing_ok=True)
+        shutil.rmtree(extract_root, ignore_errors=True)
+        return
+
+    found = next(extract_root.rglob(binary), None)
     if found is None:
         # Some releases name the extracted binary after the asset basename
         # (e.g. codex-x86_64-unknown-linux-musl) instead of the bare name.
         stem = asset.removesuffix(".tar.gz").removesuffix(".zip")
-        candidate = tmp / stem
-        if candidate.is_file():
-            found = candidate
+        for candidate in (extract_root / stem, extract_root / binary):
+            if candidate.is_file():
+                found = candidate
+                break
     if found is None:
         raise LabError(f"Binary {binary} not found in {asset}")
-    shutil.copy2(found, _bin_dir() / binary)
+    _bin_dir().mkdir(parents=True, exist_ok=True)
+    dest = _bin_dir() / binary
+    if dest.exists() or dest.is_symlink():
+        dest.unlink()
+    shutil.copy2(found, dest)
     with contextlib.suppress(OSError):
-        (_bin_dir() / binary).chmod((_bin_dir() / binary).stat().st_mode | 0o111)
+        dest.chmod(dest.stat().st_mode | 0o111)
     archive.unlink(missing_ok=True)
+    shutil.rmtree(extract_root, ignore_errors=True)
 
 
 def install_tool(name: str, *, dry_run: bool = False) -> None:

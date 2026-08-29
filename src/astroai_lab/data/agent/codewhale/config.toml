@@ -1,0 +1,12 @@
+# AstroAI starter for CodeWhale (https://github.com/Hmbown/CodeWhale)
+# Config path: ~/.codewhale/config.toml
+#
+# Auth (pick one):
+#   export OPENROUTER_API_KEY=sk-or-v1-…   # shared with other AstroAI agents
+#   codewhale auth set --provider openrouter
+# Then: codewhale
+
+provider = "openrouter"
+
+[providers.openrouter]
+api_key_env = "OPENROUTER_API_KEY"

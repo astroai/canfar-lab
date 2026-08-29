@@ -290,6 +290,75 @@ def test_probe_version_respects_disable_env(monkeypatch: pytest.MonkeyPatch) -> 
     assert probe_version("python3") is None
 
 
+def test_probe_agent_version_uses_registry_args(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from astroai_lab.agent.registry import get_registry_agent, probe_agent_version
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    cli = bin_dir / "freebuff"
+    cli.write_text("#!/bin/sh\necho slowbuff 9.9.9\n", encoding="utf-8")
+    cli.chmod(0o755)
+    monkeypatch.setenv("ASTROAI_LAB_BIN_DIR", str(bin_dir))
+    monkeypatch.delenv("ASTROAI_LAB_PROBE_VERSION", raising=False)
+
+    agent = get_registry_agent("freebuff")
+    assert agent is not None
+    assert probe_agent_version(agent) == "9.9.9"
+
+
+def test_probe_agent_launch_uses_registry_args(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """verify must use the same argv as list (freebuff -v, not --version)."""
+    from astroai_lab.agent.registry import get_registry_agent, probe_agent_launch
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    cli = bin_dir / "freebuff"
+    # Fail if called with --version; succeed with -v.
+    cli.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = "--version" ]; then echo boom; exit 1; fi\n'
+        'if [ "$1" = "-v" ]; then echo freebuff 1.2.3; exit 0; fi\n'
+        "exit 2\n",
+        encoding="utf-8",
+    )
+    cli.chmod(0o755)
+    monkeypatch.setenv("ASTROAI_LAB_BIN_DIR", str(bin_dir))
+    monkeypatch.delenv("ASTROAI_LAB_PROBE_VERSION", raising=False)
+
+    agent = get_registry_agent("freebuff")
+    assert agent is not None
+    assert probe_agent_launch(agent) is None
+
+
+def test_omp_cfg_detects_dot_omp_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from astroai_lab.agent.registry import get_registry_agent, registry_agent_status
+
+    omp = get_registry_agent("omp")
+    assert omp is not None
+    home = tmp_path / "home"
+    omp_root = home / ".omp" / "agent"
+    omp_root.mkdir(parents=True)
+    (omp_root / "config.yml").write_text("model: test\n", encoding="utf-8")
+
+    def _fake_classify(binary: str, *, home=None):
+        return {
+            "binary": binary,
+            "path": "/tmp/omp",
+            "source": "managed",
+            "managed": True,
+            "home_install": False,
+            "home_path": None,
+        }
+
+    monkeypatch.setattr("astroai_lab.agent.install.classify_binary", _fake_classify)
+    status = registry_agent_status(omp, home=home)
+    assert status["config_present"] is True
+
+
 # ---------------------------------------------------------------------------
 # Verify issues (installed-only gating)
 # ---------------------------------------------------------------------------
@@ -440,11 +509,11 @@ def test_install_gh_release_templates_arch(monkeypatch: pytest.MonkeyPatch) -> N
         "install": {
             "method": "gh-release",
             "repo": "openai/codex",
-            "asset": "codex-{arch}-unknown-linux-musl.tar.gz",
+            "asset": "codex-package-{arch}-unknown-linux-musl.tar.gz",
         },
     }
     assert registry_mod._install_gh_release(agent) == "codex"
-    assert seen == [("codex-x86_64-unknown-linux-musl.tar.gz", "codex")]
+    assert seen == [("codex-package-x86_64-unknown-linux-musl.tar.gz", "codex")]
 
 
 def test_install_registry_agent_curl_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -566,6 +635,17 @@ def test_cli_agent_install_multiple_json_dry_run(
     by_tool = {r["tool"]: r for r in data["results"]}
     assert by_tool["kilo"]["ok"] is True
     assert by_tool["not-an-agent"]["ok"] is False
+
+
+def test_cli_agent_install_partial_failure_shows_summary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr("astroai_lab.agent.install.refuse_if_home_owned", lambda *a, **k: None)
+    result = runner.invoke(app, ["--dry-run", "agent", "install", "kilo", "not-an-agent"])
+    assert result.exit_code == 1
+    assert "1/2 install(s) failed" in result.output
+    assert "not-an-agent" in result.output
 
 
 def test_verify_setup_includes_registry_for_installed(
@@ -1055,6 +1135,23 @@ def test_fix_registry_agent_repairs_broken_toml(tmp_path: Path) -> None:
     result = fix_registry_agent("codex", home=home)
     assert any("repaired broken toml config" in a for a in result["actions"])
     ac.validate_config_text("codex", cfg.read_text(), home=home)
+
+
+def test_fix_registry_agent_sets_codex_mcp_timeouts(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    cfg = home / ".codex" / "config.toml"
+    cfg.parent.mkdir(parents=True)
+    cfg.write_text(
+        '[mcp_servers.fetch]\ncommand = "uvx"\nargs = ["mcp-server-fetch"]\nenabled = true\n',
+        encoding="utf-8",
+    )
+    result = fix_registry_agent("codex", home=home)
+    assert any("startup_timeout_sec" in a for a in result["actions"])
+    text = cfg.read_text(encoding="utf-8")
+    assert "startup_timeout_sec = 120" in text
+    # Idempotent once set high enough.
+    result2 = fix_registry_agent("codex", home=home)
+    assert any("config healthy" in a for a in result2["actions"])
 
 
 def test_fix_registry_agent_markdown_read_only(tmp_path: Path) -> None:

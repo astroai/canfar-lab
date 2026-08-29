@@ -1,4 +1,6 @@
 # Codex CLI (openai/codex) — registry entry.
+# Use the package archive (not the bare binary): it includes
+# codex-code-mode-host + bundled bwrap under the canonical layout.
 id: codex
 name: Codex CLI
 homepage: https://github.com/openai/codex
@@ -8,7 +10,7 @@ tags: [agent, cli]
 install:
   method: gh-release
   repo: openai/codex
-  asset: "codex-{arch}-unknown-linux-musl.tar.gz" # {arch} = x86_64 | aarch64
+  asset: "codex-package-{arch}-unknown-linux-musl.tar.gz" # {arch} = x86_64 | aarch64
   requires_gh_auth: false
 config:
   path: "~/.codex/config.toml"
@@ -17,5 +19,8 @@ config:
 verify:
   - "codex --version"
   - "test -f ~/.codex/config.toml"
+  - "command -v codex-code-mode-host"
 plugins: [skill, mcp, config, addon]
-notes: Public GitHub release (no gh login); configured via ~/.codex/config.toml
+notes: >-
+  Public package release (no gh login). Install lands bin/codex next to
+  codex-code-mode-host and puts packaged bwrap on PATH.
