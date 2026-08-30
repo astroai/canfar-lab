@@ -159,7 +159,7 @@ def save_env(name: str, save_dir: Path, source: Path, *, full: bool = False) -> 
             if not src_env.is_dir():
                 raise LabError(
                     f"No {env_dir} directory to pack.",
-                    hint="Run pixi install first.",
+                    hint="Run pixi install or uv sync first.",
                 )
             try:
                 tar_zst(src_env, staging / "env.tar.zst", arcname=env_dir)

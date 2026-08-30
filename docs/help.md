@@ -73,7 +73,7 @@ astroai --install-completion bash
 | Layer | Where | Versioned by |
 |-------|-------|--------------|
 | Platform CLIs | `/opt/astroai/venv/cadc` | Image lock (`astroai --version`) |
-| Your project | `$WORK` pixi env | `pixi.lock` |
+| Your project | `$WORK` pixi/uv env | `pixi.lock` / `uv.lock` |
 
 ```bash
 upgrade-cadc-tools.sh --upgrade astroai-lab

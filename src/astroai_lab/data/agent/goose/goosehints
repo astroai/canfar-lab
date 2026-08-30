@@ -1,6 +1,6 @@
 # AstroAI hints for Goose (project-level: copy to .goosehints in repo root)
 
 Use rg/fd/gh before asking for full file reads. Code lives in $WORK; data + caches live on $SCRATCH.
-Install deps with pixi install (lockfiles in this repo). Commit + git push (or astroai save) before the session ends.
+Install deps with pixi install or uv sync (lockfiles in this repo). Commit + git push (or astroai save) before the session ends.
 Platform CLIs (canfar, cadcget, astroai-lab): /opt/astroai/venv/cadc — upgrade-cadc-tools.sh for in-session bumps.
-For Python: pixi run python … from the project root.
+For Python: pixi run python … or uv run python … from the project root.

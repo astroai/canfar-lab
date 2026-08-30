@@ -68,8 +68,8 @@ flowchart TB
 Images ship `astroai` on PATH (`/opt/astroai/venv/cadc`).
 
 ```bash
-# Images already ship `astroai` on PATH.
-astroai --help
+uv tool install git+https://github.com/astroai/canfar-lab.git
+uv sync --all-extras && uv run astroai --help
 ./scripts/ci.sh
 ```
 

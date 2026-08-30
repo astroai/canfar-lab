@@ -26,11 +26,11 @@ Brief status banner when invoked with no subcommand.
 
 ### `astroai init NAME`
 
-Create a pixi project under the work directory.
+Create a pixi or uv project under the work directory.
 
 ```bash
 astroai init mylab
-astroai init mylab --no-git
+astroai init mylab --uv --no-git
 astroai init mylab --dir ~/src
 ```
 

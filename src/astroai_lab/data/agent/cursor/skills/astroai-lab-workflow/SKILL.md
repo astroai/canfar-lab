@@ -1,7 +1,7 @@
 ---
 name: astroai-lab-workflow
 description: >-
-  AstroAI session workflow: pixi under $WORK, astroai save/resume,
+  AstroAI session workflow: pixi/uv under $WORK, astroai save/resume,
   Ray cluster start/run, agents. Use for new users or "how do I work here".
 ---
 # AstroAI session in a few commands
@@ -27,7 +27,7 @@ Broken agent configs (esp. OpenCode JSON): `astroai agent verify` · `astroai ag
 astroai init mylab                # or astroai clone owner/repo
 astroai clone --from-env ml-base owner/repo   # warm caches from saved stack
 cd "${WORK}/mylab"
-pixi install
+pixi install                     # or uv sync
 pixi run python analysis.py
 astroai save
 
@@ -44,12 +44,12 @@ Global flags (`--json`, `--yes`, `--dry-run`) work **before or after** the subco
 | Path | What |
 |------|------|
 | `${WORK}` | Code + project `.pixi`/`.venv` — ephemeral (on CANFAR: `$SCRATCH/src`, survives container OOM) |
-| `${SCRATCH}` | Data, download caches, runtime installs (`ASTROAI_LAB_BIN_DIR`, pixi roots) |
+| `${SCRATCH}` | Data, download caches, runtime installs (`ASTROAI_LAB_BIN_DIR`, uv/pixi roots) |
 | `/opt/astroai/venv/cadc` | Platform CLIs: `canfar`, `cadcget`, `astroai` — **writable this session** |
 | `/arc/projects/<team>/.local` | Shared team tools (persistent) |
 | `/arc` (`$HOME`) | **Small only** — agent MCP config, gh auth, lockfile saves (`~/.astroai/lab`) |
 
-**Project deps:** use pixi lockfiles under `${WORK}` — that is where versions belong.
+**Project deps:** use pixi/uv lockfiles under `${WORK}` — that is where versions belong.
 **Platform CLIs:** image installs are unpinned; bump in-session with `upgrade-cadc-tools.sh` (lost when the session ends).
 
 ```bash
@@ -58,7 +58,7 @@ upgrade-cadc-tools.sh --upgrade astroai-lab
 astroai status --json
 ```
 
-Avoid pip/pixi/conda/npm **project** installs under `$HOME` — use project envs in `${WORK}` or team paths on `/arc/projects`.
+Avoid pip/uv/pixi/conda/npm **project** installs under `$HOME` — use project envs in `${WORK}` or team paths on `/arc/projects`.
 
 Optional: `${WORK}/.astroai-lab/pythonpath` or `ASTROAI_LAB_PYTHONPATH` for extra import paths.
 
@@ -69,7 +69,7 @@ rg 'pattern' --type py
 fd name
 sg -p 'class $N' -l py          # needs: astroai agent plugins install ast-grep-cli
 pixi run pytest -q
-pixi run python script.py
+uv run python script.py
 peek README.md                  # markdown/text; peek archive.tgz [member]
 ```
 

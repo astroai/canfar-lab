@@ -9,7 +9,7 @@ alwaysApply: true
 - **Data + download caches:** `${SCRATCH:-/scratch}` when mounted — session-private.
 - **Platform Python CLIs:** `/opt/astroai/venv/cadc` (`canfar`, `cadcget`, `astroai`) — user-writable this session via `upgrade-cadc-tools.sh`.
 - **Persistent home:** `/arc` — agent MCP under `~/.cursor`, saves under `~/.astroai/lab`, gh auth.
-- **Project deps:** pixi lockfiles under `${WORK}` — prefer `pixi install`, not ad-hoc image venv edits for app code.
+- **Project deps:** pixi/uv lockfiles under `${WORK}` — prefer `pixi install` / `uv sync`, not ad-hoc image venv edits for app code.
 - **Status:** `astroai status --json` for quotas; `astroai cluster status` for the Ray cluster; `astroai env export` for session paths; `canfar ps` for sessions.
 - **CANFAR platform context:** use `canfar-platform` / `canfar-storage` skills (default on setup) for scratch vs arc vs vault questions.
 
