@@ -30,14 +30,14 @@ plans and consequential decisions; they are not default workflows.
 ## This repo
 
 ```bash
-pixi install    # or uv sync — env lives under $WORK, not $HOME
-pixi run …      # or uv run …
+pixi install    # env lives under $WORK, not $HOME
+pixi run …
 astroai save         # before session ends — code on $WORK is ephemeral
 astroai cluster start
 astroai run train.py --cpus 2
 ```
 
-Pin Python deps in **pixi.toml / uv.lock** here — not in the image platform venv.
+Pin Python deps in **pixi.toml / pixi.lock** here — not in the image platform venv.
 Platform CLIs (`canfar`, `cadcget`, `astroai`) live in `/opt/astroai/venv/cadc`; upgrade this session with `upgrade-cadc-tools.sh` if needed.
 
 Search: `rg`, `fd`, `sg` (ast-grep skill). View files: `peek <path>` or `bat`/`less`.

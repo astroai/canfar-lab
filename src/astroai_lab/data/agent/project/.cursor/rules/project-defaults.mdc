@@ -6,6 +6,6 @@ alwaysApply: true
 # Project context
 
 - Search with `rg`/`fd` before opening files; cap reads on large repos.
-- Run Python via `pixi run` or `uv run` from this directory.
+- Run Python via `pixi run` from this directory.
 - Tests and linters defined in the project must pass before claiming done.
 - Do not commit secrets, `.env`, or large data artifacts.

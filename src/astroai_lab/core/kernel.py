@@ -91,7 +91,7 @@ def register_kernel(project: Path, *, name: str | None = None) -> str:
     require_project(project)
     py = _python_for_project(project)
     if not py.is_file():
-        raise LabError("Project environment not installed.", hint="pixi install  # or uv sync")
+        raise LabError("Project environment not installed.", hint="pixi install")
 
     os.environ.setdefault("JUPYTER_CONFIG_DIR", str(Path.home() / ".jupyter"))
     Path(os.environ["JUPYTER_CONFIG_DIR"]).mkdir(parents=True, exist_ok=True)

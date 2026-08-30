@@ -1,5 +1,5 @@
 ---
-description: Python on CANFAR lab — pixi/uv, typing, correctness
+description: Python on CANFAR lab — pixi, typing, correctness
 globs: "**/*.py"
 alwaysApply: false
 ---
@@ -7,9 +7,8 @@ alwaysApply: false
 # Python
 
 - **pixi project:** `pixi install`, `pixi run …`, `pixi add …` — lock versions in `pixi.lock`.
-- **uv project:** `uv sync`, `uv run …`, `uv add …` — lock versions in `uv.lock`.
 - Do not use bare `python` or ad-hoc `pip install` into `$HOME` when a project manager exists.
-- **Platform CLIs** (`canfar`, `cadcdata`, `astroai`): image venv at `/opt/astroai/venv/cadc`; in-session bump via `upgrade-cadc-tools.sh`, not project pixi/uv.
-- Docs: Context7 MCP or official pixi/uv docs — not invented wrapper commands.
+- **Platform CLIs** (`canfar`, `cadcdata`, `astroai`): image venv at `/opt/astroai/venv/cadc`; in-session bump via `upgrade-cadc-tools.sh`, not project pixi.
+- Docs: Context7 MCP or official pixi docs — not invented wrapper commands.
 - Type hints on public functions; run project linters when present.
 - Jupyter: `astroai kernel register` after env resume when paths change.
