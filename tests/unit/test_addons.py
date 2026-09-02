@@ -97,9 +97,7 @@ def test_add_mcp_snippet_dry_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert "mcp:" in result.detail
 
 
-def test_cli_plugins_list_shows_remaining(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cli_plugins_list_shows_remaining(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     result = runner.invoke(app, ["agent", "plugins", "list"])
     assert result.exit_code == 0

@@ -99,9 +99,7 @@ def reconcile_plugins(home: Path, *, dry_run: bool = False) -> list[dict[str, st
         if not pid or not plugin_installed(plugin, home):
             continue
         if dry_run:
-            results.append(
-                {"target": f"plugin:{pid}", "status": "would_refresh", "detail": kind}
-            )
+            results.append({"target": f"plugin:{pid}", "status": "would_refresh", "detail": kind})
             continue
         updated = update_plugin(pid)
         ok = any(r.status in ("installed", "skipped") for r in updated)
