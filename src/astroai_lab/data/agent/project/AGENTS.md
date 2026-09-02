@@ -21,13 +21,6 @@ Overview / broken configs: `astroai agent list` · `astroai agent verify`
 Plugins (MCP / tools / rules only): `astroai agent plugins list` · `astroai agent plugins install ray-manager-mcp`
 Skills: `npx skills add …` (not managed by AstroAI)
 
-The default agent setup also includes a small evidence-first integrity layer:
-neutral question reframing (`ask-dont-tell`), calibrated assessment
-(`ground-truth`), and the fourteen-point `scientific-integrity` invariant.
-Install the K-Dense scientific and Superpowers coding skills only when the
-work needs them. Invoke `test-drive` and `the-quorum` explicitly for evidence
-plans and consequential decisions; they are not default workflows.
-
 ## This repo
 
 ```bash
