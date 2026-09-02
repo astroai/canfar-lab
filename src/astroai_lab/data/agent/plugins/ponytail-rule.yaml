@@ -1,0 +1,14 @@
+id: ponytail-rule
+kind: rule
+addon: true
+tags:
+- lean
+- review
+summary: Cursor rule for ponytail YAGNI ladder (pair with npx skills add DietrichGebert/ponytail)
+homepage: https://github.com/DietrichGebert/ponytail
+agents:
+- cursor
+install:
+  type: github-rule
+  repo: DietrichGebert/ponytail
+  path: .cursor/rules/ponytail.mdc

@@ -65,6 +65,9 @@ def test_load_registry_includes_migrated_agents() -> None:
     assert codex["install"]["method"] == "gh-release"
     assert codex["install"].get("requires_gh_auth") is False
     assert "{arch}" in codex["install"]["asset"]
+
+
+def test_load_registry_includes_cursor() -> None:
     cursor = get_registry_agent("cursor")
     assert cursor is not None
     assert cursor["binary"] == "agent"
@@ -767,11 +770,11 @@ def test_setup_registry_agent_plugin_errors_mark_failed(
     home.mkdir()
     monkeypatch.setattr(
         "astroai_lab.agent.plugins.apply_agent_plugins",
-        lambda *a, **k: [PluginResult("astroai-ray", "hermes", "failed", "boom")],
+        lambda *a, **k: [PluginResult("ray-manager-mcp", "hermes", "failed", "boom")],
     )
     result = setup_registry_agent("hermes", home=home)
     assert result["ok"] is False
-    assert any("plugin astroai-ray" in e for e in result["errors"])
+    assert any("plugin ray-manager-mcp" in e for e in result["errors"])
 
 
 def test_setup_registry_agent_applies_defaults_only(
@@ -807,7 +810,7 @@ def test_setup_registry_agent_applies_defaults_only(
     assert "polars" not in seen
     assert "librarian" not in seen
     assert "pydantic-skills" not in seen
-    assert "astroai-lab-workflow" in seen or "token-efficient" in seen
+    assert "token-efficient" in seen or "mcp-context7" in seen or "mcp-memory" in seen
     assert any("applied config bundle" in a for a in result["actions"])
 
 

@@ -119,7 +119,7 @@ def test_plugins_list_json() -> None:
     assert result.exit_code == 0
     items = json.loads(result.stdout)
     assert isinstance(items, list)
-    assert any(i.get("id") == "ponytail" for i in items)
+    assert any(i.get("id") == "ponytail-rule" for i in items)
 
 
 def test_plugins_bare_points_at_list() -> None:

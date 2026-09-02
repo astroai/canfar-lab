@@ -1,5 +1,5 @@
 # ast-grep-cli — installs the `sg` binary (not an agent).
-# Skill docs: `astroai agent plugins install ast-grep`
+# Skill docs (optional): npx skills add ast-grep/agent-skill
 id: ast-grep-cli
 kind: tool
 addon: true

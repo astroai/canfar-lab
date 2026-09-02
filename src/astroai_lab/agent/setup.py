@@ -224,22 +224,8 @@ def install_tree(src_dir: Path, dst_dir: Path, *, force: bool, dry_run: bool) ->
 
 
 def install_skills_tree(src_dir: Path, dst_dir: Path, *, force: bool, dry_run: bool) -> int:
-    """Install bundled skill trees and mark them as astroai-managed."""
-    count = install_tree(src_dir, dst_dir, force=force, dry_run=dry_run)
-    from astroai_lab.agent.reconcile import MARKER
-
-    if not dry_run and src_dir.is_dir():
-        for src in src_dir.iterdir():
-            if not src.is_dir():
-                continue
-            marker = dst_dir / src.name / MARKER
-            if not marker.is_file():
-                try:
-                    marker.parent.mkdir(parents=True, exist_ok=True)
-                    marker.write_text("", encoding="utf-8")
-                except OSError:
-                    continue
-    return count
+    """Deprecated no-op: skills are installed via ``npx skills``, not AstroAI."""
+    return 0
 
 
 def merge_mcp_servers(src_json: Path, dst_json: Path, *, force: bool, dry_run: bool) -> None:
@@ -493,13 +479,7 @@ def run_bundle(
             force=force,
             dry_run=dry_run,
         )
-        install_skills_tree(
-            root / "cursor" / "skills",
-            home / ".cursor" / "skills",
-            force=force,
-            dry_run=dry_run,
-        )
-        # Opt-in GitHub skills stay on `astroai agent plugins install`.
+        # Skills: npx skills add astroai/canfar-skills (not managed by AstroAI).
     elif name == "claude":
         merge_claude_json(
             root / "claude" / "mcp.json",
@@ -871,7 +851,7 @@ def agent_setup(
 
 
 def agent_sync(*, dry_run: bool = False) -> None:
-    """Refresh bundled agent MCP, rules, skills, and configs."""
+    """Refresh bundled agent MCP, rules, and configs."""
     from astroai_lab.agent.setup_state import (
         agent_setup_lock,
         record_setup_ok,

@@ -208,7 +208,7 @@ def test_agent_list_overview() -> None:
     plugins = runner.invoke(app, ["agent", "plugins", "list"])
     assert plugins.exit_code == 0
     bout = plugins.stdout + plugins.stderr
-    assert "ponytail" in bout or "Plugins" in bout
+    assert "ray-manager-mcp" in bout or "Plugins" in bout or "token-efficient" in bout
 
 
 def test_agent_setup_unknown_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

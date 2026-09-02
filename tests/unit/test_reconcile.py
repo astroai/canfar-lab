@@ -31,32 +31,33 @@ def _skill(path: Path, name: str, *, marker: bool = False) -> Path:
     return path
 
 
-def test_managed_detection_by_prefix_and_marker(tmp_path: Path) -> None:
-    assert is_managed_skill_dir(_skill(tmp_path / "astroai-old", "astroai-old"))
-    assert is_managed_skill_dir(_skill(tmp_path / "canfar-x", "canfar-x"))
+def test_managed_detection_only_by_marker(tmp_path: Path) -> None:
+    # Prefix alone is no longer enough — npx skills may install canfar-* trees.
+    assert not is_managed_skill_dir(_skill(tmp_path / "astroai-old", "astroai-old"))
+    assert not is_managed_skill_dir(_skill(tmp_path / "canfar-x", "canfar-x"))
     assert is_managed_skill_dir(_skill(tmp_path / "renamed", "totally-new", marker=True))
     user = _skill(tmp_path / "my-own-skill", "my-own-skill")
     assert not is_managed_skill_dir(user)
     assert not is_managed_skill_dir(tmp_path / "does-not-exist")
 
 
-def test_reconcile_removes_obsolete_but_never_user_skills(home: Path) -> None:
+def test_reconcile_removes_legacy_marker_but_never_user_skills(home: Path) -> None:
     skills = home / ".cursor" / "skills"
-    obsolete = _skill(skills / "astroai-ancient", "astroai-ancient")
-    shipped = _skill(skills / "astroai-lab-workflow", "astroai-lab-workflow")
+    legacy = _skill(skills / "astroai-ancient", "astroai-ancient", marker=True)
+    npx_skill = _skill(skills / "astroai-lab-workflow", "astroai-lab-workflow")
     user = _skill(skills / "my-research-hacks", "my-research-hacks")
 
     results = reconcile_skills(home)
 
-    assert not obsolete.exists(), "obsolete managed skill must be removed"
-    assert shipped.exists(), "shipped skill must survive (it refreshes in place)"
+    assert not legacy.exists(), "legacy .astroai-managed skill must be removed"
+    assert npx_skill.exists(), "npx / unmarked skills must survive"
     assert user.exists(), "user skills must never be touched"
     removed = [r for r in results if r["status"] == "removed"]
     assert any("astroai-ancient" in r["target"] for r in removed)
 
 
-def test_drift_issues_reports_obsolete_and_stale_paths(home: Path) -> None:
-    _skill(home / ".cursor" / "skills" / "astroai-ancient", "astroai-ancient")
+def test_drift_issues_reports_legacy_and_stale_paths(home: Path) -> None:
+    _skill(home / ".cursor" / "skills" / "astroai-ancient", "astroai-ancient", marker=True)
     mcp = home / ".cursor" / "mcp.json"
     mcp.parent.mkdir(parents=True, exist_ok=True)
     mcp.write_text(
@@ -103,7 +104,7 @@ def test_reconcile_mcp_paths_rewrites_missing_binary_to_path(
 
 
 def test_dry_run_changes_nothing(home: Path) -> None:
-    _skill(home / ".cursor" / "skills" / "astroai-ancient", "astroai-ancient")
+    _skill(home / ".cursor" / "skills" / "astroai-ancient", "astroai-ancient", marker=True)
 
     results = reconcile_all(home, dry_run=True)
 
@@ -111,8 +112,5 @@ def test_dry_run_changes_nothing(home: Path) -> None:
     assert all(r["status"].startswith("would_") for rows in results.values() for r in rows)
 
 
-def test_packaged_names_include_bundle_and_plugin_skills() -> None:
-    names = packaged_skill_names()
-
-    assert "astroai-lab-workflow" in names  # bundle skill
-    assert "astroai-ray" in names  # bundled plugin skill
+def test_packaged_names_empty() -> None:
+    assert packaged_skill_names() == set()

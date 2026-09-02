@@ -233,7 +233,7 @@ astroai kernel unregister NAME
 
 ### `astroai agent list|install|remove|wipe|setup|config|update|verify|plugins`
 
-AI agent MCP, rules, skills, CLI installation, and plugins.
+AI agent MCP, rules, CLI installation, and plugins (skills via ``npx skills``).
 
 **`agent list` is the single installable set.** Every agent is one YAML file
 under `data/agent/agents/<id>.yaml` (`id`, `name`, `homepage`, `binary`,
@@ -253,8 +253,8 @@ configs stay on `$HOME` (/arc/home). Some ids still install via battle-tested
 | `agent setup [NAME…]` | First-run scaffold for an agent id or setup name; `--all` / `--project` |
 | `agent config ID` | Show/edit an agent's `$HOME` settings file (`--key`, `key=value`, `--unset`) |
 | `agent update [ID]` | Refresh agent configs; with ID refreshes one agent |
-| `agent verify` | Health check + drift report (obsolete managed skills, stale plugins, dead MCP paths); `--fix` repairs configs **and** reconciles skills/plugins/paths with this lab version; `--fix ID` for one agent; `--clean` stale state |
-| `agent plugins …` | list / install / update / remove extras (skills, MCP, rules, tools). `plugins list` is Kind / On / Def / Agents; `--description` for summaries |
+| `agent verify` | Health check + drift report (legacy `.astroai-managed` skills, stale plugins, dead MCP paths); `--fix` repairs configs **and** reconciles legacy skills/plugins/paths; `--fix ID` for one agent; `--clean` stale state |
+| `agent plugins …` | list / install / update / remove MCP, rules, and tools. `plugins list` is Kind / On / Def / Agents; `--description` for summaries |
 
 ```bash
 astroai agent list                 # registered agents
@@ -262,22 +262,22 @@ astroai agent list --description
 astroai agent list --ui            # container endpoints
 astroai --json agent list          # --json is a global flag: BEFORE the subcommand
 astroai agent setup
+npx skills add astroai/canfar-skills   # platform + workflow skills
 astroai agent setup hermes         # per-agent scaffold
 astroai agent setup --all
 astroai agent setup --project ./repo   # per-repo AGENTS.md + .cursor
 astroai agent install kilo
 astroai agent install agy omp pi
-astroai agent plugins install ponytail astroai-ray
+astroai agent plugins install ray-manager-mcp skore-cli
 astroai agent remove kilo          # uninstall (--purge removes ~/.<agent> home dirs)
 astroai agent wipe --dry-run
 astroai agent wipe --yes
 astroai agent plugins list
 astroai agent plugins list --description
 astroai agent plugins list --kind mcp
-astroai agent plugins install astroai-ray
-astroai agent plugins install astroai-ray --agent hermes
-astroai agent plugins remove astroai-ray
 astroai agent plugins install ray-manager-mcp
+astroai agent plugins install ray-manager-mcp --agent hermes
+astroai agent plugins remove ray-manager-mcp
 astroai agent verify
 astroai agent verify --fix         # auto-repair, then re-check
 astroai agent verify --fix hermes  # regenerate/sanitize ONE agent's settings
@@ -292,14 +292,14 @@ astroai agent update hermes
 astroai agent update openclaw --reinstall
 ```
 
-**Agent plugins** (`data/agent/plugins/*.yaml`) are the uniform surface for
-skills / MCP servers / config snippets across *all* installed agents.
-Each plugin declares a support matrix (`agents:`), a `kind`, and how it is
-applied. Generic skills use `agents: [skill-hosts]` (every agent that loads
-SKILL.md); MCP plugins use `agents: [mcp-hosts]`. `plugins install <id>`
-applies to every *installed* agent in the matrix by default; `--agent` scopes
-it. For `kind: mcp` that merge is an `mcpServers` entry with **dynamic URLs
-only** (e.g. `$ASTROAI_RAY_JOBS_ADDRESS`).
+**Agent plugins** (`data/agent/plugins/*.yaml`) configure MCP servers, CLI
+tools, and Cursor rules across *all* installed agents. Skills (SKILL.md)
+install via **`npx skills`** / skills.sh — AstroAI does not manage them.
+Each plugin declares a support matrix (`agents:`), a `kind` (`mcp` / `tool` /
+`rule`), and how it is applied. MCP plugins use `agents: [mcp-hosts]`.
+`plugins install <id>` applies to every *installed* agent in the matrix by
+default; `--agent` scopes it. For `kind: mcp` that merge is an `mcpServers`
+entry with **dynamic URLs only** (e.g. `$ASTROAI_RAY_JOBS_ADDRESS`).
 
 **`ray-manager-mcp`** configures `astroai mcp serve` (cluster plus
 jobs) with `$ASTROAI_RAY_JOBS_ADDRESS` resolved at runtime.

@@ -125,10 +125,6 @@ def verify_setup(home: Path, *, probe_binaries: bool = False) -> list[str]:
         else:
             issues.append("Cursor MCP not configured (~/.cursor/mcp.json)")
 
-        skill = home / ".cursor" / "skills" / "astroai-lab-workflow" / "SKILL.md"
-        if not skill.is_file():
-            issues.append("Cursor astroai-lab-workflow skill missing")
-
     if _agent_installed("claude"):
         claude = home / ".claude.json"
         if claude.is_file():

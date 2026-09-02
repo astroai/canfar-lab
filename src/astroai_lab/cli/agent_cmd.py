@@ -34,7 +34,7 @@ agent_app = typer.Typer(
         "  config        read/write that agent's settings file on $HOME\n"
         "  update        refresh CLI and bundled agent configs\n"
         "  verify        health check (--fix, --clean)\n"
-        "  plugins       extras (Kind/On/Def/Agents; --description)"
+        "  plugins       MCP/rules/tools (Kind/On/Def/Agents; --description)"
     ),
 )
 
@@ -285,7 +285,8 @@ def _print_plugins(
                 # summaries wrap instead of sitting under a 30-char id column.
                 ui.print_hint(f"               {summary}")
     ui.print_hint("")
-    ui.print_hint("  Try:  agent plugins install ponytail")
+    ui.print_hint("  Try:  agent plugins install ray-manager-mcp")
+    ui.print_hint("  Skills:  npx skills add astroai/canfar-skills")
     ui.print_hint("  More:  agent plugins list --description   ·   agent list")
     ui.print_hint("  On: applied to an agent   Def: included in agent setup")
     ui.print_hint(f"  skill-hosts: {','.join(skill)}")
@@ -381,7 +382,7 @@ def agent_setup_cmd(
         typer.Option("--path", help="Project directory for --project (default: cwd)."),
     ] = None,
 ) -> None:
-    """Write MCP, rules, and skills configs (or --project for per-repo scaffold)."""
+    """Write MCP and rules configs (or --project for per-repo scaffold)."""
     opts = get_opts(ctx)
 
     if project:
@@ -561,7 +562,8 @@ def agent_setup_cmd(
     else:
         ui.print_error("Agent setup failed")
     ui.print_hint("  astroai agent install kilo|goose|cline|opencode")
-    ui.print_hint("  astroai agent plugins install ponytail")
+    ui.print_hint("  npx skills add astroai/canfar-skills")
+    ui.print_hint("  astroai agent plugins install ray-manager-mcp")
     if result.exit_code:
         raise typer.Exit(result.exit_code)
 
@@ -581,7 +583,7 @@ def agent_update_cmd(
         typer.Option("--reinstall", help="Force CLI reinstall even when the binary is up to date."),
     ] = False,
 ) -> None:
-    """Refresh agent MCP, rules, and bundled skills."""
+    """Refresh agent MCP, rules, and plugin defaults."""
     if agent:
         _run_registry_agent_update(ctx, agent, reinstall=reinstall)
         return
@@ -953,7 +955,7 @@ def _install_one_agent(tool: str, *, dry_run: bool) -> None:
     else:
         raise LabError(f"Unknown tool: {tool}", hint="astroai agent list")
 
-    # Always seed config/skills after a real install when the tool is registered
+    # Always seed config after a real install when the tool is registered
     # (TOOLS-backed agents like claude/cursor used to skip this).
     if dry_run or agent is None:
         return
@@ -976,7 +978,7 @@ def _post_install_hint(tool: str) -> None:
         return
     cfg = (agent.get("config") or {}).get("path")
     if not cfg:
-        ui.print_hint(f"  astroai agent setup {tool}   # skills / plugins")
+        ui.print_hint(f"  astroai agent setup {tool}   # MCP / plugins")
         return
     path = expand_home(str(cfg), Path.home())
     if path.is_file():
@@ -1249,7 +1251,7 @@ def agent_wipe_cmd(
 # ---------------------------------------------------------------------------
 
 plugins_app = typer.Typer(
-    help="Plugins: skills, MCP, rules, and tools applied onto agents.",
+    help="Plugins: MCP, rules, and tools applied onto agents (skills via npx skills).",
     invoke_without_command=True,
 )
 agent_app.add_typer(plugins_app, name="plugins")
@@ -1267,7 +1269,8 @@ def plugins_root(ctx: typer.Context) -> None:
                 }
             )
             return
-        ui.print_hint("Plugins are extras (skills, MCP, rules, tools) applied onto agents.")
+        ui.print_hint("Plugins are MCP, Cursor rules, and CLI tools applied onto agents.")
+        ui.print_hint("Skills install separately: npx skills add astroai/canfar-skills")
         ui.print_hint("  astroai agent plugins list")
         ui.print_hint("  astroai agent plugins --help")
 
@@ -1280,7 +1283,7 @@ def plugins_list_cmd(
         typer.Option(
             "--kind",
             "-k",
-            help="Filter: skill, bundle, mcp, tool, rule, config, addon.",
+            help="Filter: mcp, tool, rule.",
             autocompletion=_plugin_kind_completer,
         ),
     ] = None,
@@ -1321,8 +1324,8 @@ def plugins_install_cmd(
     """Install plugin(s) on every installed agent that supports them.
 
     Examples:
-      astroai agent plugins install ponytail
-      astroai agent plugins install ponytail astroai-ray
+      astroai agent plugins install ray-manager-mcp
+      astroai agent plugins install skore-cli ponytail-rule
     """
     opts = get_opts(ctx)
     names = list(plugins)

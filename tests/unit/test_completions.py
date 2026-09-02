@@ -126,11 +126,11 @@ def test_plugin_completer_offers_plugin_ids() -> None:
 
     with patch(
         "astroai_lab.cli.agent_cmd.agent_plugins.plugin_ids",
-        return_value=["ponytail", "astroai-ray"],
+        return_value=["ponytail-rule", "ray-manager-mcp"],
     ):
         offered = _plugin_completer(None, "")
-    assert "ponytail" in offered
-    assert "astroai-ray" in offered
+    assert "ponytail-rule" in offered
+    assert "ray-manager-mcp" in offered
 
 
 def test_agent_plugins_install_argument_wired() -> None:
@@ -145,7 +145,8 @@ def test_plugin_kind_completer_offers_kinds() -> None:
     from astroai_lab.cli.agent_cmd import _plugin_kind_completer
 
     offered = set(_plugin_kind_completer(None, ""))
-    assert "skill" in offered
+    assert offered == {"mcp", "tool", "rule"}
+    assert "skill" not in offered
     assert "mcp" in offered
 
 

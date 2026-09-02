@@ -693,7 +693,7 @@ def _remove_registry_method(
                 )
         rm(_npm_prefix() / "bin" / binary, f"binary:{binary}")
 
-    # curl / gh-release / uv-tool installers drop a self-contained binary.
+    # curl / gh-release / uv-tool drop a managed binary.
     rm(_bin_dir() / binary, f"binary:{binary}")
 
     # Config file (registry config.path).

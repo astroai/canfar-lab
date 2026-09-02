@@ -9,16 +9,17 @@ is the Science Platform.
 ## Setup (each developer, once)
 
 ```bash
-astroai agent setup          # on /arc — MCP + skills
-astroai agent install kilo   # or goose, cline, opencode, codex, cursor, …
-astroai agent install cursor # Cursor Agent CLI onto $SCRATCH
+astroai agent setup                    # on /arc — MCP + Cursor rules
+npx skills add astroai/canfar-skills   # platform + workflow skills
+astroai agent install kilo             # or goose, cline, opencode, codex, cursor, …
+astroai agent install cursor           # Cursor Agent CLI onto $SCRATCH
 gh auth login
 ```
 
 Refresh after upgrading lab in-session: `astroai agent update`
 Overview / broken configs: `astroai agent list` · `astroai agent verify`
-Curated lean/science plugins: `astroai agent plugins list` · `astroai agent plugins install ponytail`  
-CANFAR platform skills (plain language): installed by default via `canfar-platform`; update with `astroai agent plugins update canfar-platform`
+Plugins (MCP / tools / rules only): `astroai agent plugins list` · `astroai agent plugins install ray-manager-mcp`
+Skills: `npx skills add …` (not managed by AstroAI)
 
 The default agent setup also includes a small evidence-first integrity layer:
 neutral question reframing (`ask-dont-tell`), calibrated assessment
@@ -40,7 +41,7 @@ astroai run train.py --cpus 2
 Pin Python deps in **pixi.toml / uv.lock** here — not in the image platform venv.
 Platform CLIs (`canfar`, `cadcget`, `astroai`) live in `/opt/astroai/venv/cadc`; upgrade this session with `upgrade-cadc-tools.sh` if needed.
 
-Search: `rg`, `fd`, `sg` (ast-grep skill). View files: `peek <path>` or `bat`/`less`.
+Search: `rg`, `fd`, `sg` (`astroai agent plugins install ast-grep-cli`). View files: `peek <path>` or `bat`/`less`.
 Help: `astroai help`, `astroai cluster status`, `astroai status --json`.
 
 In webterm, prefer `peek` when pointing the user at generated plans, logs, or archives.

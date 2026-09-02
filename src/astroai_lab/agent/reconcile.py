@@ -1,18 +1,15 @@
 """Reconcile installed agent state with what this lab version ships.
 
-``astroai agent verify --fix`` runs this after the plain repairs. Three
-conservative passes, each reporting every change:
+``astroai agent verify --fix`` runs this after the plain repairs.
 
-skills  Skill trees under ``AGENT_SKILL_DIRS`` that this package no longer
-        ships are removed; shipped skills are refreshed in place. A tree
-        counts as *managed* only when astroai installed it: it carries a
-        ``.astroai-managed`` marker or its SKILL.md name uses the lab's
-        ``astroai-`` / ``canfar-`` prefixes. Anything else is user content
-        and is never touched.
+skills  Legacy cleanup only: skill trees that still carry an
+        ``.astroai-managed`` marker (from when AstroAI installed skills)
+        are removed. Skills are owned by ``npx skills`` / skills.sh now;
+        AstroAI never refreshes or copies SKILL.md trees.
 
-plugins Bundled skill plugins installed for managed agents are refreshed
-        through the normal plugin installer, so edits to the packaged
-        skill reach already-installed homes.
+plugins Force-refresh installed mcp / rule plugins so homes match this lab
+        version's catalog. CLI ``tool`` plugins are never re-installed here
+        (that would re-download binaries on every verify --fix).
 
 paths   MCP server entries whose command points at a file that no longer
         exists are re-pointed at the same binary name found on PATH.
@@ -27,71 +24,21 @@ from pathlib import Path
 from typing import Any
 
 MARKER = ".astroai-managed"
-_MANAGED_PREFIXES = ("astroai-", "canfar-")
 
 
-# ---------------------------------------------------------------------------
-# Managed-skill detection
-# ---------------------------------------------------------------------------
+def is_legacy_managed_skill_dir(path: Path) -> bool:
+    """True when a prior AstroAI install left an ``.astroai-managed`` marker."""
+    return path.is_dir() and (path / MARKER).exists()
 
 
-def _front_matter_name(skill_md: Path) -> str | None:
-    """Name from a SKILL.md YAML front matter block (``---`` fenced)."""
-    try:
-        text = skill_md.read_text(encoding="utf-8")
-    except OSError:
-        return None
-    if not text.startswith("---"):
-        return None
-    end = text.find("\n---", 3)
-    if end < 0:
-        return None
-    for line in text[3:end].splitlines():
-        stripped = line.strip()
-        if stripped.startswith("name:"):
-            return stripped.split(":", 1)[1].strip().strip("\"'")
-    return None
-
-
+# Back-compat alias for tests / callers that still import the old name.
 def is_managed_skill_dir(path: Path) -> bool:
-    """True when astroai installed this skill tree (marker or known prefix)."""
-    if not path.is_dir():
-        return False
-    if (path / MARKER).exists():
-        return True
-    name = _front_matter_name(path / "SKILL.md")
-    return bool(name and name.startswith(_MANAGED_PREFIXES))
+    return is_legacy_managed_skill_dir(path)
 
 
 def packaged_skill_names(root: Path | None = None) -> set[str]:
-    """Skill dir names this lab ships: bundle skills + bundled plugin skills."""
-    from pathlib import PurePosixPath
-
-    from astroai_lab.agent.bundle_path import bundle_root
-    from astroai_lab.agent.plugins import load_plugins
-
-    root = root or bundle_root()
-    names: set[str] = set()
-    bundle_skills = root / "cursor" / "skills"
-    if bundle_skills.is_dir():
-        names.update(p.name for p in bundle_skills.iterdir() if p.is_dir())
-    for plugin in load_plugins(root=root):
-        install = plugin.get("install") or {}
-        # kind=skill plugins install as <id>; transports may use the id or a
-        # per-skill basename — collect every name we could ever have written.
-        names.add(str(plugin.get("id") or ""))
-        for rel in install.get("skills") or []:
-            names.add(PurePosixPath(str(rel)).name)
-        for name in install.get("bundled_skills") or []:
-            names.add(str(name))
-        path = install.get("path")
-        if path:
-            names.add(PurePosixPath(str(path)).name)
-        source = str(install.get("source") or "")
-        if source and "/" not in source:
-            names.add(source)
-    names.discard("")
-    return names
+    """Empty: AstroAI no longer ships skill trees (use ``npx skills``)."""
+    return set()
 
 
 # ---------------------------------------------------------------------------
@@ -100,56 +47,44 @@ def packaged_skill_names(root: Path | None = None) -> set[str]:
 
 
 def reconcile_skills(home: Path, *, dry_run: bool = False) -> list[dict[str, str]]:
-    """Remove obsolete managed skill trees; refresh shipped ones."""
+    """Remove skill trees left by old AstroAI skill installs (``.astroai-managed``)."""
     from astroai_lab.agent.agent_targets import AGENT_SKILL_DIRS
 
-    canonical = packaged_skill_names()
     results: list[dict[str, str]] = []
     for agent, rel in sorted(AGENT_SKILL_DIRS.items()):
         skills_dir = home / rel
         if not skills_dir.is_dir():
             continue
         for entry in sorted(skills_dir.iterdir()):
-            if not entry.is_dir() or not is_managed_skill_dir(entry):
-                continue
-            if entry.name in canonical:
+            if not is_legacy_managed_skill_dir(entry):
                 continue
             if dry_run:
                 results.append(
                     {
                         "target": f"{agent}:{entry.name}",
                         "status": "would_remove",
-                        "detail": str(entry),
+                        "detail": f"legacy {MARKER} at {entry}",
                     }
                 )
                 continue
             shutil.rmtree(entry, ignore_errors=True)
             results.append(
-                {"target": f"{agent}:{entry.name}", "status": "removed", "detail": str(entry)}
+                {
+                    "target": f"{agent}:{entry.name}",
+                    "status": "removed",
+                    "detail": f"legacy {MARKER} cleared",
+                }
             )
-    # Refresh shipped bundle skills (cursor is the only bundle shipping skills).
-    from astroai_lab.agent.bundle_path import bundle_root
-    from astroai_lab.agent.setup import install_skills_tree
-
-    root = bundle_root()
-    installed = install_skills_tree(
-        root / "cursor" / "skills", home / ".cursor" / "skills", force=True, dry_run=dry_run
-    )
-    if installed:
-        results.append(
-            {
-                "target": "cursor:bundled-skills",
-                "status": "refreshed" if not dry_run else "would_refresh",
-                "detail": f"{installed} file(s)",
-            }
-        )
     return results
 
 
 def reconcile_plugins(home: Path, *, dry_run: bool = False) -> list[dict[str, str]]:
-    """Refresh installed bundled skill plugins so homes match this version."""
+    """Refresh installed mcp / rule plugins so homes match this version.
+
+    Skips ``kind: tool`` — those install network CLIs; re-running them on
+    every ``verify --fix`` is wasteful and surprising.
+    """
     from astroai_lab.agent.plugins import (
-        bundled_skill_src,
         load_plugins,
         plugin_installed,
         update_plugin,
@@ -157,25 +92,19 @@ def reconcile_plugins(home: Path, *, dry_run: bool = False) -> list[dict[str, st
 
     results: list[dict[str, str]] = []
     for plugin in load_plugins():
-        if plugin.get("kind") != "skill":
+        kind = plugin.get("kind")
+        if kind not in ("mcp", "rule"):
             continue
         pid = str(plugin.get("id") or "")
         if not pid or not plugin_installed(plugin, home):
             continue
-        try:
-            src = bundled_skill_src(str((plugin.get("install") or {}).get("source")))
-        except Exception:  # noqa: BLE001 — a broken plugin must not break verify
-            continue
-        dst_dirs = _installed_plugin_dirs(plugin, home)
-        if not any(_tree_differs(src, dst) for dst in dst_dirs):
-            continue
         if dry_run:
             results.append(
-                {"target": f"plugin:{pid}", "status": "would_refresh", "detail": "stale"}
+                {"target": f"plugin:{pid}", "status": "would_refresh", "detail": kind}
             )
             continue
         updated = update_plugin(pid)
-        ok = any(r.status == "installed" for r in updated)
+        ok = any(r.status in ("installed", "skipped") for r in updated)
         results.append(
             {
                 "target": f"plugin:{pid}",
@@ -184,30 +113,6 @@ def reconcile_plugins(home: Path, *, dry_run: bool = False) -> list[dict[str, st
             }
         )
     return results
-
-
-def _installed_plugin_dirs(plugin: dict[str, Any], home: Path) -> list[Path]:
-    from astroai_lab.agent.plugins import _skill_targets
-
-    return [t for t in _skill_targets(plugin, home).values() if (t / "SKILL.md").is_file()]
-
-
-def _tree_differs(src: Path, dst: Path) -> bool:
-    """True when any packaged file differs from (or is missing in) the copy."""
-    if not src.is_dir():
-        return False
-    for src_file in src.rglob("*"):
-        if not src_file.is_file():
-            continue
-        dst_file = dst / src_file.relative_to(src)
-        if not dst_file.is_file():
-            return True
-        try:
-            if src_file.read_bytes() != dst_file.read_bytes():
-                return True
-        except OSError:
-            return True
-    return False
 
 
 def reconcile_mcp_paths(home: Path, *, dry_run: bool = False) -> list[dict[str, str]]:
@@ -318,14 +223,16 @@ def drift_issues(home: Path | None = None) -> list[str]:
 
     home = home or Path.home()
     issues: list[str] = []
-    canonical = packaged_skill_names()
     for agent, rel in sorted(AGENT_SKILL_DIRS.items()):
         skills_dir = home / rel
         if not skills_dir.is_dir():
             continue
         for entry in sorted(skills_dir.iterdir()):
-            if entry.is_dir() and is_managed_skill_dir(entry) and entry.name not in canonical:
-                issues.append(f"obsolete skill {agent}:{entry.name} — not in this lab version")
+            if is_legacy_managed_skill_dir(entry):
+                issues.append(
+                    f"legacy AstroAI-managed skill {agent}:{entry.name} — "
+                    f"remove with verify --fix (skills now via npx skills)"
+                )
     for row in reconcile_mcp_paths(home, dry_run=True):
         issues.append(f"stale MCP path {row['target']} — {row['detail']}")
     return issues

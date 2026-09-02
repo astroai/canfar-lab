@@ -95,7 +95,7 @@ def test_cli_agent_plugins_list() -> None:
     assert result.exit_code == 0
     data = json.loads(result.stdout)
     assert isinstance(data, list)
-    assert any(row.get("id") == "ponytail" for row in data)
+    assert any(row.get("id") == "ponytail-rule" for row in data)
 
     res_kind = runner.invoke(app, ["agent", "plugins", "list", "--kind", "skill"])
     assert res_kind.exit_code == 0

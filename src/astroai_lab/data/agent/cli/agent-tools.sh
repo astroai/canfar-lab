@@ -8,11 +8,10 @@
 #
 # Platform CLI upgrade (this session):  upgrade-cadc-tools.sh --upgrade astroai-lab
 # Agent overview:                       astroai agent list
-# Plugins (skills/MCP/rules/tools):     astroai agent plugins list
-# Plugins (e.g. ponytail):              astroai agent plugins install ponytail
+# Plugins (MCP/rules/tools):            astroai agent plugins list
+# Plugins (e.g. ray MCP):               astroai agent plugins install ray-manager-mcp
+# Skills (SKILL.md packs):              npx skills add astroai/canfar-skills
 # Agent configs refresh:                astroai agent update
 # Config syntax check / repair:         astroai agent verify · agent verify --fix
 #
-# Default agent setup:  astroai agent setup cursor  (default plugins only)
-# Opt-in skills:        astroai agent plugins install polars
-# Bulk via pixi:        pixi global install pixi-skills && pixi-skills manage --backend cursor
+# Default agent setup:  astroai agent setup cursor  (default MCP + rules only)

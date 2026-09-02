@@ -206,7 +206,8 @@ astroai agent list
 astroai agent install kilo
 astroai agent setup hermes
 astroai agent setup --all
-astroai agent plugins install ponytail
+npx skills add astroai/canfar-skills
+astroai agent plugins install ray-manager-mcp
 astroai agent update
 astroai agent verify --fix
 ```

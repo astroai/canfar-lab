@@ -1,4 +1,4 @@
-"""GitHub sparse-clone cache used by plugin github-skill / github-bundle installs."""
+"""GitHub sparse-clone cache used by plugin github-rule installs."""
 
 from __future__ import annotations
 

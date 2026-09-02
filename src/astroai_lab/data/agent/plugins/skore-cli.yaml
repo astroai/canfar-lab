@@ -1,5 +1,5 @@
 # skore-cli — installs the `skore` binary (skills catalog + Skore Hub agent).
-# Pair with: astroai agent plugins install probabl-skills
+# Pair with: npx skills add probabl-ai/skills
 id: skore-cli
 kind: tool
 addon: true

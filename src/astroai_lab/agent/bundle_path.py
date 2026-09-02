@@ -17,7 +17,11 @@ def bundle_root() -> Path:
 
 
 def bundled_skill_src(name: str) -> Path:
-    """Bundled SKILL.md tree: ``skills/<name>`` or ``cursor/skills/<name>``."""
+    """Legacy lookup for bundled SKILL.md trees (no longer shipped by AstroAI).
+
+    Skills install via ``npx skills``. Kept for one-shot reconcile cleanup of
+    old ``.astroai-managed`` trees that referenced package paths.
+    """
     root = bundle_root()
     for rel in (Path("skills") / name, Path("cursor") / "skills" / name):
         src = root / rel
