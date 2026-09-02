@@ -141,7 +141,10 @@ def test_agent_plugins_and_list_json() -> None:
 
 
 def test_agent_plugins_install_json_dry_run() -> None:
-    result = runner.invoke(app, ["--json", "--dry-run", "agent", "plugins", "install", "ray-manager-mcp"])
+    result = runner.invoke(
+        app,
+        ["--json", "--dry-run", "agent", "plugins", "install", "ray-manager-mcp"],
+    )
     assert result.exit_code in (0, 1, 2)
     if result.stdout.strip().startswith("{") or result.stdout.strip().startswith("["):
         pass
