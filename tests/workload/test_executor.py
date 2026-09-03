@@ -74,6 +74,7 @@ def test_resolve_jobs_address_discovers_live_manager(monkeypatch) -> None:
     )
     assert resolve_jobs_address() == "https://canfar.net/session/contrib/live/dashboard"
 
+
 def test_ray_executor_adapts_run_spec_without_managing_cluster() -> None:
     client = FakeRayClient()
     executor = RayExecutor(client=client)

@@ -106,9 +106,7 @@ def test_resolve_dashboard_url_live_beats_persist(
     assert resolve_dashboard_url() == "https://canfar.net/session/contrib/live/dashboard"
 
 
-def test_live_manager_connect_persists_url(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_live_manager_connect_persists_url(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from astroai_workload.dashboard import _live_manager_connect
 
     monkeypatch.setenv("HOME", str(tmp_path))

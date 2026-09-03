@@ -118,9 +118,7 @@ def test_env_export_discovers_live_manager(tmp_path, monkeypatch) -> None:
     result = runner.invoke(app, ["env", "export", "--no-ensure", "--json"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
-    assert data["ASTROAI_RAY_JOBS_ADDRESS"] == (
-        "https://canfar.net/session/contrib/live/dashboard"
-    )
+    assert data["ASTROAI_RAY_JOBS_ADDRESS"] == ("https://canfar.net/session/contrib/live/dashboard")
 
 
 def test_env_export_without_ray_state_has_no_ray_address(tmp_path, monkeypatch) -> None:
