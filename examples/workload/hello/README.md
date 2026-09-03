@@ -7,7 +7,7 @@ Check that `astroai run` can start a program on a live cluster.
 
 ```bash
 astroai cluster start
-export ASTROAI_RAY_JOBS_ADDRESS=…   # printed by start; skip inside the manager
+# ASTROAI_RAY_JOBS_ADDRESS is discovered automatically when a manager is Running
 astroai run job.py --cpus 1
 ```
 

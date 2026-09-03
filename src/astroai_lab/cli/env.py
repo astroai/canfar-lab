@@ -20,24 +20,21 @@ env_app = typer.Typer(help="Session environment export.")
 
 
 def _ray_exports() -> dict[str, str]:
-    """Best-effort Ray cluster address from local state (empty when none).
+    """Best-effort Ray Jobs address for the shell (empty when none).
 
-    Deliberately local-only — no CANFAR API calls, so `eval "$(astroai env
-    export)"` stays instant in every shell hook. Reads the persisted
-    ``connect-url`` written by `astroai cluster start`.
+    Same discovery as jobs/dashboard: env, live ray-manager (``canfar ps``),
+    then persisted ``connect-url``. Profile runs this once at login.
     """
+    # ponytail: one canfar listing at profile; persist caches for later
     try:
-        from astroai_workload.dashboard import (
-            jobs_url_from_connect,
-            read_persisted_connect_url,
-        )
+        from astroai_workload.dashboard import resolve_dashboard_url
 
-        persisted = read_persisted_connect_url()
+        url = resolve_dashboard_url()
     except Exception:  # noqa: BLE001 — env export must never fail on Ray state
         return {}
-    if not persisted:
+    if not url:
         return {}
-    return {"ASTROAI_RAY_JOBS_ADDRESS": jobs_url_from_connect(persisted)}
+    return {"ASTROAI_RAY_JOBS_ADDRESS": url}
 
 
 @env_app.command("export")

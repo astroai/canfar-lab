@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import shlex
 import time
 import uuid
@@ -15,10 +14,11 @@ from .models import DataProductRef, ResourceRequest, RunSpec, RunStatus
 _DEFAULT_JOBS_ADDRESS = "http://127.0.0.1:8265"
 _ADDRESS_HINT = (
     "Cannot reach the Ray cluster. Start a ray-manager from the AstroAI hub "
-    "(Start batch compute) or the portal, then run "
-    "`astroai cluster start` and export the printed "
-    "ASTROAI_RAY_JOBS_ADDRESS. Inside the manager session the address is "
-    "already http://127.0.0.1:8265. Do not invent hostnames like ray-manager:8265."
+    "(Start batch compute) or via `astroai cluster start`, wait until it is "
+    "Running, then retry. Address discovery is automatic "
+    "(ASTROAI_RAY_JOBS_ADDRESS / live manager / persisted connect URL); "
+    "inside the manager session localhost:8265 is used. "
+    "Do not invent hostnames like ray-manager:8265."
 )
 _RAY_MISSING_HINT = (
     "Ray is not installed in this Python. Run inside a ray-manager / ray-worker "
@@ -37,14 +37,17 @@ def _job_submission_client_class() -> type[Any]:
 
 
 def resolve_jobs_address(address: str | None = None) -> str:
-    """Resolve the Ray Jobs / Dashboard URL without guessing cluster DNS."""
+    """Resolve the Ray Jobs / Dashboard URL without guessing cluster DNS.
 
-    if address and address.strip():
-        return address.strip()
-    for key in ("ASTROAI_RAY_JOBS_ADDRESS", "RAY_DASHBOARD_URL"):
-        value = os.environ.get(key, "").strip()
-        if value:
-            return value
+    Same discovery as :func:`astroai_workload.dashboard.resolve_dashboard_url`
+    (explicit → env → live ray-manager → persisted connect URL), then
+    localhost:8265 for the manager session itself.
+    """
+    from .dashboard import resolve_dashboard_url
+
+    discovered = resolve_dashboard_url(address)
+    if discovered:
+        return discovered
     return _DEFAULT_JOBS_ADDRESS
 
 
@@ -52,8 +55,8 @@ class RayExecutor:
     """Submit driver commands through the Ray Jobs API.
 
     Does not start workers. Use ``astroai cluster start`` for that.
-    With no ``address``, uses ``ASTROAI_RAY_JOBS_ADDRESS`` / ``RAY_DASHBOARD_URL``,
-    else localhost:8265 (correct inside the manager session).
+    With no ``address``, discovers the manager (env / live ``canfar ps`` /
+    persisted connect URL), else localhost:8265 inside the manager session.
     """
 
     def __init__(self, address: str | None = None, *, client: Any | None = None) -> None:

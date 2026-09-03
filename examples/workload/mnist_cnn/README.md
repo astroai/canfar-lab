@@ -6,7 +6,7 @@ Train a tiny CNN with `astroai run` on a CANFAR `ray-manager` cluster.
 2. Then the job:
 
 ```bash
-export ASTROAI_RAY_JOBS_ADDRESS=…   # skip inside the manager session
+# address discovery is automatic when a manager is Running
 cd examples/workload/mnist_cnn
 pip install torch torchvision       # in the job cwd / project, not a CLI extra
 astroai run train.py --epochs 1 --ckpt /arc/home/$USER/mnist.pt

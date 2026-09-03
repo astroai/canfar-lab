@@ -54,9 +54,10 @@ astroai clone owner/repo --dir /arc/projects/mygroup
 
 ### `astroai run SCRIPT`
 
-Run a Python script on the Ray cluster and wait until it finishes. Needs
-`ASTROAI_RAY_JOBS_ADDRESS` (printed by `cluster start`; already set inside
-the manager). Do not use `ray job submit`.
+Run a Python script on the Ray cluster and wait until it finishes. Discovers
+the Running ray-manager automatically (or uses `ASTROAI_RAY_JOBS_ADDRESS` /
+`--address` if set). Inside the manager, localhost is the default. Do not use
+`ray job submit`.
 
 ```bash
 astroai run train.py --cpus 2
