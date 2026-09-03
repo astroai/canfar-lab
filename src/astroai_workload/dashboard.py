@@ -18,6 +18,7 @@ Requires the canfar client (no Ray).
 
 from __future__ import annotations
 
+import contextlib
 import os
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -101,10 +102,8 @@ def _live_manager_connect() -> tuple[str | None, bool]:
         connect = str(row.get("connectURL") or row.get("connectUrl") or "").strip()
         if connect:
             sid = str(row.get("id") or row.get("sessionId") or "discovered").strip()
-            try:
+            with contextlib.suppress(Exception):
                 persist_connect_url(f"mgr-{sid}", connect)
-            except Exception:  # noqa: BLE001 — cache is best-effort
-                pass
         return (connect or None), True
     except Exception:  # noqa: BLE001 — discovery must never raise to callers
         return None, False
