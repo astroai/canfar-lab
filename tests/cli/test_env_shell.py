@@ -84,9 +84,15 @@ def test_env_install_shell_removed(tmp_path: Path) -> None:
 
 
 def test_env_export_includes_persisted_ray_address(tmp_path, monkeypatch) -> None:
-    """A persisted connect-url shows up as ASTROAI_RAY_JOBS_ADDRESS (local read)."""
+    """A persisted connect-url shows up as ASTROAI_RAY_JOBS_ADDRESS."""
     monkeypatch.setenv("WORK", str(tmp_path))
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("ASTROAI_RAY_JOBS_ADDRESS", raising=False)
+    monkeypatch.delenv("RAY_DASHBOARD_URL", raising=False)
+    monkeypatch.setattr(
+        "astroai_workload.dashboard._live_manager_connect",
+        lambda: (None, False),
+    )
     url = tmp_path / ".astroai" / "ray" / "clusters" / "default" / "connect-url"
     url.parent.mkdir(parents=True)
     url.write_text("https://mgr.example/", encoding="utf-8")
@@ -99,9 +105,33 @@ def test_env_export_includes_persisted_ray_address(tmp_path, monkeypatch) -> Non
     assert data["ASTROAI_RAY_JOBS_ADDRESS"] == "https://mgr.example/dashboard"
 
 
+def test_env_export_discovers_live_manager(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("WORK", str(tmp_path))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("ASTROAI_RAY_JOBS_ADDRESS", raising=False)
+    monkeypatch.delenv("RAY_DASHBOARD_URL", raising=False)
+    monkeypatch.setattr(
+        "astroai_workload.dashboard._live_manager_connect",
+        lambda: ("https://canfar.net/session/contrib/live", True),
+    )
+    runner = CliRunner()
+    result = runner.invoke(app, ["env", "export", "--no-ensure", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.stdout)
+    assert data["ASTROAI_RAY_JOBS_ADDRESS"] == (
+        "https://canfar.net/session/contrib/live/dashboard"
+    )
+
+
 def test_env_export_without_ray_state_has_no_ray_address(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("WORK", str(tmp_path))
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("ASTROAI_RAY_JOBS_ADDRESS", raising=False)
+    monkeypatch.delenv("RAY_DASHBOARD_URL", raising=False)
+    monkeypatch.setattr(
+        "astroai_workload.dashboard._live_manager_connect",
+        lambda: (None, False),
+    )
     runner = CliRunner()
     result = runner.invoke(app, ["env", "export", "--no-ensure", "--json"])
     assert result.exit_code == 0

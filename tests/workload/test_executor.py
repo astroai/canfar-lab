@@ -51,11 +51,28 @@ class FakeRayClient:
 def test_resolve_jobs_address_prefers_env(monkeypatch) -> None:
     monkeypatch.delenv("ASTROAI_RAY_JOBS_ADDRESS", raising=False)
     monkeypatch.delenv("RAY_DASHBOARD_URL", raising=False)
+    monkeypatch.setattr(
+        "astroai_workload.dashboard._live_manager_connect",
+        lambda: (None, False),
+    )
+    monkeypatch.setattr(
+        "astroai_workload.dashboard.read_persisted_connect_url",
+        lambda: None,
+    )
     assert resolve_jobs_address() == "http://127.0.0.1:8265"
     monkeypatch.setenv("ASTROAI_RAY_JOBS_ADDRESS", "http://127.0.0.1:9999")
     assert resolve_jobs_address() == "http://127.0.0.1:9999"
     assert resolve_jobs_address("http://explicit:8265") == "http://explicit:8265"
 
+
+def test_resolve_jobs_address_discovers_live_manager(monkeypatch) -> None:
+    monkeypatch.delenv("ASTROAI_RAY_JOBS_ADDRESS", raising=False)
+    monkeypatch.delenv("RAY_DASHBOARD_URL", raising=False)
+    monkeypatch.setattr(
+        "astroai_workload.dashboard._live_manager_connect",
+        lambda: ("https://canfar.net/session/contrib/live", True),
+    )
+    assert resolve_jobs_address() == "https://canfar.net/session/contrib/live/dashboard"
 
 def test_ray_executor_adapts_run_spec_without_managing_cluster() -> None:
     client = FakeRayClient()

@@ -127,11 +127,13 @@ AstroAI hub **Start batch compute**.
 
 ```bash
 astroai cluster start                # autoscaling head; Ray adds workers on demand
-export ASTROAI_RAY_JOBS_ADDRESS=…    # printed by start; skip inside the manager
-astroai run train.py --cpus 2        # --cpus is what makes a worker appear
+astroai run train.py --cpus 2        # discovers the manager; --cpus spins a worker
 astroai cluster status
 ```
 
+Optional: `export ASTROAI_RAY_JOBS_ADDRESS=…` overrides discovery (printed by
+`cluster start`; unnecessary in other sessions when a manager is Running).
+Inside the manager session the default is localhost.
 Size the ceiling with `--min-workers` / `--max-workers` / `--cores` / `--ram`
 / `--gpus`. `astroai status` is this session's quota, not the cluster.
 

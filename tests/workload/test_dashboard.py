@@ -106,6 +106,34 @@ def test_resolve_dashboard_url_live_beats_persist(
     assert resolve_dashboard_url() == "https://canfar.net/session/contrib/live/dashboard"
 
 
+def test_live_manager_connect_persists_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from astroai_workload.dashboard import _live_manager_connect
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    class _Ops:
+        def auth_status(self):
+            return type("A", (), {"authenticated": True})()
+
+        def find_manager(self):
+            return {
+                "id": "sess-1",
+                "connectURL": "https://canfar.net/session/contrib/live",
+                "status": "Running",
+            }
+
+    monkeypatch.setattr(
+        "astroai_workload.canfar_ops.CanfarOps",
+        lambda: _Ops(),
+    )
+    url, visible = _live_manager_connect()
+    assert visible is True
+    assert url == "https://canfar.net/session/contrib/live"
+    assert read_persisted_connect_url() == "https://canfar.net/session/contrib/live/"
+
+
 def test_resolve_dashboard_url_pending_manager_not_stale_persist(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

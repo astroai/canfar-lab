@@ -57,7 +57,8 @@ def resolve_dashboard_url(address: str | None = None) -> str | None:
     Priority:
       1. Explicit ``address`` or ``ASTROAI_RAY_JOBS_ADDRESS`` /
          ``RAY_DASHBOARD_URL`` (set inside a ray-manager session).
-      2. Live Running/Pending ray-manager with a connect URL.
+      2. Live Running/Pending ray-manager with a connect URL (also
+         best-effort persists the URL under ``~/.astroai/ray/clusters/``).
       3. Live manager still Pending (no connect URL yet) → ``None`` so callers
          poll instead of using a stale persisted URL from a previous manager.
       4. Persisted connect URL under ``~/.astroai/ray/clusters/*/connect-url``.
@@ -83,7 +84,11 @@ def resolve_dashboard_url(address: str | None = None) -> str | None:
 
 
 def _live_manager_connect() -> tuple[str | None, bool]:
-    """Return ``(connect_url, manager_visible)`` from CANFAR session listing."""
+    """Return ``(connect_url, manager_visible)`` from CANFAR session listing.
+
+    When a Running manager has a connect URL, best-effort persist it so
+    ``env export`` and later resolution work without another ``canfar ps``.
+    """
     try:
         from astroai_workload.canfar_ops import CanfarOps
 
@@ -94,6 +99,12 @@ def _live_manager_connect() -> tuple[str | None, bool]:
         if not row:
             return None, False
         connect = str(row.get("connectURL") or row.get("connectUrl") or "").strip()
+        if connect:
+            sid = str(row.get("id") or row.get("sessionId") or "discovered").strip()
+            try:
+                persist_connect_url(f"mgr-{sid}", connect)
+            except Exception:  # noqa: BLE001 — cache is best-effort
+                pass
         return (connect or None), True
     except Exception:  # noqa: BLE001 — discovery must never raise to callers
         return None, False
