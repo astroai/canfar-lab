@@ -616,9 +616,7 @@ def remove_registry_agent(
         for home_bin in home_bin_candidates(binary, home=home):
             result = _remove_file(home_bin, f"home-binary:{binary}", dry_run=dry_run)
             if result:
-                results.append(
-                    result.__dict__ if isinstance(result, RemoveResult) else result
-                )
+                results.append(result.__dict__ if isinstance(result, RemoveResult) else result)
         if not dry_run:
             clear_legacy_scratch_binary(binary)
         return results
