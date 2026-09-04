@@ -437,6 +437,7 @@ def apply_agent_plugins(
     dry_run: bool = False,
     installed_only: bool = True,
     defaults_only: bool = False,
+    assume_locked: bool = False,
 ) -> list[PluginResult]:
     """Apply every plugin whose support matrix includes this agent.
 
@@ -460,6 +461,7 @@ def apply_agent_plugins(
                 force=force,
                 dry_run=dry_run,
                 installed_only=installed_only,
+                assume_locked=assume_locked,
             )
         )
     return results
