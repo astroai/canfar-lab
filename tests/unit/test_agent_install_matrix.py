@@ -33,7 +33,6 @@ from astroai_lab.agent.registry import (
     remove_registry_agent,
     setup_registry_agent,
 )
-from astroai_lab.errors import LabError
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
