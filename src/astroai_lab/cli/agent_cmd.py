@@ -25,11 +25,12 @@ from astroai_lab.errors import LabError
 agent_app = typer.Typer(
     help=(
         "AI coding agents: list/install/remove CLIs, configs, plugins.\n\n"
-        "CLIs install to $SCRATCH ($ASTROAI_LAB_BIN_DIR); settings stay on $HOME.\n\n"
+        "CLIs install to $HOME (~/.local/bin); settings stay on $HOME.\n"
+        "Skills: npx skills add …  (not managed by AstroAI).\n\n"
         "Quick map:\n"
         "  list          agents (Bin/Cfg/Where/Ver; --description, --ui)\n"
-        "  install       CLI binary onto scratch\n"
-        "  remove        managed CLI (--clean-home for $HOME copies)\n"
+        "  install       CLI binary onto $HOME (upstream-compatible)\n"
+        "  remove        CLI from $HOME\n"
         "  setup         first-run scaffold (--project for a repo)\n"
         "  config        read/write that agent's settings file on $HOME\n"
         "  update        refresh CLI and bundled agent configs\n"
@@ -51,8 +52,9 @@ def agent_root(ctx: typer.Context) -> None:
                 }
             )
             return
-        ui.print_hint("AI agent CLIs go on $SCRATCH; settings stay on $HOME.")
+        ui.print_hint("AI agent CLIs go on $HOME (~/.local/bin); skills via npx skills.")
         ui.print_hint("  astroai agent list")
+        ui.print_hint("  npx skills add astroai/canfar-skills")
         ui.print_hint("  astroai agent --help")
 
 
@@ -163,11 +165,11 @@ def _print_status_table(
         name_disp = name
         src_raw = row.get("binary_source") or ("managed" if row.get("managed") else "-")
         if not binary_ok:
-            src = "-"
-        elif row.get("home_install") and not row.get("managed"):
+            src = "legacy" if src_raw == "legacy" or row.get("legacy") else "-"
+        elif src_raw == "legacy" or row.get("legacy"):
+            src = "legacy"
+        elif src_raw == "managed" or row.get("home_install"):
             src = "home"
-        elif src_raw == "managed":
-            src = "scratch"
         elif src_raw == "other":
             src = "image"
         else:
@@ -192,10 +194,11 @@ def _print_status_table(
         ui.print_warn(f"  Last failure: {failed}")
     ui.print_hint("")
     ui.print_hint("  Try:  agent install kilo && agent setup kilo && agent verify")
+    ui.print_hint("  Skills:  npx skills add astroai/canfar-skills")
     ui.print_hint("  More:  agent list --description   ·   agent plugins list")
     ui.print_hint(
         "  Cfg: logged in or has settings on home   "
-        "Where: scratch=$SCRATCH  home=$HOME  image=already in the image"
+        "Where: home=$HOME  legacy=$SCRATCH leftover  image=already in the image"
     )
 
 
@@ -999,7 +1002,7 @@ def agent_install_cmd(
         typer.Argument(help="Agent name(s) (see `agent list`).", autocompletion=_tool_completer),
     ] = None,
 ) -> None:
-    """Install AI coding CLI(s) to $ASTROAI_LAB_BIN_DIR (scratch/team, not $HOME).
+    """Install AI coding CLI(s) to $HOME (~/.local/bin; upstream-compatible).
 
     Examples:
       astroai agent install kilo
@@ -1100,14 +1103,14 @@ def agent_remove_cmd(
         bool,
         typer.Option(
             "--clean-home",
-            help="Also remove a user-owned CLI under $HOME (/arc/home), which lab does not manage.",
+            help="Deprecated no-op: home CLIs are always removed (canonical land site).",
         ),
     ] = False,
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Show actions without executing.")
     ] = False,
 ) -> None:
-    """Uninstall a managed agent CLI (scratch). Use --clean-home for $HOME copies."""
+    """Uninstall an agent CLI from $HOME (and clear any legacy $SCRATCH copy)."""
     from astroai_lab.agent.registry import remove_registry_agent
     from astroai_lab.cli.context import merge_opts
 

@@ -134,7 +134,7 @@ def test_agent_verify_cursor_required_when_installed(
     assert any("Cursor MCP not configured" in i for i in issues)
 
 
-def test_agent_verify_reports_home_owned_cli(
+def test_agent_verify_reports_legacy_scratch_cli(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     home = tmp_path / "home"
@@ -145,11 +145,13 @@ def test_agent_verify_reports_home_owned_cli(
         if binary in ("agent", "cursor"):
             return {
                 "binary": binary,
-                "path": str(tmp_path / "home" / ".local" / "bin" / "agent"),
-                "source": "home",
+                "path": str(tmp_path / "scratch" / ".local" / "bin" / "agent"),
+                "source": "legacy",
                 "managed": False,
-                "home_install": True,
-                "home_path": str(tmp_path / "home" / ".local" / "bin" / "agent"),
+                "home_install": False,
+                "home_path": None,
+                "legacy": True,
+                "legacy_path": str(tmp_path / "scratch" / ".local" / "bin" / "agent"),
             }
         return {
             "binary": binary,
@@ -158,11 +160,13 @@ def test_agent_verify_reports_home_owned_cli(
             "managed": False,
             "home_install": False,
             "home_path": None,
+            "legacy": False,
+            "legacy_path": None,
         }
 
     monkeypatch.setattr("astroai_lab.agent.install.classify_binary", _classify)
     issues = verify_setup(home)
-    assert any("$HOME" in i and "cursor" in i and "$SCRATCH" in i for i in issues)
+    assert any("Legacy" in i and "cursor" in i for i in issues)
 
 
 def test_agent_verify_opencode_syntax(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -317,50 +321,43 @@ def test_cli_install_agent_name_rejected(tmp_path: Path, monkeypatch: pytest.Mon
     assert "Unknown" in data["errors"][0]
 
 
-def test_curl_installer_environ_uses_scratch_home(
+def test_curl_installer_environ_keeps_real_home(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from astroai_lab.agent import install as install_mod
 
     home = tmp_path / "home"
-    scratch_bin = tmp_path / "scratch" / "bin"
+    bin_dir = home / ".local" / "bin"
     home.mkdir()
-    scratch_bin.mkdir(parents=True)
+    bin_dir.mkdir(parents=True)
     monkeypatch.setenv("HOME", str(home))
-    monkeypatch.setattr(install_mod, "_bin_dir", lambda: scratch_bin)
+    monkeypatch.setattr(install_mod, "_bin_dir", lambda: bin_dir)
     monkeypatch.setattr(
         install_mod,
         "_session_environ",
-        lambda extra=None: {"PATH": "/usr/bin", **(extra or {})},
+        lambda extra=None: {"PATH": "/usr/bin", "HOME": str(home), **(extra or {})},
     )
-    env = install_mod.curl_installer_environ({"GOOSE_BIN_DIR": str(scratch_bin)})
-    assert env["HOME"] == str(scratch_bin.parent / "installer-home")
-    assert env["HOME"] != str(home)
-    assert env["XDG_CONFIG_HOME"] == str(home / ".config")
-    assert env["XDG_BIN_DIR"] == str(scratch_bin)
-    assert env["GOOSE_BIN_DIR"] == str(scratch_bin)
-    assert not (home / ".local" / "bin").exists()
+    env = install_mod.curl_installer_environ({"GOOSE_BIN_DIR": str(bin_dir)})
+    assert env["HOME"] == str(home)
+    assert env["XDG_BIN_DIR"] == str(bin_dir)
+    assert env["GOOSE_BIN_DIR"] == str(bin_dir)
 
 
-def test_find_curl_binary_prefers_sandbox(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_find_curl_binary_prefers_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from astroai_lab.agent import install as install_mod
 
     home = tmp_path / "home"
-    scratch_bin = tmp_path / "scratch" / "bin"
-    sandbox_bin = scratch_bin.parent / "installer-home" / ".kilo" / "bin"
+    bin_dir = home / ".local" / "bin"
+    sandbox_bin = bin_dir.parent / "installer-home" / ".kilo" / "bin"
     home.mkdir()
-    scratch_bin.mkdir(parents=True)
+    bin_dir.mkdir(parents=True)
     sandbox_bin.mkdir(parents=True)
-    (sandbox_bin / "kilo").write_text("#!/bin/sh\nnew\n", encoding="utf-8")
-    leftover = home / ".local" / "bin"
-    leftover.mkdir(parents=True)
-    (leftover / "kilo").write_text("#!/bin/sh\nold-home\n", encoding="utf-8")
-    # Stale managed copy must not win over the sandbox drop (reinstall).
-    (scratch_bin / "kilo").write_text("#!/bin/sh\nstale-bin\n", encoding="utf-8")
+    (sandbox_bin / "kilo").write_text("#!/bin/sh\nold-sandbox\n", encoding="utf-8")
+    (bin_dir / "kilo").write_text("#!/bin/sh\nhome\n", encoding="utf-8")
     monkeypatch.setenv("HOME", str(home))
-    monkeypatch.setattr(install_mod, "_bin_dir", lambda: scratch_bin)
+    monkeypatch.setattr(install_mod, "_bin_dir", lambda: bin_dir)
     found = install_mod.find_curl_binary("kilo")
-    assert found == sandbox_bin / "kilo"
+    assert found == bin_dir / "kilo"
 
 
 def test_link_copies_kilo_tree_sitter_sibling(
@@ -435,16 +432,19 @@ def test_link_keeps_cursor_payload_next_to_wrapper(
     assert not (scratch_bin / "node").exists()
 
 
-def test_classify_binary_managed_vs_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_classify_binary_home_canonical(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from astroai_lab.agent import install as install_mod
 
     home = tmp_path / "home"
-    scratch_bin = tmp_path / "scratch" / "bin"
+    home_bin = home / ".local" / "bin"
+    scratch_bin = tmp_path / "scratch" / ".local" / "bin"
     home.mkdir()
+    home_bin.mkdir(parents=True)
     scratch_bin.mkdir(parents=True)
     monkeypatch.setenv("HOME", str(home))
-    monkeypatch.setattr(install_mod, "_bin_dir", lambda: scratch_bin)
-    monkeypatch.setattr(install_mod, "_npm_prefix", lambda: scratch_bin.parent)
+    monkeypatch.setenv("SCRATCH", str(tmp_path / "scratch"))
+    monkeypatch.setattr(install_mod, "_bin_dir", lambda: home_bin)
+    monkeypatch.setattr(install_mod, "_npm_prefix", lambda: home_bin.parent)
     monkeypatch.setattr(
         install_mod,
         "resolve_session_env",
@@ -452,60 +452,52 @@ def test_classify_binary_managed_vs_home(tmp_path: Path, monkeypatch: pytest.Mon
             "E",
             (),
             {
-                "astroai_lab_bin_dir": scratch_bin,
-                "astroai_lab_npm_prefix": scratch_bin.parent,
+                "astroai_lab_bin_dir": home_bin,
+                "astroai_lab_npm_prefix": home_bin.parent,
             },
         )(),
     )
 
-    managed = scratch_bin / "kilo"
+    managed = home_bin / "kilo"
     managed.write_text("#!/bin/sh\n", encoding="utf-8")
     managed.chmod(0o755)
     info = install_mod.classify_binary("kilo", home=home)
     assert info["source"] == install_mod.BINARY_SOURCE_MANAGED
     assert info["managed"] is True
+    assert info["home_install"] is True
 
-    home_bin = home / ".local" / "bin"
-    home_bin.mkdir(parents=True)
-    (home_bin / "goose").write_text("#!/bin/sh\n", encoding="utf-8")
-    info_home = install_mod.classify_binary("goose", home=home)
-    assert info_home["source"] == install_mod.BINARY_SOURCE_HOME
-    assert info_home["home_install"] is True
-    assert info_home["managed"] is False
+    (scratch_bin / "goose").write_text("#!/bin/sh\n", encoding="utf-8")
+    info_legacy = install_mod.classify_binary("goose", home=home)
+    assert info_legacy["source"] == install_mod.BINARY_SOURCE_LEGACY
+    assert info_legacy["legacy"] is True
 
-    with pytest.raises(Exception, match="already installed under your home"):
-        install_mod.refuse_if_home_owned("goose", home=home)
+    # refuse is a no-op now
+    install_mod.refuse_if_home_owned("goose", home=home)
 
 
-def test_remove_home_owned_requires_clean_home(
+def test_remove_home_cli_without_clean_home_flag(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from types import SimpleNamespace
 
     from astroai_lab.agent import install as install_mod
-    from astroai_lab.errors import LabError
 
     home = tmp_path / "home"
-    scratch_bin = tmp_path / "scratch" / "bin"
+    home_bin = home / ".local" / "bin"
     home.mkdir()
-    scratch_bin.mkdir(parents=True)
+    home_bin.mkdir(parents=True)
     monkeypatch.setenv("HOME", str(home))
-    monkeypatch.setattr(install_mod, "_bin_dir", lambda: scratch_bin)
-    monkeypatch.setattr(install_mod, "_npm_prefix", lambda: scratch_bin.parent)
+    monkeypatch.setattr(install_mod, "_bin_dir", lambda: home_bin)
+    monkeypatch.setattr(install_mod, "_npm_prefix", lambda: home_bin.parent)
     monkeypatch.setattr(install_mod.shutil, "which", lambda _: None)
     session = SimpleNamespace(
-        astroai_lab_bin_dir=scratch_bin,
-        astroai_lab_npm_prefix=scratch_bin.parent,
+        astroai_lab_bin_dir=home_bin,
+        astroai_lab_npm_prefix=home_bin.parent,
     )
     session.exports = dict
     monkeypatch.setattr(install_mod, "resolve_session_env", lambda ensure=False: session)
-    home_bin = home / ".local" / "bin"
-    home_bin.mkdir(parents=True)
     (home_bin / "copilot").write_text("#!/bin/sh\n", encoding="utf-8")
 
-    with pytest.raises(LabError, match="--clean-home"):
-        install_mod.uninstall_tool("copilot", home=home, dry_run=True)
-
-    results = install_mod.uninstall_tool("copilot", home=home, clean_home=True, dry_run=False)
+    results = install_mod.uninstall_tool("copilot", home=home, dry_run=False)
     assert not (home_bin / "copilot").exists()
-    assert any(r.target.startswith("home-binary:") for r in results)
+    assert any("binary:" in r.target or "home-binary:" in r.target for r in results)

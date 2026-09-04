@@ -97,7 +97,6 @@ def verify_setup(home: Path, *, probe_binaries: bool = False) -> list[str]:
     from astroai_lab.agent.registry import (
         get_registry_agent,
         list_registry_agents,
-        registry_agent_status,
     )
 
     def _agent_installed(agent_id: str) -> bool:
@@ -162,17 +161,17 @@ def verify_setup(home: Path, *, probe_binaries: bool = False) -> list[str]:
     # fresh images without hermes/openclaw don't fail the container gate.
     issues.extend(registry_verify_issues(home, installed_only=True, probe_binaries=probe_binaries))
 
-    home_clis: list[str] = []
+    legacy_clis: list[str] = []
     for agent in list_registry_agents():
-        status = registry_agent_status(agent, home)
-        if status["binary_ok"] and status.get("home_install") and not status.get("managed"):
-            home_clis.append(agent["id"])
-    if home_clis:
+        info = classify_binary(str(agent["binary"]), home=home)
+        if info.get("legacy"):
+            legacy_clis.append(agent["id"])
+    if legacy_clis:
         issues.append(
-            "Agent CLIs under $HOME (should be $SCRATCH): "
-            + ", ".join(home_clis)
-            + ". Move with: astroai agent remove NAME --clean-home"
-            + " && astroai agent install NAME"
+            "Legacy agent CLIs on $SCRATCH (prefer $HOME): "
+            + ", ".join(legacy_clis)
+            + ". Reinstall with: astroai agent install NAME"
+            + "  (or use the upstream installer)"
         )
 
     return issues
