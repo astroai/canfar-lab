@@ -552,23 +552,26 @@ def install_registry_agent(agent_id: str, *, dry_run: bool = False) -> str:
     )
 
     if agent_id in TOOLS:
-        refuse_if_home_owned(agent_id)  # no-op; home is canonical
         install_tool(agent_id, dry_run=dry_run)
         return agent_id
 
     if dry_run:
         return agent_id
 
-    method = agent["install"]["method"]
-    if method == "npm":
-        return _install_npm(agent)
-    if method == "curl":
-        return _install_curl(agent)
-    if method == "uv-tool":
-        return _install_uv_tool(agent)
-    if method == "gh-release":
-        return _install_gh_release(agent)
-    raise LabError(f"Agent {agent_id} has unsupported install.method={method!r}")
+    from astroai_lab.agent.setup_state import agent_setup_lock
+
+    with agent_setup_lock():
+        refuse_if_home_owned(agent_id)
+        method = agent["install"]["method"]
+        if method == "npm":
+            return _install_npm(agent)
+        if method == "curl":
+            return _install_curl(agent)
+        if method == "uv-tool":
+            return _install_uv_tool(agent)
+        if method == "gh-release":
+            return _install_gh_release(agent)
+        raise LabError(f"Agent {agent_id} has unsupported install.method={method!r}")
 
 
 def remove_registry_agent(
@@ -602,18 +605,21 @@ def remove_registry_agent(
         )
         return [r.__dict__ for r in results]
 
-    results = _remove_registry_method(agent, home=home, purge=purge, dry_run=dry_run)
-    home = home or Path.home()
-    binary = str(agent["binary"])
-    from astroai_lab.agent.install import RemoveResult, _remove_file
+    from astroai_lab.agent.setup_state import agent_setup_lock
 
-    for home_bin in home_bin_candidates(binary, home=home):
-        result = _remove_file(home_bin, f"home-binary:{binary}", dry_run=dry_run)
-        if result:
-            results.append(result.__dict__ if isinstance(result, RemoveResult) else result)
-    if not dry_run:
-        clear_legacy_scratch_binary(binary)
-    return results
+    with agent_setup_lock(home):
+        results = _remove_registry_method(agent, home=home, purge=purge, dry_run=dry_run)
+        home = home or Path.home()
+        binary = str(agent["binary"])
+        from astroai_lab.agent.install import RemoveResult, _remove_file
+
+        for home_bin in home_bin_candidates(binary, home=home):
+            result = _remove_file(home_bin, f"home-binary:{binary}", dry_run=dry_run)
+            if result:
+                results.append(result.__dict__ if isinstance(result, RemoveResult) else result)
+        if not dry_run:
+            clear_legacy_scratch_binary(binary)
+        return results
 
 
 def _remove_registry_method(
@@ -946,41 +952,44 @@ def update_registry_agent(
     actions: list[str] = []
     errors: list[str] = []
 
-    status = registry_agent_status(agent, home)
-    if status["binary_ok"] and not force_reinstall:
-        actions.append(f"binary up-to-date ({agent_id})")
-    else:
-        verb = "reinstall" if force_reinstall else "install"
-        try:
-            install_registry_agent(agent_id, dry_run=dry_run)
-            actions.append(f"binary {verb} ({agent_id})")
-        except LabError as exc:
-            errors.append(f"binary {agent_id}: {exc}")
+    from astroai_lab.agent.setup_state import agent_setup_lock
 
-    from astroai_lab.agent import plugins as agent_plugins
+    with agent_setup_lock(home):
+        status = registry_agent_status(agent, home)
+        if status["binary_ok"] and not force_reinstall:
+            actions.append(f"binary up-to-date ({agent_id})")
+        else:
+            verb = "reinstall" if force_reinstall else "install"
+            try:
+                install_registry_agent(agent_id, dry_run=dry_run)
+                actions.append(f"binary {verb} ({agent_id})")
+            except LabError as exc:
+                errors.append(f"binary {agent_id}: {exc}")
 
-    for result in agent_plugins.apply_agent_plugins(
-        agent_id, home=home, force=True, dry_run=dry_run
-    ):
-        if result.status == "failed":
-            errors.append(f"plugin {result.plugin} ({result.agent}): {result.detail}")
-        elif result.status in ("installed", "would_install", "updated", "removed"):
-            actions.append(
-                f"plugin {result.status.replace('_', ' ')} {result.plugin} ({result.agent})"
-            )
+        from astroai_lab.agent import plugins as agent_plugins
 
-    ok = not errors
-    if not dry_run and ok:
-        from astroai_lab.agent.setup_state import record_setup_ok
+        for result in agent_plugins.apply_agent_plugins(
+            agent_id, home=home, force=True, dry_run=dry_run, assume_locked=True
+        ):
+            if result.status == "failed":
+                errors.append(f"plugin {result.plugin} ({result.agent}): {result.detail}")
+            elif result.status in ("installed", "would_install", "updated", "removed"):
+                actions.append(
+                    f"plugin {result.status.replace('_', ' ')} {result.plugin} ({result.agent})"
+                )
 
-        record_setup_ok(home, mode=f"update:{agent_id}")
-    return {
-        "ok": ok,
-        "partial": bool(actions) and bool(errors),
-        "agent": agent_id,
-        "actions": actions,
-        "errors": errors,
-    }
+        ok = not errors
+        if not dry_run and ok:
+            from astroai_lab.agent.setup_state import record_setup_ok
+
+            record_setup_ok(home, mode=f"update:{agent_id}")
+        return {
+            "ok": ok,
+            "partial": bool(actions) and bool(errors),
+            "agent": agent_id,
+            "actions": actions,
+            "errors": errors,
+        }
 
 
 def fix_registry_agent(

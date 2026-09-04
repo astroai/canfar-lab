@@ -75,6 +75,16 @@ def test_agent_setup_lock_dead_holder_is_stolen(
     assert not path.exists()
 
 
+def test_agent_setup_lock_same_pid_reentrant(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    with agent_setup_lock(home, timeout=1), agent_setup_lock(home, timeout=1):
+        pass
+
+
 def test_agent_list_json_schema(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "home"
     home.mkdir()

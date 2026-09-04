@@ -28,19 +28,22 @@ manual migration.
    torn JSON/YAML/env file.
 2. **One writer at a time.** Mutations of shared home config take an
    `O_EXCL` lock file with stale-PID recovery:
-   - agent domain (`setup`, `plugins install/remove`, `verify --fix`,
-     `verify --clean`, `wipe`): `~/.astroai/lab/agent-setup.lock`
+   - agent domain (`install`, `remove`, `update`, `setup`,
+     `plugins install/remove`, `verify --fix`, `verify --clean`, `wipe`):
+     `~/.astroai/lab/agent-setup.lock`
    - cluster domain (`cluster start`, `cluster stop`, hub *Start batch
      compute*): `~/.astroai/ray/control.lock`
    A lock whose recorded PID is dead is broken automatically after the
-   timeout (30 s agent / 120 s cluster).
+   timeout (30 s agent / 120 s cluster). Same-thread nesting is re-entrant
+   (e.g. wipe → remove, update → plugins).
 3. **Reads are always lock-free** — `status`, `cluster status`,
    `env export`, dashboard URL resolution never block.
 
 ## Practical rules
 
-- Run `astroai agent verify --fix` in one session at a time; if another
-  holds the lock you get a clear message instead of corruption.
+- Run `astroai agent install` / `remove` / `verify --fix` in one session
+  at a time; if another holds the lock you get a clear message instead of
+  a raced `~/.local/bin`.
 - Chat/session history of relocated agents dies with the scratch disk.
   Configs, skills, and auth persist. Copy anything you need out of
   `$SCRATCH` before the session ends.

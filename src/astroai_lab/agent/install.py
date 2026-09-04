@@ -293,8 +293,73 @@ def _is_system_sg_impostor(path: Path) -> bool:
 
 
 def refuse_if_home_owned(name: str, *, home: Path | None = None) -> None:
-    """No-op: home is the canonical install site (kept for call-site compatibility)."""
-    del name, home
+    """Clear unsafe symlink landings before install (name kept for call sites).
+
+    Home is the canonical install site. Symlinks at expected binary paths are
+    unlinked (not followed) so ``curl|bash`` / copy cannot write through them
+    into arbitrary ``$HOME`` files. Non-regular files raise ``LabError``.
+    """
+    for path in _install_landing_paths(name, home=home):
+        _clear_unsafe_landing(path)
+
+
+def _install_landing_paths(name: str, *, home: Path | None = None) -> list[Path]:
+    """Paths an upstream installer or shim step may overwrite for *name*."""
+    home = home or Path.home()
+    binary = tool_binary(name)
+    seen: set[Path] = set()
+    out: list[Path] = []
+    candidates = [
+        user_bin_dir() / binary,
+        npm_prefix_dir() / "bin" / binary,
+        *home_bin_candidates(binary, home=home),
+    ]
+    for path in candidates:
+        if path in seen:
+            continue
+        seen.add(path)
+        out.append(path)
+    if binary == "sg":
+        for path in [
+            user_bin_dir() / "ast-grep",
+            npm_prefix_dir() / "bin" / "ast-grep",
+            *home_bin_candidates("ast-grep", home=home),
+        ]:
+            if path not in seen:
+                seen.add(path)
+                out.append(path)
+    return out
+
+
+def _clear_unsafe_landing(path: Path) -> None:
+    """Unlink symlink landings; refuse directories / special files at the path."""
+    if path.is_symlink():
+        path.unlink()
+        return
+    if not path.exists():
+        return
+    if path.is_dir():
+        raise LabError(
+            f"Install target is a directory: {path}",
+            hint="Move or remove it, then retry the install",
+        )
+    if not path.is_file():
+        raise LabError(
+            f"Install target is not a regular file: {path}",
+            hint="Remove it, then retry the install",
+        )
+
+
+def _unlink_landing(path: Path) -> None:
+    """Remove a bin landing without following symlinks (safe before copy/shim)."""
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+        return
+    if path.exists():
+        raise LabError(
+            f"Cannot replace install target: {path}",
+            hint="Remove it, then retry",
+        )
 
 
 def clear_legacy_scratch_binary(binary: str) -> None:
@@ -571,8 +636,7 @@ def _land_symlink_payload(src: Path, dst: Path) -> bool:
         if src.resolve() == dst.resolve() or src == dst:
             return True
         # Need a ~/.local/bin shim pointing at the same payload executable.
-        if dst.exists() or dst.is_symlink():
-            dst.unlink()
+        _unlink_landing(dst)
         dst.symlink_to(target)
         return True
     payload = target.parent
@@ -589,8 +653,7 @@ def _land_symlink_payload(src: Path, dst: Path) -> bool:
         except OSError:
             shutil.copytree(payload, dest_payload, symlinks=True)
     dest_exe = dest_payload / target.name
-    if dst.exists() or dst.is_symlink():
-        dst.unlink()
+    _unlink_landing(dst)
     dst.symlink_to(dest_exe)
     with contextlib.suppress(OSError):
         dest_exe.chmod(dest_exe.stat().st_mode | 0o111)
@@ -602,7 +665,8 @@ def _link_into_local_bin(src: Path, name: str) -> None:
 
     If the installer already placed the CLI under ``$HOME``, leave it. Only
     copy/symlink into ``ASTROAI_LAB_BIN_DIR`` when a shim is needed. Never
-    delete the upstream home file.
+    delete the upstream home file. Symlink destinations are unlinked first so
+    we never write through a planted symlink.
     """
     if not src.is_file():
         return
@@ -622,19 +686,17 @@ def _link_into_local_bin(src: Path, name: str) -> None:
     # Already a home install at a non-bin path (e.g. ~/.opencode/bin/opencode):
     # add a ~/.local/bin shim, keep the original.
     if _path_under(src, home):
-        if dst.exists() or dst.is_symlink():
-            try:
-                if dst.resolve() == src.resolve():
-                    clear_legacy_scratch_binary(name)
-                    return
-            except OSError:
-                pass
-            dst.unlink()
+        try:
+            if (dst.exists() or dst.is_symlink()) and dst.resolve() == src.resolve():
+                clear_legacy_scratch_binary(name)
+                return
+        except OSError:
+            pass
+        _unlink_landing(dst)
         dst.symlink_to(src)
         clear_legacy_scratch_binary(name)
         return
-    if dst.exists() or dst.is_symlink():
-        dst.unlink()
+    _unlink_landing(dst)
     try:
         shutil.copy2(src, dst)
         with contextlib.suppress(OSError):
@@ -826,8 +888,7 @@ def _gh_release_bin(repo: str, asset: str, binary: str, *, requires_gh_auth: boo
         raise LabError(f"Binary {binary} not found in {asset}")
     _bin_dir().mkdir(parents=True, exist_ok=True)
     dest = _bin_dir() / binary
-    if dest.exists() or dest.is_symlink():
-        dest.unlink()
+    _unlink_landing(dest)
     shutil.copy2(found, dest)
     with contextlib.suppress(OSError):
         dest.chmod(dest.stat().st_mode | 0o111)
@@ -843,15 +904,19 @@ def install_tool(name: str, *, dry_run: bool = False) -> None:
         )
     if name not in TOOLS:
         raise LabError(f"Unknown tool: {name}", hint="astroai agent list")
-    refuse_if_home_owned(name)
     if dry_run:
         return
-    from astroai_lab.agent.setup_state import INSTALL_TIMEOUT_SEC
+    from astroai_lab.agent.setup_state import INSTALL_TIMEOUT_SEC, agent_setup_lock
 
+    with agent_setup_lock():
+        refuse_if_home_owned(name)
+        _install_tool_locked(name, INSTALL_TIMEOUT_SEC)
+
+
+def _install_tool_locked(name: str, npm_timeout: int) -> None:
     resolve_session_env(ensure=True)
     _ensure_bin_dir()
     arch = platform.machine()
-    npm_timeout = INSTALL_TIMEOUT_SEC
 
     if name == "node":
         # Node LTS + npm are baked into the base image (canfar-containers), so
@@ -1037,6 +1102,19 @@ def uninstall_tool(
         raise LabError(f"Unknown tool: {name}", hint="astroai agent list")
     home = home or Path.home()
     del clean_home  # home is canonical; always remove home CLIs
+    from astroai_lab.agent.setup_state import agent_setup_lock
+
+    with agent_setup_lock(home):
+        return _uninstall_tool_locked(name, home=home, purge=purge, dry_run=dry_run)
+
+
+def _uninstall_tool_locked(
+    name: str,
+    *,
+    home: Path,
+    purge: bool,
+    dry_run: bool,
+) -> list[RemoveResult]:
     results: list[RemoveResult] = []
     binary = tool_binary(name)
     info = classify_binary(binary, home=home)

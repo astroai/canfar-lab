@@ -471,8 +471,9 @@ def test_classify_binary_home_canonical(tmp_path: Path, monkeypatch: pytest.Monk
     assert info_legacy["source"] == install_mod.BINARY_SOURCE_LEGACY
     assert info_legacy["legacy"] is True
 
-    # refuse is a no-op now
+    # refuse clears unsafe symlinks; regular home CLIs are left alone
     install_mod.refuse_if_home_owned("goose", home=home)
+    assert (scratch_bin / "goose").is_file()
 
 
 def test_remove_home_cli_without_clean_home_flag(
@@ -501,3 +502,63 @@ def test_remove_home_cli_without_clean_home_flag(
     results = install_mod.uninstall_tool("copilot", home=home, dry_run=False)
     assert not (home_bin / "copilot").exists()
     assert any("binary:" in r.target or "home-binary:" in r.target for r in results)
+
+
+def test_refuse_clears_symlink_landing_without_following(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Planted ~/.local/bin symlink must be unlinked, not written through."""
+    from astroai_lab.agent import install as install_mod
+    from astroai_lab.errors import LabError
+
+    home = tmp_path / "home"
+    home_bin = home / ".local" / "bin"
+    ssh = home / ".ssh"
+    home.mkdir()
+    home_bin.mkdir(parents=True)
+    ssh.mkdir()
+    victim = ssh / "authorized_keys"
+    victim.write_text("keep-me\n", encoding="utf-8")
+    planted = home_bin / "kilo"
+    planted.symlink_to(victim)
+
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(install_mod, "_bin_dir", lambda: home_bin)
+    monkeypatch.setattr(install_mod.Path, "home", classmethod(lambda cls: home))
+
+    install_mod.refuse_if_home_owned("kilo", home=home)
+    assert not planted.exists() and not planted.is_symlink()
+    assert victim.read_text(encoding="utf-8") == "keep-me\n"
+
+    # Directory at landing site is refused.
+    planted.mkdir()
+    with pytest.raises(LabError, match="directory"):
+        install_mod.refuse_if_home_owned("kilo", home=home)
+
+
+def test_link_into_local_bin_unlinks_symlink_dst(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from astroai_lab.agent import install as install_mod
+
+    home = tmp_path / "home"
+    home_bin = home / ".local" / "bin"
+    home.mkdir()
+    home_bin.mkdir(parents=True)
+    victim = home / "secret"
+    victim.write_text("secret\n", encoding="utf-8")
+    dst = home_bin / "kilo"
+    dst.symlink_to(victim)
+    src = tmp_path / "payload" / "kilo"
+    src.parent.mkdir()
+    src.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+    src.chmod(0o755)
+
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(install_mod, "_bin_dir", lambda: home_bin)
+    monkeypatch.setattr(install_mod, "legacy_scratch_bin_roots", list)
+
+    install_mod._link_into_local_bin(src, "kilo")
+    assert dst.is_file() and not dst.is_symlink()
+    assert victim.read_text(encoding="utf-8") == "secret\n"
+    assert "echo ok" in dst.read_text(encoding="utf-8")

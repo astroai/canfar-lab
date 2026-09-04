@@ -341,7 +341,7 @@ def test_dirty_broken_config_is_repaired(
 def test_dirty_home_plus_managed_prefers_managed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Managed ~/.local/bin wins; refuse is a no-op."""
+    """Managed ~/.local/bin wins; refuse leaves regular files alone."""
     home, bin_dir, _ = _session(tmp_path, monkeypatch)
     managed = bin_dir / "kilo"
     managed.write_text("#!/bin/sh\n", encoding="utf-8")
@@ -349,6 +349,7 @@ def test_dirty_home_plus_managed_prefers_managed(
     info = install_mod.classify_binary("kilo", home=home)
     assert info["managed"] is True
     install_mod.refuse_if_home_owned("kilo", home=home)  # must not raise
+    assert managed.is_file() and not managed.is_symlink()
 
 
 # ---------------------------------------------------------------------------

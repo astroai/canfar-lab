@@ -128,14 +128,14 @@ def agent_setup_lock(
     *,
     timeout: float | None = None,
 ) -> Iterator[None]:
-    """Exclusive lock for agent setup / wizard actions (shared lock family)."""
+    """Exclusive lock for agent install / setup / plugin / wipe mutations."""
     from astroai_lab.core.pathlock import path_lock
 
     home = home or Path.home()
     with path_lock(
         lock_path(home),
         timeout=LOCK_TIMEOUT_SEC if timeout is None else timeout,
-        busy_hint="Another agent setup is already running",
+        busy_hint="Another agent install/setup is already running",
     ):
         yield
 
