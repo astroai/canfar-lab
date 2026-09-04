@@ -44,8 +44,9 @@ TOOL_BINARIES = {
 }
 
 # Where an on-disk CLI came from relative to lab management.
-BINARY_SOURCE_MANAGED = "managed"  # under ASTROAI_LAB_BIN_DIR / npm prefix (scratch)
-BINARY_SOURCE_HOME = "home"  # under $HOME (/arc/home) — user-owned, not managed
+BINARY_SOURCE_MANAGED = "managed"  # under ASTROAI_LAB_BIN_DIR (~/.local/bin)
+BINARY_SOURCE_HOME = "home"  # other $HOME paths (e.g. ~/.opencode/bin)
+BINARY_SOURCE_LEGACY = "legacy"  # leftover $SCRATCH/.local/bin from older policy
 BINARY_SOURCE_OTHER = "other"  # elsewhere on PATH
 BINARY_SOURCE_MISSING = "missing"
 
@@ -131,7 +132,7 @@ def _path_under(path: Path, root: Path) -> bool:
 
 
 def managed_bin_roots() -> list[Path]:
-    """Dirs where astroai owns agent CLIs (scratch / session, never $HOME)."""
+    """Dirs where astroai expects agent CLIs (``~/.local/bin`` / npm prefix)."""
     session = resolve_session_env(ensure=False)
     # Include `_bin_dir()` / `_npm_prefix()` so test monkeypatches and the
     # live session resolver always agree on "managed".
@@ -156,13 +157,27 @@ def managed_bin_roots() -> list[Path]:
     return out
 
 
+def legacy_scratch_bin_roots() -> list[Path]:
+    """Old scratch CLI dirs from when install preferred ``$SCRATCH/.local/bin``."""
+    from astroai_lab.shell.session_env import resolve_scratch_dir
+
+    scratch = resolve_scratch_dir()
+    if scratch is None:
+        return []
+    return [scratch / ".local" / "bin"]
+
+
 def home_bin_candidates(binary: str, *, home: Path | None = None) -> list[Path]:
-    """Typical user-owned CLI locations under $HOME (/arc/home on CANFAR)."""
+    """Typical upstream CLI locations under $HOME (/arc/home on CANFAR)."""
     home = home or Path.home()
     return [
         home / ".local" / "bin" / binary,
         home / f".{binary}" / "bin" / binary,
         home / ".npm-global" / "bin" / binary,
+        home / ".kilo" / "bin" / binary,
+        home / ".opencode" / "bin" / binary,
+        home / ".hermes" / "bin" / binary,
+        home / ".agy" / "bin" / binary,
     ]
 
 
@@ -173,9 +188,8 @@ def classify_binary(
 ) -> dict[str, object]:
     """Locate a CLI and classify ownership for list/install/remove policy.
 
-    Config may live on ``$HOME`` (/arc/home); managed binaries live under
-    ``ASTROAI_LAB_BIN_DIR`` (scratch). A home-tree CLI is user-owned: lab will
-    not install/overwrite it, but ``agent remove --clean-home`` can delete it.
+    Canonical land site is ``$HOME`` (``ASTROAI_LAB_BIN_DIR`` → ``~/.local/bin``).
+    Leftover ``$SCRATCH/.local/bin`` copies from older policy are ``legacy``.
 
     Special case: Linux ``/usr/bin/sg`` is shadow-utils ``newgrp``, not
     ast-grep — treat it as missing unless a managed/home ``sg`` or ``ast-grep``
@@ -189,7 +203,6 @@ def classify_binary(
         if candidate.is_file():
             managed_hit = candidate
             break
-        # ast-grep install also drops an ``ast-grep`` symlink next to ``sg``.
         if binary == "sg":
             alt = root / "ast-grep"
             if alt.is_file():
@@ -206,15 +219,31 @@ def classify_binary(
             None,
         )
 
+    legacy_hit: Path | None = None
+    for root in legacy_scratch_bin_roots():
+        candidate = root / binary
+        if candidate.is_file():
+            # Skip if this path is already the managed home bin (same inode).
+            if managed_hit is not None:
+                try:
+                    if candidate.resolve() == managed_hit.resolve():
+                        continue
+                except OSError:
+                    pass
+            if _path_under(candidate, home):
+                continue
+            legacy_hit = candidate
+            break
+
     which = shutil.which(binary)
     which_path = Path(which) if which else None
     if which_path is not None and binary == "sg" and _is_system_sg_impostor(which_path):
         which_path = None
-        # Prefer a real ast-grep binary on PATH when sg is the impostor.
         alt_which = shutil.which("ast-grep")
         if alt_which is not None:
             which_path = Path(alt_which)
 
+    # Prefer home-canonical managed bin, then other home paths, then legacy scratch.
     if managed_hit is not None:
         path = managed_hit
         source = BINARY_SOURCE_MANAGED
@@ -224,9 +253,10 @@ def classify_binary(
     elif which_path is not None and _path_under(which_path, home):
         path = which_path
         source = BINARY_SOURCE_HOME
+    elif legacy_hit is not None:
+        path = legacy_hit
+        source = BINARY_SOURCE_LEGACY
     elif which_path is not None:
-        # Prefer marking as home when which resolves inside $HOME even if not
-        # in the candidate list (e.g. ~/bin).
         path = which_path
         source = BINARY_SOURCE_OTHER
     else:
@@ -239,8 +269,11 @@ def classify_binary(
         "source": source,
         "managed": source == BINARY_SOURCE_MANAGED,
         "home_install": home_hit is not None
-        or (which_path is not None and _path_under(which_path, home)),
+        or (which_path is not None and _path_under(which_path, home))
+        or (managed_hit is not None and _path_under(managed_hit, home)),
         "home_path": str(home_hit) if home_hit else None,
+        "legacy": source == BINARY_SOURCE_LEGACY,
+        "legacy_path": str(legacy_hit) if legacy_hit else None,
     }
 
 
@@ -250,7 +283,6 @@ def _is_system_sg_impostor(path: Path) -> bool:
         resolved = path.resolve()
     except OSError:
         resolved = path
-    # ``sg`` is commonly a symlink to ``newgrp``.
     if resolved.name == "newgrp":
         return True
     text = str(resolved)
@@ -261,19 +293,31 @@ def _is_system_sg_impostor(path: Path) -> bool:
 
 
 def refuse_if_home_owned(name: str, *, home: Path | None = None) -> None:
-    """Block install when the user already has this CLI under $HOME."""
-    binary = tool_binary(name)
-    info = classify_binary(binary, home=home)
-    if info["managed"]:
-        return
-    if not info["home_install"]:
-        return
-    where = info.get("home_path") or info.get("path") or f"~/.local/bin/{binary}"
-    raise LabError(
-        f"{name} is already installed under your home ({where}). "
-        "astroai manages CLIs on $SCRATCH ($ASTROAI_LAB_BIN_DIR), not /arc/home.",
-        hint=f"astroai agent remove {name} --clean-home   # then: agent install {name}",
-    )
+    """No-op: home is the canonical install site (kept for call-site compatibility)."""
+    del name, home
+
+
+def clear_legacy_scratch_binary(binary: str) -> None:
+    """Remove leftover ``$SCRATCH/.local/bin/<binary>`` from the old scratch policy."""
+    for root in legacy_scratch_bin_roots():
+        for name in (binary, "ast-grep" if binary == "sg" else None):
+            if not name:
+                continue
+            path = root / name
+            if not (path.is_file() or path.is_symlink()):
+                continue
+            payload_dir: Path | None = None
+            if path.is_symlink():
+                with contextlib.suppress(OSError):
+                    target = path.resolve()
+                    share = root.parent / "share"
+                    if _path_under(target, share) and target.parent.is_dir():
+                        payload_dir = target.parent
+            with contextlib.suppress(OSError):
+                path.unlink()
+            if payload_dir is not None:
+                with contextlib.suppress(OSError):
+                    shutil.rmtree(payload_dir)
 
 
 def tool_on_path(name: str) -> bool:
@@ -323,12 +367,9 @@ def _session_environ(extra: dict[str, str] | None = None) -> dict[str, str]:
 
 
 def installer_sandbox_home() -> Path:
-    """Scratch ``HOME`` for curl install scripts (never /arc/home).
+    """Deprecated scratch installer HOME (kept for finding leftover drops).
 
-    Cursor/kilo/opencode/claude installers hardcode ``$HOME/.local/bin``,
-    ``$HOME/.kilo/bin``, ``$HOME/.opencode/bin``. Pointing the subprocess HOME
-    at scratch keeps those droppings off the Ceph quota. Real ``~/.config``
-    stays via ``XDG_CONFIG_HOME``.
+    New installs use the real ``$HOME``; see :func:`curl_installer_environ`.
     """
     root = _bin_dir().parent / "installer-home"
     root.mkdir(parents=True, exist_ok=True)
@@ -336,37 +377,33 @@ def installer_sandbox_home() -> Path:
 
 
 def curl_installer_environ(extra: dict[str, str] | None = None) -> dict[str, str]:
-    """Env for an upstream curl|bash installer: binaries on scratch, configs on $HOME."""
-    sandbox = installer_sandbox_home()
+    """Env for an upstream curl|bash installer — real ``$HOME``, configs untouched."""
     merged = _session_environ(extra)
-    merged["HOME"] = str(sandbox)
-    merged["XDG_CONFIG_HOME"] = str(Path.home() / ".config")
+    # Do not override HOME: installers write ~/.local/bin, ~/.opencode/bin, …
     merged.setdefault("XDG_BIN_DIR", str(_bin_dir()))
     return merged
 
 
 def find_curl_binary(binary: str, extra: list[Path] | None = None) -> Path | None:
-    """Locate a CLI just dropped by a curl installer (sandbox, scratch, or leftover home).
-
-    Sandbox wins over ``ASTROAI_LAB_BIN_DIR`` so a reinstall picks up the new
-    drop, not a stale wrapper already sitting in the managed bin dir.
-    """
+    """Locate a CLI just dropped by a curl installer (home or leftover sandbox)."""
     sandbox = installer_sandbox_home()
     home = Path.home()
     candidates = [
+        home / ".local" / "bin" / binary,
+        home / f".{binary}" / "bin" / binary,
+        home / ".kilo" / "bin" / binary,
+        home / ".opencode" / "bin" / binary,
+        home / ".hermes" / "bin" / binary,
+        home / ".agy" / "bin" / binary,
+        _bin_dir() / binary,
+        *(extra or []),
+        # Leftovers from the old scratch-HOME sandbox.
         sandbox / ".local" / "bin" / binary,
         sandbox / f".{binary}" / "bin" / binary,
         sandbox / ".kilo" / "bin" / binary,
         sandbox / ".opencode" / "bin" / binary,
         sandbox / ".hermes" / "bin" / binary,
         sandbox / ".agy" / "bin" / binary,
-        _bin_dir() / binary,
-        *(extra or []),
-        home / ".local" / "bin" / binary,
-        home / f".{binary}" / "bin" / binary,
-        home / ".kilo" / "bin" / binary,
-        home / ".opencode" / "bin" / binary,
-        home / ".hermes" / "bin" / binary,
     ]
     return next((p for p in candidates if p.is_file()), None)
 
@@ -404,10 +441,9 @@ def _curl_pipe_bash(
 ) -> None:
     """Fetch an install script and run it.
 
-    Upstream scripts (cursor, kilo, opencode, claude, hermes, …) hardcode
-    ``$HOME/.local`` or ``$HOME/.<name>/bin``. The subprocess HOME is a scratch
-    sandbox so those writes never land on /arc/home. ``XDG_CONFIG_HOME`` still
-    points at the real ``~/.config``.
+    Upstream scripts (cursor, kilo, opencode, claude, hermes, …) write under
+    the real ``$HOME`` (``~/.local/bin``, ``~/.opencode/bin``, …). AstroAI no
+    longer sandbox-redirects HOME.
 
     When ``stderr`` is a TTY, installer stdout is streamed live so long
     bootstraps (Hermes: uv + Python + Node + git clone) do not look hung.
@@ -509,7 +545,7 @@ def _curl_pipe_bash(
 
 
 def _managed_share_dir() -> Path:
-    """Scratch ``share/`` next to the managed bin dir (Cursor payload, …)."""
+    """``~/.local/share`` next to the managed bin dir (Cursor payload, …)."""
     return _bin_dir().parent / "share"
 
 
@@ -518,9 +554,8 @@ def _land_symlink_payload(src: Path, dst: Path) -> bool:
 
     Cursor's installer symlinks ``~/.local/bin/agent`` into
     ``~/.local/share/cursor-agent/versions/<ver>/cursor-agent``. That wrapper
-    uses ``realpath $0`` to find bundled ``node``. Copying only the wrapper
-    into the bin dir makes it exec ``$BIN_DIR/node``, which is missing.
-    Returns True when ``dst`` now points at the landed payload.
+    uses ``realpath $0`` to find bundled ``node``. Returns True when ``dst``
+    already points at a usable payload (leave upstream layout alone).
     """
     if not src.is_symlink():
         return False
@@ -530,6 +565,16 @@ def _land_symlink_payload(src: Path, dst: Path) -> bool:
         return False
     if not target.is_file() or target.parent == src.parent:
         return False
+    # Already under home share next to ~/.local/bin — leave upstream layout.
+    home = Path.home()
+    if _path_under(src, home) and _path_under(target, home):
+        if src.resolve() == dst.resolve() or src == dst:
+            return True
+        # Need a ~/.local/bin shim pointing at the same payload executable.
+        if dst.exists() or dst.is_symlink():
+            dst.unlink()
+        dst.symlink_to(target)
+        return True
     payload = target.parent
     dest_payload = _managed_share_dir() / target.name / payload.name
     if dest_payload.resolve() != payload.resolve():
@@ -553,44 +598,53 @@ def _land_symlink_payload(src: Path, dst: Path) -> bool:
 
 
 def _link_into_local_bin(src: Path, name: str) -> None:
-    """Land ``src`` under the managed scratch bin dir.
+    """Ensure ``name`` is on PATH via ``~/.local/bin`` without stealing home drops.
 
-    Upstream installers often drop into ``~/.local/bin``. We copy into
-    ``ASTROAI_LAB_BIN_DIR`` (scratch) and remove that home dropping so the
-    CLI is not left on /arc/home. Pre-existing user home installs are gated
-    earlier by ``refuse_if_home_owned``.
-
-    When ``src`` is a symlink into a payload directory (Cursor: wrapper +
-    bundled node), keep that tree together under scratch ``share/`` and
-    point the bin name at the real executable.
+    If the installer already placed the CLI under ``$HOME``, leave it. Only
+    copy/symlink into ``ASTROAI_LAB_BIN_DIR`` when a shim is needed. Never
+    delete the upstream home file.
     """
     if not src.is_file():
         return
     with contextlib.suppress(OSError):
         src.chmod(src.stat().st_mode | 0o111)
     dst = _bin_dir() / name
-    if _land_symlink_payload(src, dst):
-        return
+    home = Path.home()
     try:
         if src.resolve() == dst.resolve():
+            clear_legacy_scratch_binary(name)
             return
     except OSError:
         pass
+    if _land_symlink_payload(src, dst):
+        clear_legacy_scratch_binary(name)
+        return
+    # Already a home install at a non-bin path (e.g. ~/.opencode/bin/opencode):
+    # add a ~/.local/bin shim, keep the original.
+    if _path_under(src, home):
+        if dst.exists() or dst.is_symlink():
+            try:
+                if dst.resolve() == src.resolve():
+                    clear_legacy_scratch_binary(name)
+                    return
+            except OSError:
+                pass
+            dst.unlink()
+        dst.symlink_to(src)
+        clear_legacy_scratch_binary(name)
+        return
     if dst.exists() or dst.is_symlink():
         dst.unlink()
-    # Prefer a real file in scratch (survives without the installer path).
     try:
         shutil.copy2(src, dst)
         with contextlib.suppress(OSError):
             dst.chmod(dst.stat().st_mode | 0o111)
     except OSError:
         dst.symlink_to(src)
+        clear_legacy_scratch_binary(name)
         return
     _copy_installer_siblings(src)
-    home = Path.home()
-    if _path_under(src, home):
-        with contextlib.suppress(OSError):
-            src.unlink()
+    clear_legacy_scratch_binary(name)
 
 
 def _copy_installer_siblings(src: Path) -> None:
@@ -974,32 +1028,20 @@ def uninstall_tool(
 ) -> list[RemoveResult]:
     """Uninstall a CLI tool: binaries, config files, plugin files, setup stamps.
 
-    By default only **managed** (scratch) binaries are removed. Home-tree CLIs
-    under ``$HOME`` (/arc/home) are left alone unless ``clean_home=True``.
-    ``purge`` additionally removes the tool's whole home config dir (e.g.
-    ``~/.hermes``, ``~/.openclaw``). Dry-run reports ``would_remove`` without
-    touching the filesystem. Returns one result per target.
+    Removes home-canonical CLIs under ``ASTROAI_LAB_BIN_DIR`` / npm prefix and
+    typical ``~/.<name>/bin`` paths, plus leftover ``$SCRATCH/.local/bin``
+    copies. ``clean_home`` is accepted for back-compat (always removes home
+    CLIs now). ``purge`` removes the tool's whole home config dir.
     """
     if name not in TOOLS:
         raise LabError(f"Unknown tool: {name}", hint="astroai agent list")
     home = home or Path.home()
+    del clean_home  # home is canonical; always remove home CLIs
     results: list[RemoveResult] = []
     binary = tool_binary(name)
     info = classify_binary(binary, home=home)
 
-    if (
-        info["home_install"]
-        and not info["managed"]
-        and not clean_home
-        and info["source"] != BINARY_SOURCE_MISSING
-    ):
-        where = info.get("home_path") or info.get("path")
-        raise LabError(
-            f"{name} is installed under your home ({where}), not managed by astroai-lab",
-            hint=f"astroai agent remove {name} --clean-home",
-        )
-
-    # 1. Managed binaries from the session bin dir + npm prefix bin.
+    # 1. Managed binaries from ~/.local/bin + npm prefix bin.
     share_root = _managed_share_dir()
     for bin_path in (_bin_dir() / binary, _npm_prefix() / "bin" / binary):
         payload = None
@@ -1026,12 +1068,18 @@ def uninstall_tool(
         if result:
             results.append(result)
 
-    # 1b. Optional: user-owned home CLIs.
-    if clean_home:
-        for home_bin in home_bin_candidates(binary, home=home):
-            result = _remove_file(home_bin, f"home-binary:{binary}", dry_run=dry_run)
-            if result:
-                results.append(result)
+    # 1b. Other home drop paths + legacy scratch.
+    for home_bin in home_bin_candidates(binary, home=home):
+        result = _remove_file(home_bin, f"home-binary:{binary}", dry_run=dry_run)
+        if result:
+            results.append(result)
+    if not dry_run:
+        clear_legacy_scratch_binary(binary)
+    else:
+        for root in legacy_scratch_bin_roots():
+            leg = root / binary
+            if leg.is_file() or leg.is_symlink():
+                results.append(RemoveResult(f"legacy-binary:{binary}", "would_remove", str(leg)))
 
     # 2. Best-effort npm uninstall for npm-installed tools (binary removal
     #    above is authoritative; this just cleans the node_modules tree).
@@ -1047,9 +1095,8 @@ def uninstall_tool(
                 quiet=True,  # keep stdout clean for `--json agent remove/wipe`
             )
 
-    # 3. Config files owned by the tool (persistent under $HOME — only when
-    #    removing a managed install or explicitly cleaning home).
-    if info["managed"] or clean_home or purge:
+    # 3. Config files owned by the tool (persistent under $HOME).
+    if info["source"] != BINARY_SOURCE_MISSING or purge:
         for rel in TOOL_CONFIG_PATHS.get(name, []):
             result = _remove_file(home / rel, f"config:{rel}", dry_run=dry_run)
             if result:
@@ -1072,8 +1119,8 @@ def uninstall_tool(
         if result:
             results.append(result)
 
-    # 5. Setup state stamps (only when tearing down managed or cleaning home).
-    if info["managed"] or clean_home:
+    # 5. Setup state stamps when tearing down an installed tool.
+    if info["source"] != BINARY_SOURCE_MISSING:
         from astroai_lab.agent.setup_state import failed_path, stamp_path
 
         for spath, target in (

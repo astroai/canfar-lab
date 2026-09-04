@@ -201,11 +201,15 @@ astroai agent install <TAB>
 
 ## AI coding agents
 
-Configs stay on `/arc` home. CLI binaries go to `$SCRATCH` (`$ASTROAI_LAB_BIN_DIR`).
+Configs and CLI binaries stay on `/arc` home (`~/.local/bin` and agent dirs).
+You can install/update agents with upstream installers without AstroAI.
+Skills: ``npx skills add …`` (skills.sh) — not managed by AstroAI.
+Caches and agent runtime DBs still use `$SCRATCH`.
 
 ```bash
 astroai agent list
 astroai agent install kilo
+# or: curl -fsSL … | bash   # same home land site as upstream
 astroai agent setup hermes
 astroai agent setup --all
 npx skills add astroai/canfar-skills

@@ -96,31 +96,20 @@ def resolve_scratch_dir() -> Path | None:
 
 
 def user_bin_dir(work: Path, scratch: Path | None) -> Path:
+    """CLI install dir — upstream-default ``~/.local/bin`` (not scratch).
+
+    Caches and package runtimes still use scratch via :func:`runtime_root`.
+    Override with ``ASTROAI_LAB_BIN_DIR``. ``work`` / ``scratch`` kept for
+    call-site compatibility.
+    """
+    del work, scratch
     for key in ("ASTROAI_LAB_BIN_DIR",):
         raw = os.environ.get(key, "").strip()
         if raw:
             path = Path(raw)
             path.mkdir(parents=True, exist_ok=True)
             return path
-    if scratch is not None:
-        path = scratch / ".local" / "bin"
-        try:
-            path.mkdir(parents=True, exist_ok=True)
-            return path
-        except OSError:
-            pass
-    proj = find_arc_project_root()
-    if proj is not None:
-        path = proj / ".local" / "bin"
-        try:
-            path.mkdir(parents=True, exist_ok=True)
-            return path
-        except OSError:
-            pass
-    # Never install into the user home (~/.local/bin). Last resort: the
-    # session runtime root — scratch-backed when scratch exists, else
-    # work-dir-backed (same pattern as uv/pixi/mamba runtime dirs).
-    path = runtime_root(work, scratch) / "bin"
+    path = Path.home() / ".local" / "bin"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -138,6 +127,7 @@ def team_bin_dir() -> Path | None:
 
 
 def npm_prefix_dir(bin_dir: Path) -> Path:
+    """npm global prefix — home ``~/.local`` (parent of bin) by default."""
     for key in ("ASTROAI_LAB_NPM_PREFIX", "NPM_CONFIG_PREFIX"):
         raw = os.environ.get(key, "").strip()
         if raw:

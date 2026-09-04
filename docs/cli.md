@@ -239,17 +239,18 @@ AI agent MCP, rules, CLI installation, and plugins (skills via ``npx skills``).
 **`agent list` is the single installable set.** Every agent is one YAML file
 under `data/agent/agents/<id>.yaml` (`id`, `name`, `homepage`, `binary`,
 `install`, optional `config`, `verify`). `list` / `install` / `remove` /
-`verify` all read that set. CLIs land on `$SCRATCH` (`$ASTROAI_LAB_BIN_DIR`);
-configs stay on `$HOME` (/arc/home). Some ids still install via battle-tested
+`verify` all read that set. CLIs land on `$HOME` (`~/.local/bin`);
+configs stay on `$HOME` (/arc/home). Skills via ``npx skills`` (not AstroAI).
+Some ids still install via battle-tested
 `install.TOOLS` branches (same id appears in the list). CLI utilities such as
 `ast-grep` are installed via plugins (`ast-grep-cli`), not listed as agents.
 `hyperfine` is image-baked and is not reinstalled.
 
 | Command | What it does |
 |---------|----------------|
-| `agent list` | Installable agents: installed / logged in / where (scratch, home, image) / version. `--description` for summaries; `--ui` for container endpoints |
-| `agent install NAME [NAME…]` | Download CLI binary(ies) onto scratch |
-| `agent remove NAME` | Uninstall managed CLI on scratch (`--clean-home` for `$HOME` CLIs; `--purge` for config dirs) |
+| `agent list` | Installable agents: installed / logged in / where (home, legacy, image) / version. `--description` for summaries; `--ui` for container endpoints |
+| `agent install NAME [NAME…]` | Download CLI binary(ies) onto `$HOME` (upstream-compatible) |
+| `agent remove NAME` | Uninstall CLI from `$HOME` (`--purge` for config dirs) |
 | `agent wipe` | Factory reset: remove every agent settings file, binary, and state; confirmation or `--yes` |
 | `agent setup [NAME…]` | First-run scaffold for an agent id or setup name; `--all` / `--project` |
 | `agent config ID` | Show/edit an agent's `$HOME` settings file (`--key`, `key=value`, `--unset`) |
@@ -336,9 +337,9 @@ current dir under `/arc/projects` or set explicitly.
 | `SRCDIR` / `WORK` / `SCRATCH` / `PROJECT` | Set explicitly to override detected session paths. `SRCDIR` wins over `WORK` |
 | `ASTROAI_LAB_WORK_ON_SCRATCH` | Set `0` to keep `SRCDIR` on the container overlay (`/srcdir`) instead of `$SCRATCH/src` |
 | `ASTROAI_LAB_SAVE_DIR` | Env saves dir (default: `~/.astroai/lab/saves`) |
-| `ASTROAI_LAB_BIN_DIR` | User CLI install dir (default: scratch `.local/bin`; last resort: work `.runtime-$USER/bin` — never `~/.local`) |
+| `ASTROAI_LAB_BIN_DIR` | User CLI install dir (default: `~/.local/bin`) |
 | `ASTROAI_LAB_RUNTIME_ROOT` | Runtime uv/pixi/mamba roots (default: scratch `.runtime-$USER`) |
-| `ASTROAI_LAB_NPM_PREFIX` | npm global prefix (default: `.local` under scratch) |
+| `ASTROAI_LAB_NPM_PREFIX` | npm global prefix (default: `~/.local`) |
 | `NPM_CONFIG_PREFIX` | Fallback npm prefix when `ASTROAI_LAB_NPM_PREFIX` is unset |
 | `ASTROAI_LAB_CONFIG_DIR` | Workbench config dir (default: `~/.astroai/lab`) |
 | `ASTROAI_LAB_PYTHONPATH` | Extra `PYTHONPATH` entries (colon-separated) |
