@@ -309,13 +309,22 @@ def _install_landing_paths(name: str, *, home: Path | None = None) -> list[Path]
     binary = tool_binary(name)
     seen: set[Path] = set()
     out: list[Path] = []
-    for path in [user_bin_dir() / binary, *home_bin_candidates(binary, home=home)]:
+    candidates = [
+        user_bin_dir() / binary,
+        npm_prefix_dir() / "bin" / binary,
+        *home_bin_candidates(binary, home=home),
+    ]
+    for path in candidates:
         if path in seen:
             continue
         seen.add(path)
         out.append(path)
     if binary == "sg":
-        for path in [user_bin_dir() / "ast-grep", *home_bin_candidates("ast-grep", home=home)]:
+        for path in [
+            user_bin_dir() / "ast-grep",
+            npm_prefix_dir() / "bin" / "ast-grep",
+            *home_bin_candidates("ast-grep", home=home),
+        ]:
             if path not in seen:
                 seen.add(path)
                 out.append(path)
