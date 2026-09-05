@@ -33,7 +33,9 @@ fi
 if [[ -n "${_astroai_lab_cli:-}" ]]; then
     astroai_boot_log "profile:env export"
     # shellcheck disable=SC1090
-    eval "$("${_astroai_lab_cli}" env export)" || {
+    # --no-ensure: dirs already created by common-init / prior shells; skip NFS
+    # mkdir storms. Ray address is env/persisted only (no canfar ps here).
+    eval "$("${_astroai_lab_cli}" env export --no-ensure)" || {
         echo "astroai env export failed — session paths may be incomplete" >&2
     }
     astroai_boot_log "profile:env export done"

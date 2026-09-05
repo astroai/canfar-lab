@@ -89,9 +89,13 @@ def test_env_export_includes_persisted_ray_address(tmp_path, monkeypatch) -> Non
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.delenv("ASTROAI_RAY_JOBS_ADDRESS", raising=False)
     monkeypatch.delenv("RAY_DASHBOARD_URL", raising=False)
+
+    def _boom() -> tuple[None, bool]:
+        raise AssertionError("env export must not call live canfar discovery")
+
     monkeypatch.setattr(
         "astroai_workload.dashboard._live_manager_connect",
-        lambda: (None, False),
+        _boom,
     )
     url = tmp_path / ".astroai" / "ray" / "clusters" / "default" / "connect-url"
     url.parent.mkdir(parents=True)
@@ -105,20 +109,24 @@ def test_env_export_includes_persisted_ray_address(tmp_path, monkeypatch) -> Non
     assert data["ASTROAI_RAY_JOBS_ADDRESS"] == "https://mgr.example/dashboard"
 
 
-def test_env_export_discovers_live_manager(tmp_path, monkeypatch) -> None:
+def test_env_export_skips_live_manager_discovery(tmp_path, monkeypatch) -> None:
+    """Shell export must not block on canfar ps; live discovery is for jobs."""
     monkeypatch.setenv("WORK", str(tmp_path))
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.delenv("ASTROAI_RAY_JOBS_ADDRESS", raising=False)
     monkeypatch.delenv("RAY_DASHBOARD_URL", raising=False)
+
+    def _boom() -> tuple[None, bool]:
+        raise AssertionError("env export must not call live canfar discovery")
+
     monkeypatch.setattr(
         "astroai_workload.dashboard._live_manager_connect",
-        lambda: ("https://canfar.net/session/contrib/live", True),
+        _boom,
     )
     runner = CliRunner()
     result = runner.invoke(app, ["env", "export", "--no-ensure", "--json"])
     assert result.exit_code == 0
-    data = json.loads(result.stdout)
-    assert data["ASTROAI_RAY_JOBS_ADDRESS"] == ("https://canfar.net/session/contrib/live/dashboard")
+    assert "ASTROAI_RAY_JOBS_ADDRESS" not in json.loads(result.stdout)
 
 
 def test_env_export_without_ray_state_has_no_ray_address(tmp_path, monkeypatch) -> None:
@@ -126,9 +134,13 @@ def test_env_export_without_ray_state_has_no_ray_address(tmp_path, monkeypatch) 
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.delenv("ASTROAI_RAY_JOBS_ADDRESS", raising=False)
     monkeypatch.delenv("RAY_DASHBOARD_URL", raising=False)
+
+    def _boom() -> tuple[None, bool]:
+        raise AssertionError("should not live-discover")
+
     monkeypatch.setattr(
         "astroai_workload.dashboard._live_manager_connect",
-        lambda: (None, False),
+        _boom,
     )
     runner = CliRunner()
     result = runner.invoke(app, ["env", "export", "--no-ensure", "--json"])
