@@ -268,7 +268,7 @@ astroai agent list --description
 astroai agent list --ui            # container endpoints
 astroai --json agent list          # --json is a global flag: BEFORE the subcommand
 astroai agent setup
-npx skills add astroai/canfar-skills   # platform + workflow skills
+npx skills add astroai/canfar-skills   # CANFAR platform skills
 astroai agent setup hermes         # per-agent scaffold
 astroai agent setup --all
 astroai agent setup --project ./repo   # per-repo AGENTS.md + .cursor

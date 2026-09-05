@@ -10,7 +10,7 @@ is the Science Platform.
 
 ```bash
 astroai agent setup                    # on /arc — MCP + Cursor rules
-npx skills add astroai/canfar-skills   # platform + workflow skills
+npx skills add astroai/canfar-skills   # CANFAR platform skills
 astroai agent install kilo             # or goose, cline, opencode, codex, cursor, …
 astroai agent install cursor           # Cursor Agent CLI onto $SCRATCH
 gh auth login
