@@ -197,6 +197,10 @@ single `-c` path.
 ### `astroai env export`
 
 Session shell infrastructure (applied automatically by `profile.sh` at login).
+Fast on purpose: path/cache exports only, plus a Ray Jobs address from env or
+a persisted ``connect-url`` — never a live ``canfar ps`` (that blocked every
+interactive shell for ~10–15s). Live discovery stays on ``astroai run`` /
+``cluster`` / jobs.
 
 ```bash
 eval "$(astroai env export)"
@@ -207,7 +211,7 @@ astroai --json env export        # same, via the global flag
 With `--json`, prints the resolved session environment as a JSON object — the
 same keys and values as the shell export, without `export KEY=...` syntax (useful
 for `jq`, scripts, and tooling). `--no-ensure` skips creating cache/runtime
-directories.
+directories (profile uses this; ``common-init`` still ensures once).
 
 Image builds copy the packaged `profile.sh` / `hooks.sh` at build time —
 `astroai` itself stays an in-session tool.

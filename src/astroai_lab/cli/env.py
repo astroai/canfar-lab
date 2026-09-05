@@ -22,14 +22,15 @@ env_app = typer.Typer(help="Session environment export.")
 def _ray_exports() -> dict[str, str]:
     """Best-effort Ray Jobs address for the shell (empty when none).
 
-    Same discovery as jobs/dashboard: env, live ray-manager (``canfar ps``),
-    then persisted ``connect-url``. Profile runs this once at login.
+    Fast path only: env override or persisted ``connect-url``. Never calls
+    ``canfar ps`` — that made every interactive shell wait ~10–15s on CANFAR.
+    Live discovery stays on ``astroai run`` / ``cluster`` / jobs.
     """
-    # ponytail: one canfar listing at profile; persist caches for later
+    # ponytail: profile must stay cheap; jobs discover live when needed
     try:
         from astroai_workload.dashboard import resolve_dashboard_url
 
-        url = resolve_dashboard_url()
+        url = resolve_dashboard_url(live=False)
     except Exception:  # noqa: BLE001 — env export must never fail on Ray state
         return {}
     if not url:

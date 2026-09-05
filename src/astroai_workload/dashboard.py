@@ -52,14 +52,19 @@ def jobs_url_from_connect(connect_url: str) -> str:
     return base + "dashboard"
 
 
-def resolve_dashboard_url(address: str | None = None) -> str | None:
+def resolve_dashboard_url(
+    address: str | None = None,
+    *,
+    live: bool = True,
+) -> str | None:
     """Resolve the Ray Dashboard / Jobs URL for the current cluster.
 
     Priority:
       1. Explicit ``address`` or ``ASTROAI_RAY_JOBS_ADDRESS`` /
          ``RAY_DASHBOARD_URL`` (set inside a ray-manager session).
       2. Live Running/Pending ray-manager with a connect URL (also
-         best-effort persists the URL under ``~/.astroai/ray/clusters/``).
+         best-effort persists the URL under ``~/.astroai/ray/clusters/``)
+         — skipped when ``live=False`` (shell ``env export`` / profile).
       3. Live manager still Pending (no connect URL yet) → ``None`` so callers
          poll instead of using a stale persisted URL from a previous manager.
       4. Persisted connect URL under ``~/.astroai/ray/clusters/*/connect-url``.
@@ -72,11 +77,12 @@ def resolve_dashboard_url(address: str | None = None) -> str | None:
     if explicit:
         return explicit.strip()
 
-    live_url, manager_visible = _live_manager_connect()
-    if live_url:
-        return jobs_url_from_connect(live_url)
-    if manager_visible:
-        return None
+    if live:
+        live_url, manager_visible = _live_manager_connect()
+        if live_url:
+            return jobs_url_from_connect(live_url)
+        if manager_visible:
+            return None
 
     persisted = read_persisted_connect_url()
     if persisted:
