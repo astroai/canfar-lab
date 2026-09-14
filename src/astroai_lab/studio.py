@@ -15,8 +15,8 @@ DSH_NPM = "@deepseek-ai/dsh@0.1.5-rc.2"
 DEFAULT_PORT = 3080
 
 # Profile → harness knobs. Written to ~/.dsh/studio-profile.yaml (canfar-session
-# skill) and applied to dsh via home-level ~/.dsh/cordis.patch.yml (bash-local
-# timeoutMs). max_parallel_children is advisory for the Team skill brief.
+# skill) and applied to dsh via home-level ~/.dsh/cordis.patch.yml
+# (bash-sandbox timeoutMs). max_parallel_children is advisory for Team briefs.
 PROFILE_DEFAULTS: dict[StudioProfile, dict[str, Any]] = {
     "laptop": {
         "bash_timeout_sec": 600,
