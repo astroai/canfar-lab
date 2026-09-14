@@ -739,6 +739,9 @@ def _config_scaffold(agent: dict[str, Any]) -> str:
     fmt = str((agent.get("config") or {}).get("format", "json"))
     name = agent.get("name", agent["id"])
     header = f"# {name} — scaffolded by `astroai agent setup {agent['id']}`\n"
+    # Muse Code fails every command if settings.json omits schema_version.
+    if agent.get("id") == "muse" and fmt == "json":
+        return '{"schema_version": 1}\n'
     if fmt == "json":
         return "{}\n"
     if fmt in ("jsonc", "json5"):

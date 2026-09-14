@@ -45,6 +45,10 @@
     "codex": {
       "description": "Codex CLI MCP (~/.codex/config.toml)"
     },
+    "muse": {
+      "description": "Muse Code settings (~/.config/muse/settings.json)"
+    },
+
     "copilot": {
       "description": "GitHub Copilot CLI MCP (~/.copilot/mcp-config.json)"
     },

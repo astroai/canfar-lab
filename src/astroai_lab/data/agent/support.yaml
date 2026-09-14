@@ -81,6 +81,30 @@ panel_roles:
     opencode-go: deepseek-v4-pro
     deepseek-official: deepseek-v4-pro
     google: gemini-2.5-pro
+  canfar_expert:
+    opencode-go: deepseek-v4.1-flash
+    deepseek-official: deepseek-v4-flash
+    google: gemini-2.5-flash
+  devops:
+    opencode-go: deepseek-v4.1-flash
+    deepseek-official: deepseek-v4-flash
+    google: gemini-2.5-flash
+  plot_master:
+    opencode-go: deepseek-v4-flash-vision-exp
+    deepseek-official: deepseek-v4-flash-vision-exp
+    google: gemini-2.5-flash
+  desloper:
+    opencode-go: deepseek-v4.1-flash
+    deepseek-official: deepseek-v4-flash
+    google: gemini-2.5-flash
+  scientific_innovator:
+    opencode-go: deepseek-v4-pro
+    deepseek-official: deepseek-v4-pro
+    google: gemini-2.5-pro
+  devils_advocate:
+    opencode-go: deepseek-v4-pro
+    deepseek-official: deepseek-v4-pro
+    google: gemini-2.5-pro
 
 agents:
   # Install/setup these for a full AstroAI laptop/session toolkit.
@@ -91,6 +115,7 @@ agents:
     - codex
     - claude
     - cursor
+    - muse
     - goose
     - cline
   panel:

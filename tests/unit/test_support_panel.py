@@ -27,6 +27,7 @@ def test_support_yaml_loads() -> None:
     assert cat.routers[0].panel_default == "deepseek-v4.1-flash"
     assert "dsh" in cat.panel_agents
     assert "opencode" in cat.recommended_agents
+    assert "muse" in cat.recommended_agents
     assert cat.role_model("data_scientist", "opencode-go") == "deepseek-v4.1-flash"
     assert rb.DSH_KEYS[0] == "OPENCODE_API_KEY"
     assert rb._KEY_TO_ROUTE["OPENCODE_API_KEY"][0] == "opencode-go"

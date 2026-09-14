@@ -74,6 +74,16 @@ def test_load_registry_includes_cursor() -> None:
     assert cursor["install"]["source"] == "https://cursor.com/install"
 
 
+def test_load_registry_includes_muse() -> None:
+    muse = get_registry_agent("muse")
+    assert muse is not None
+    assert muse["binary"] == "muse"
+    assert muse["install"]["method"] == "curl"
+    assert muse["install"]["source"] == "https://dev.meta.ai/install.sh"
+    assert muse["config"]["path"] == "~/.config/muse/settings.json"
+    assert muse["config"]["provider_key"] == "META_API_KEY"
+
+
 def test_load_registry_empty_dir(tmp_path: Path) -> None:
     assert load_registry(tmp_path) == []
 
@@ -614,7 +624,7 @@ def test_cli_agent_list_includes_new_agents() -> None:
     assert result.exit_code in (0, 1)
     data = json.loads(result.stdout)
     ids = {item["id"] for item in data["agents"]}
-    assert {"hermes", "openclaw", "zcode", "omp", "junie", "droid", "augment"} <= ids
+    assert {"hermes", "openclaw", "zcode", "omp", "junie", "droid", "augment", "muse"} <= ids
 
 
 def test_cli_agent_install_unknown() -> None:
@@ -717,6 +727,21 @@ def test_setup_registry_agent_scaffolds_config(tmp_path: Path, _no_plugins) -> N
     # second run is a no-op (config exists, plugins skipped)
     result2 = setup_registry_agent("hermes", home=home)
     assert any("config exists" in a for a in result2["actions"])
+
+
+def test_setup_registry_agent_muse_writes_schema_version(tmp_path: Path, _no_plugins) -> None:
+    """Muse Code rejects settings.json without schema_version: 1."""
+    import json
+
+    home = tmp_path / "home"
+    home.mkdir()
+    result = setup_registry_agent("muse", home=home)
+    assert result["ok"] is True
+    cfg = home / ".config" / "muse" / "settings.json"
+    assert cfg.is_file()
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    assert data.get("schema_version") == 1
+    assert (home / ".config" / "muse" / "skills").is_dir()
 
 
 def test_setup_registry_agent_never_clobbers_existing(tmp_path: Path, _no_plugins) -> None:

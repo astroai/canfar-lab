@@ -29,12 +29,13 @@ AGENT_SKILL_DIRS: dict[str, str] = {
     "cursor": ".cursor/skills",
     "goose": ".config/goose/skills",
     "hermes": ".hermes/skills",
+    "muse": ".config/muse/skills",
     "openclaw": ".openclaw/skills",
     "opencode": ".config/opencode/skills",
 }
 
 McpFormat = Literal["json", "json5", "yaml"]
-McpKey = Literal["mcpServers", "mcp"]
+McpKey = Literal["mcpServers", "mcp", "mcp_servers"]
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,8 @@ MCP_TARGETS: dict[str, McpTarget] = {
     "opencode": McpTarget("opencode", ".config/opencode/opencode.json", key="mcp", fmt="json5"),
     "openclaw": McpTarget("openclaw", ".openclaw/openclaw.json", fmt="json5"),
     "hermes": McpTarget("hermes", ".hermes/config.yaml", fmt="yaml"),
+    # Muse Code uses snake_case mcp_servers + transport/command shape.
+    "muse": McpTarget("muse", ".config/muse/settings.json", key="mcp_servers"),
 }
 
 
@@ -136,6 +139,37 @@ def cursor_to_opencode(cfg: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def cursor_to_muse(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Translate a cursor-shaped MCP entry to Muse Code's mcp_servers shape.
+
+    Muse expects ``transport`` + ``command``/``args`` (and optional ``env``),
+    plus ``enabled`` / ``mode``. Default ``mode`` is ``optional`` so a missing
+    server warns instead of aborting the whole run (safer on CANFAR).
+    """
+    cmd = cfg.get("command")
+    if not cmd:
+        return {}
+    out: dict[str, Any] = {
+        "transport": "stdio",
+        "command": cmd,
+        "args": list(cfg.get("args") or []),
+        "enabled": True,
+        "mode": "optional",
+    }
+    if cfg.get("env"):
+        out["env"] = cfg["env"]
+    return out
+
+
+def translate_mcp_entry(agent: str, entry: dict[str, Any]) -> dict[str, Any]:
+    """Adapt a cursor-shaped MCP entry for the target agent, if needed."""
+    if agent == "opencode":
+        return cursor_to_opencode(entry)
+    if agent == "muse":
+        return cursor_to_muse(entry)
+    return entry
+
+
 def merge_mcp_server(
     home: Path,
     agent: str,
@@ -156,11 +190,15 @@ def merge_mcp_server(
         return False
     path = home / target.relpath
     data = _read_config(path, target.fmt)
+    # Muse Code rejects settings.json without schema_version: 1.
+    if agent == "muse":
+        data.setdefault("schema_version", 1)
     bucket = dict(data.get(target.key) or {})
     if server in bucket and not force:
         return False
     bucket[server] = entry
     data[target.key] = bucket
+    path.parent.mkdir(parents=True, exist_ok=True)
     _write_config(path, data, target.fmt)
     return True
 

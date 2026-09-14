@@ -17,6 +17,7 @@ verify:
   - dsh --version
 plugins: [skill, mcp, config]
 notes: >-
-  Review bench provisioned by `astroai agent setup` into
-  ~/.astroai/lab/review-bench (presets + review-panel skill) and
-  ~/.dsh/profiles/web/cordis.patch.yml. Run panels with `astroai panel run`.
+  Studio Team / review-bench via `astroai agent setup` into
+  ~/.astroai/lab/review-bench and ~/.dsh/profiles/web/cordis.patch.yml.
+  Coding UI: `astroai studio` or image astroai/studio. Headless Team:
+  `astroai panel run`.

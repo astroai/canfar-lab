@@ -51,6 +51,8 @@ def test_expand_agent_matrix_aliases() -> None:
     assert expand_agent_matrix(["cursor"]) == ["cursor"]
     assert "hermes" in expand_agent_matrix(["skill-hosts"])
     assert "claude" in expand_agent_matrix(["mcp-hosts"])
+    assert "muse" in expand_agent_matrix(["mcp-hosts"])
+    assert "muse" in expand_agent_matrix(["skill-hosts"])
 
 
 def test_load_plugins_mcp_tool_rule_only() -> None:
@@ -174,7 +176,7 @@ def _mcp_plugin_dict() -> dict:
         "kind": "mcp",
         "tags": ["ray"],
         "summary": "Ray manager MCP tools",
-        "agents": ["cursor", "openclaw"],
+        "agents": ["cursor", "openclaw", "muse"],
         "install": {
             "server": "ray-manager",
             "entry": {
@@ -230,6 +232,19 @@ def test_configure_mcp_merges_openclaw_config(tmp_path: Path) -> None:
     assert results[0].status == "installed"
     data = json.loads((tmp_path / ".openclaw" / "openclaw.json").read_text(encoding="utf-8"))
     assert "ray-manager" in data["mcpServers"]
+
+
+def test_configure_mcp_merges_muse_config(tmp_path: Path) -> None:
+    results = configure_plugin_from_dict(_mcp_plugin_dict(), tmp_path, agent="muse")
+    assert results[0].status == "installed"
+    data = json.loads((tmp_path / ".config" / "muse" / "settings.json").read_text(encoding="utf-8"))
+    assert data["schema_version"] == 1
+    server = data["mcp_servers"]["ray-manager"]
+    assert server["transport"] == "stdio"
+    assert server["command"] == "astroai"
+    assert server["args"] == ["mcp", "serve"]
+    assert server["mode"] == "optional"
+    assert server["env"]["ASTROAI_RAY_JOBS_ADDRESS"].startswith("$")
 
 
 def test_configure_mcp_skip_when_present(tmp_path: Path) -> None:

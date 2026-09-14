@@ -99,7 +99,7 @@ canfar = ">=1.4.1"
 [tool.pixi.tasks]
 lint = "ruff check ."
 format-check = "ruff format --check ."
-typecheck = "ty check src/astroai_lab"
+typecheck = "ty check --python .pixi/envs/default/bin/python src/astroai_lab"
 cli-audit = "bash scripts/audit-cli-help.sh"
 test = "pytest -q"
 ci = "pixi run lint && pixi run format-check && pixi run typecheck && pixi run cli-audit && pixi run test"

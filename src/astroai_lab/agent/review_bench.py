@@ -136,10 +136,10 @@ def validate_preset(root: Path | None = None) -> tuple[list[str], list[str]]:
         else:
             failures.append(f"preset: row {want} missing")
     lenses = sorted(i for i in ids if i.startswith(("ask-", "ask_")))
-    if len(lenses) >= 8:
+    if len(lenses) >= 14:
         checks.append(f"preset: {len(lenses)} persona lenses")
     else:
-        failures.append(f"preset: only {len(lenses)} ask_* lenses (want 8)")
+        failures.append(f"preset: only {len(lenses)} ask_* lenses (want 14)")
     for row in rows:
         config = row.get("config")
         model = config.get("agentOptions", {}).get("model") if isinstance(config, dict) else None
@@ -441,7 +441,7 @@ def ensure_dsh_settings(
     if isinstance(notice, dict):
         notice["welcomeNoticeVersion"] = "astroai-panel-2026-09"
         notice["astroaiPanel"] = (
-            "AstroAI Panel — chaired eight-persona review (astroai panel run / web)."
+            "AstroAI Studio Team — chaired multi-persona review (astroai panel run / web)."
         )
     if not dry_run:
         settings.parent.mkdir(parents=True, exist_ok=True)

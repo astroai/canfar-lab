@@ -60,7 +60,7 @@ npx -y @deepseek-ai/dsh web           # opens http://127.0.0.1:3080
 In the browser:
 
 1. Click **New session**.
-2. Pick **Review bench** in the preset list. (This is the important click — without it you get the
+2. Pick **AstroAI Studio Team** in the preset list. (This is the important click — without it you get the
    ordinary coding agent.)
 3. Paste the prompt below, with your claims filled in.
 
@@ -145,7 +145,7 @@ Cheaper options that keep the rigour:
 
 | What you see | What to do |
 |---|---|
-| No "Review bench" in the preset list | Re-run `install.sh`, then restart dsh. Check with `~/dsh/install.sh --check`. |
+| No "AstroAI Studio Team" in the preset list | Re-run `install.sh`, then restart dsh. Check with `~/dsh/install.sh --check`. |
 | The preset is listed as broken | `~/dsh/install.sh --check` prints the reason (usually a package name or an edited row). |
 | A reviewer fails mid-round | The report lists it under infrastructure events. The round is incomplete — ask the chair to re-run that one reviewer. |
 | "Provider authentication" errors | `DEEPSEEK_API_KEY` is not set for the process that started dsh. Export it, restart. |
@@ -176,7 +176,7 @@ tests pass); C2 runtime did not regress more than 5%.
 ## 9. Cheat sheet
 ```
 SETUP     ~/dsh/install.sh
-RUN       ~/dsh/dsh-web.sh <repo>   → New session → "Review bench"   (laptop, browser)
+RUN       ~/dsh/dsh-web.sh <repo>   → New session → "AstroAI Studio Team"   (laptop, browser)
 TERM      ~/dsh/panel.sh <repo> "C1 <claim>; C2 <...>" <slug>        (any terminal, §10)
 ASK       "Panel-review this repo at HEAD. Claims: C1 <falsifiable sentence>, C2 <...>."
 OUTPUT    panel/<date>-<name>/02-report.md
@@ -222,7 +222,7 @@ That means your laptop (`~/dsh/install.sh` there too; nothing here is
 machine-specific), via:
 
 ```sh
-~/dsh/dsh-web.sh /scratch/src/torchregress   # → http://127.0.0.1:3080 → Review bench
+~/dsh/dsh-web.sh /scratch/src/torchregress   # → http://127.0.0.1:3080 → AstroAI Studio Team
 ```
 
 `~/dsh/dsh-web.sh` adds `--patch .dsh/cordis.patch.yml` when the repo has one
@@ -255,7 +255,7 @@ API base. Until then:
 ```sh
 ~/dsh/install.sh                  # 50 checks incl. preset discovery
 [ -n "${DEEPSEEK_API_KEY:-}" ] && echo key-ok || echo KEY_MISSING -- export it first
-~/dsh/dsh-web.sh /path/to/repo    # → http://127.0.0.1:3080 → New session → Review bench
+~/dsh/dsh-web.sh /path/to/repo    # → http://127.0.0.1:3080 → New session → AstroAI Studio Team
 ```
 
 Nothing here is machine-specific: the skill root is `!!js process.env.HOME +

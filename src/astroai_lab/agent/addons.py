@@ -19,8 +19,8 @@ from astroai_lab.agent.agent_targets import (
     mcp_server_present,
     mcp_target,
     merge_mcp_server,
+    translate_mcp_entry,
 )
-from astroai_lab.agent.agent_targets import cursor_to_opencode as _cursor_to_opencode
 from astroai_lab.agent.install import install_tool, tool_on_path
 from astroai_lab.agent.upstream import (
     _refresh_upstream_repo,
@@ -215,7 +215,11 @@ def _install_mcp_snippet(
     for ag in agents:
         if mcp_target(ag) is None:
             continue
-        entry = opencode_cfg or _cursor_to_opencode(cursor_cfg) if ag == "opencode" else cursor_cfg
+        entry = (
+            opencode_cfg
+            if ag == "opencode" and opencode_cfg
+            else translate_mcp_entry(ag, cursor_cfg)
+        )
         if not entry:
             continue
         if merge_mcp_server(home, ag, server, entry, force=force):
