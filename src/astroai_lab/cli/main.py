@@ -17,6 +17,7 @@ from astroai_lab.cli.env import env_app
 from astroai_lab.cli.help_cmd import command_path_completer, help_cmd_body
 from astroai_lab.cli.kernel import kernel_app
 from astroai_lab.cli.panel import panel_app
+from astroai_lab.cli.studio import studio_app
 from astroai_lab.version import display_version
 from astroai_workload.cli import register as register_workload
 
@@ -36,6 +37,7 @@ app.add_typer(env_app, name="env")
 app.add_typer(config_app, name="config")
 app.add_typer(kernel_app, name="kernel")
 app.add_typer(agent_app, name="agent")
+app.add_typer(studio_app, name="studio")
 app.add_typer(panel_app, name="panel")
 app.add_typer(panel_app, name="review")
 register_workload(app, jobs_as="jobs")

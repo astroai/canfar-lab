@@ -14,7 +14,7 @@ from astroai_lab.errors import LabError
 
 panel_app = typer.Typer(
     help=(
-        "AstroAI Panel — chaired eight-persona review "
+        "AstroAI Studio Team — chaired multi-persona review "
         "(headless everywhere, web where reachable).\n\n"
         "Examples:\n"
         '  astroai panel run ~/src/astroai/torchsky "C1: …" smoke\n'
@@ -44,7 +44,7 @@ def panel_root(ctx: typer.Context) -> None:
             }
         )
         return
-    ui.print_hint("AstroAI Panel — chaired eight-persona review.")
+    ui.print_hint("AstroAI Studio Team — chaired multi-persona review.")
     ui.print_hint('  astroai panel run <repo> "C1: metric ≥ threshold on split" [slug]')
     ui.print_hint("  astroai panel web <repo> --port 3080")
     ui.print_hint("  astroai panel doctor          # route + keys + pin health")
@@ -382,6 +382,10 @@ def _panel_web(repo: str | None, port: int, dry_run: bool) -> None:
     from astroai_lab import panel as _panel
     from astroai_lab.utils.subprocess import run
 
+    ui.print_warn(
+        "`astroai panel web` is soft-deprecated — prefer `astroai studio` "
+        "(same dsh UI; Team preset for chaired review)."
+    )
     repo_path = _panel.resolve_repo(repo)
     patch = repo_path / ".dsh" / "cordis.patch.yml"
     if not patch.is_file():
@@ -389,7 +393,7 @@ def _panel_web(repo: str | None, port: int, dry_run: bool) -> None:
     if _on_skaha():
         ui.print_warn(
             "Web UI is not reachable behind /proxy on a Skaha contributed "
-            "session — use `astroai panel run` instead."
+            "session — use the `astroai/studio` image or `astroai panel run`."
         )
         if dry_run:
             ui.print_json({"repo": str(repo_path), "web": False})
@@ -403,4 +407,5 @@ def _panel_web(repo: str | None, port: int, dry_run: bool) -> None:
         ui.print_json({"repo": str(repo_path), "cmd": cmd})
         return
     ui.print_hint(f"AstroAI Panel web → http://127.0.0.1:{port}  (repo {repo_path})")
+    ui.print_hint("  Prefer: astroai studio")
     run(cmd, cwd=repo_path)

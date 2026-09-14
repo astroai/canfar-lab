@@ -26,6 +26,12 @@ PANEL_LENSES = (
     "astrophysicist",
     "software_engineer",
     "writing_editor",
+    "canfar_expert",
+    "devops",
+    "plot_master",
+    "desloper",
+    "scientific_innovator",
+    "devils_advocate",
 )
 
 

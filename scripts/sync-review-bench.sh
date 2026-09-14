@@ -33,7 +33,8 @@ open(p, "w").write(text.replace(old, new))
 print("patched customSkillDirs -> managed bench + ~/dsh fallback")
 PY
 
-# 2. AstroAI Panel branding (preset name + skill model table pins for v4.1-flash)
+# 2. AstroAI Studio Team branding (preset name + flash model pins)
+# Keep in sync with canfar-lab Studio Team expansion; do not revert to eight-only.
 python3 - "$DST" <<'PY'
 from pathlib import Path
 import sys
@@ -41,16 +42,17 @@ import sys
 dst = Path(sys.argv[1])
 preset = dst / "presets" / "review-bench" / "preset.yml"
 preset.write_text(
-    "name: AstroAI Panel\n"
+    "name: AstroAI Studio Team\n"
     "description: >-\n"
-    "  AstroAI chaired eight-persona review panel — statistician, mathematician,\n"
-    "  data scientist, ML engineer, physicist, astrophysicist, software engineer,\n"
-    "  writing editor — blind round, cross-examination, evidence-gated verdicts.\n"
-    "  Run via `astroai panel` / `astroai review`.\n"
+    "  AstroAI Studio chaired multi-persona team — science reviewers plus CANFAR\n"
+    "  expert, devops, plot master, desloper, innovator, and devil's advocate —\n"
+    "  blind round, cross-examination, evidence-gated verdicts. Coding agent is the\n"
+    "  default Studio New session; pick this preset for Team review. Also:\n"
+    "  `astroai panel run` (headless).\n"
     "order: 10\n",
     encoding="utf-8",
 )
-print("rewrote preset.yml -> AstroAI Panel")
+print("rewrote preset.yml -> AstroAI Studio Team")
 
 cordis = dst / "presets" / "review-bench" / "agent.cordis.yml"
 text = cordis.read_text(encoding="utf-8")

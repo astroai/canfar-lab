@@ -1,7 +1,8 @@
-name: AstroAI Panel
+name: AstroAI Studio Team
 description: >-
-  AstroAI chaired eight-persona review panel — statistician, mathematician,
-  data scientist, ML engineer, physicist, astrophysicist, software engineer,
-  writing editor — blind round, cross-examination, evidence-gated verdicts.
-  Run via `astroai panel` / `astroai review`.
+  AstroAI Studio chaired multi-persona team — science reviewers plus CANFAR
+  expert, devops, plot master, desloper, innovator, and devil's advocate —
+  blind round, cross-examination, evidence-gated verdicts. Coding agent is the
+  default Studio New session; pick this preset for Team review. Also:
+  `astroai panel run` (headless).
 order: 10

@@ -7,7 +7,7 @@ platform; AstroAI is the product surface inside the session.
 
 | Remote | Points at | Use |
 |--------|-----------|-----|
-| `origin` | `sfabbro/canfar-lab` | Push fork `main` |
+| `origin` | `<github_user>/canfar-lab` | Push fork `main` |
 | `upstream` | `astroai/canfar-lab` | Sync `main`; PR target |
 
 `main` tracks `upstream/main`. Prefer working and pushing on fork `main`.
@@ -31,7 +31,7 @@ pixi install
 ## Verification
 
 ```bash
-canfar-lab doctor
+astroai doctor
 # or the repo's documented pixi / pytest tasks — see README and
 # `.cursor/harness/config.json`
 ```
