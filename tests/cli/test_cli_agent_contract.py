@@ -105,7 +105,7 @@ def test_list_default_is_registry_shaped(tmp_path, monkeypatch) -> None:
     assert "agents" in payload
     assert "issues" in payload
     ids = {row["id"] for row in payload["agents"]}
-    assert {"kilo", "zcode", "omp", "hermes", "junie", "droid", "augment"} <= ids
+    assert {"kilo", "zcode", "omp", "hermes", "junie", "droid", "augment", "muse"} <= ids
     assert "hyperfine" not in ids
     assert "ast-grep" not in ids
     assert "lab" in payload

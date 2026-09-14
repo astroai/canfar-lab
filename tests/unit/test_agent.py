@@ -21,6 +21,7 @@ def test_bundle_root_exists() -> None:
 def test_list_bundles() -> None:
     bundles = list_bundles()
     assert "cursor" in bundles
+    assert "muse" in bundles
     assert "all" in bundles
 
 

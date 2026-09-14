@@ -91,6 +91,7 @@ agents:
     - codex
     - claude
     - cursor
+    - muse
     - goose
     - cline
   panel:

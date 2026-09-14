@@ -1,0 +1,27 @@
+# Muse Code (Meta) — registry entry.
+# Installable via: astroai agent install muse
+id: muse
+name: Muse Code
+homepage: https://dev.meta.ai/docs/muse-code
+summary: "Meta's terminal coding agent CLI (Muse Spark; binary: muse)"
+binary: muse
+tags: [agent, cli]
+install:
+  method: curl
+  source: https://dev.meta.ai/install.sh
+  post_binary_paths:
+    - "~/.local/bin/muse"
+config:
+  path: "~/.config/muse/settings.json"
+  format: json
+  provider_key: META_API_KEY
+  markers:
+    - "~/.config/muse"
+verify:
+  - "muse --version"
+  - "test -f ~/.config/muse/settings.json"
+plugins: [skill, mcp, config, addon]
+notes: >-
+  Settings ~/.config/muse/settings.json (requires schema_version: 1).
+  Auth: browser login or META_API_KEY (headless/CI). Interactive: muse;
+  headless: muse exec "…".

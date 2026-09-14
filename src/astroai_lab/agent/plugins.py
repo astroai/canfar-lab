@@ -286,7 +286,7 @@ def _selected_agents(plugin: dict[str, Any], agent: str | None) -> list[str]:
 def _configure_mcp(
     plugin: dict[str, Any], agent: str, home: Path, *, force: bool, dry_run: bool
 ) -> PluginResult:
-    from astroai_lab.agent.agent_targets import cursor_to_opencode, mcp_target, merge_mcp_server
+    from astroai_lab.agent.agent_targets import mcp_target, merge_mcp_server, translate_mcp_entry
 
     install = plugin["install"]
     server = str(install["server"])
@@ -307,7 +307,7 @@ def _configure_mcp(
         return PluginResult(
             plugin["id"], agent, "skipped", f"already merged ({home / target.relpath})"
         )
-    payload = cursor_to_opencode(entry) if agent == "opencode" else entry
+    payload = translate_mcp_entry(agent, entry)
     if not payload:
         return PluginResult(plugin["id"], agent, "failed", "empty MCP entry")
     merge_mcp_server(home, agent, server, payload, force=True)

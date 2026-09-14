@@ -515,6 +515,14 @@ def run_bundle(
             force=force,
             dry_run=dry_run,
         )
+    elif name == "muse":
+        # Muse Code rejects settings.json without schema_version: 1.
+        install_file(
+            root / "muse" / "settings.json",
+            home / ".config" / "muse" / "settings.json",
+            force=force,
+            dry_run=dry_run,
+        )
     elif name == "cline":
         install_file(
             root / "cline" / "cline-notes.md",
