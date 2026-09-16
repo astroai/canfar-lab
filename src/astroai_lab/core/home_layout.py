@@ -13,15 +13,30 @@ Policy:
 
 Compliant apps follow ``XDG_DATA_HOME`` (already scratch-backed by
 ``session_env``). The entries below are for agents that hardcode their
-runtime locations under ``$HOME`` (Claude Code today). Existing real
-directories are migrated into scratch only when small (``MIGRATE_LIMIT_MB``);
-anything bigger is left in place and reported.
+runtime locations under ``$HOME`` (Claude Code and the DeepSeek Harness today).
+Existing real directories are migrated into scratch only when small
+(``MIGRATE_LIMIT_MB``); anything bigger is left in place and reported.
+
+DeepSeek Harness state is only *partly* hardcoded: ``astroai studio`` points its
+own profile's session root, full-text index and spill files at the state root
+(see :mod:`astroai_lab.studio_profile`). The two directories below cover every
+*other* dsh profile — ``web``, ``headless``, ``astroai panel run`` — whose
+shipped defaults resolve under the harness home. Their durable configuration
+(``settings.yaml``, ``.credentials.yaml``, ``profiles/``) deliberately stays on
+``$HOME``.
 """
 
 from __future__ import annotations
 
 import shutil
 from pathlib import Path
+
+#: Harness-home children that hold session-scale runtime data. dsh's shipped
+#: defaults are ``dshHomePath('sessions')`` and ``dshHomePath('storages')``.
+DSH_RUNTIME_DIRS: tuple[str, ...] = (
+    ".dsh/sessions",
+    ".dsh/storages",
+)
 
 # Home-relative runtime paths that must be per-session. Order matters only
 # for readability; parents are created as needed.
@@ -30,6 +45,7 @@ AGENT_RUNTIME_DIRS: tuple[str, ...] = (
     ".claude/todos",
     ".claude/statsig",
     ".claude/shell-snapshots",
+    *DSH_RUNTIME_DIRS,
 )
 
 MIGRATE_LIMIT_MB = 200

@@ -71,7 +71,69 @@ def test_ensure_settings_keeps_user_pin(tmp_path: Path, monkeypatch: pytest.Monk
     assert route == "google"  # user pin kept
     doc = yaml.safe_load(settings.read_text(encoding="utf-8"))
     assert doc["agent-default-model"]["provider"] == "google"
-    assert doc["llm-pi-ai"]["providers"]["opencode-go"] == {"apiKeyEnv": "OPENCODE_API_KEY"}
+    # opencode-go is hand-declared: dsh refuses a route its installed catalog
+    # does not ship unless the api, endpoint and models are stated too.
+    entry = doc["llm-pi-ai"]["providers"]["opencode-go"]
+    assert entry["apiKeyEnv"] == "OPENCODE_API_KEY"
+    assert entry["api"] == "openai-completions"
+    assert entry["baseURL"].startswith("https://")
+    assert [m["id"] for m in entry["models"]][0] == "deepseek-v4.1-flash"
+
+
+def test_ensure_settings_writes_catalog_routes_by_their_dsh_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`openai-official` has to be written as the catalog route `openai`."""
+    monkeypatch.setenv("OPENAI_API_KEY", "oa-key")
+    route = rb.ensure_dsh_settings(tmp_path, force_provider="openai-official")
+    assert route == "openai"
+    doc = yaml.safe_load((tmp_path / ".dsh" / "settings.yaml").read_text(encoding="utf-8"))
+    assert doc["llm-pi-ai"]["providers"]["openai"] == {"apiKeyEnv": "OPENAI_API_KEY"}
+    assert doc["agent-default-model"] == {"provider": "openai", "model": "gpt-5-mini"}
+
+
+def test_unserviceable_routes_are_skipped_not_half_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An incomplete hand-declared route must not poison the settings document."""
+    from astroai_lab.agent import support as support_mod
+
+    monkeypatch.setattr(support_mod, "load_support", _catalog_with_broken_route)
+    monkeypatch.setattr(rb, "load_support", _catalog_with_broken_route)
+    monkeypatch.setenv("OPENCODE_API_KEY", "zen-key")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "d-key")
+    assert rb.unserviceable_keys() == {"OPENCODE_API_KEY"}
+    route = rb.ensure_dsh_settings(tmp_path)
+    assert route == "deepseek-official"
+    doc = yaml.safe_load((tmp_path / ".dsh" / "settings.yaml").read_text(encoding="utf-8"))
+    assert "opencode-go" not in doc["llm-pi-ai"]["providers"]
+
+
+def _catalog_with_broken_route() -> object:
+    """Support catalog whose hand-declared route lost its endpoint."""
+    from astroai_lab.agent.support import Router, SupportCatalog
+
+    return SupportCatalog(
+        routers=(
+            Router(
+                id="opencode-go",
+                key="OPENCODE_API_KEY",
+                panel_default="deepseek-v4.1-flash",
+                panel_models=("deepseek-v4.1-flash",),
+                api="openai-completions",
+                base_url="",
+            ),
+            Router(
+                id="deepseek-official",
+                key="DEEPSEEK_API_KEY",
+                panel_default="deepseek-flash",
+                panel_models=("deepseek-flash",),
+            ),
+        ),
+        panel_roles={},
+        recommended_agents=(),
+        panel_agents=(),
+    )
 
 
 def test_ensure_settings_dry_run_writes_nothing(

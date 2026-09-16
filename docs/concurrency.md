@@ -13,13 +13,20 @@ concurrently, and the guarantees `astroai` makes.
 | Auth (`canfar`, `gh`, tokens) | `$HOME` | Must survive sessions |
 | Env saves / lab state (`~/.astroai/lab`) | `$HOME` | Explicit snapshots + stamps |
 | Ray cluster state (`~/.astroai/ray`) | `$HOME` | Written by the manager and CLI control plane |
-| **Agent runtimes** (transcripts, session DBs, telemetry — e.g. `~/.claude/projects`) | **Symlink → scratch** | Two sessions writing one SQLite store over NFS corrupts it; NFS locking is unreliable |
+| **Agent runtimes** (transcripts, session DBs, telemetry — e.g. `~/.claude/projects`, `~/.dsh/sessions`, `~/.dsh/storages`) | **Symlink → scratch** | Two sessions writing one SQLite store over NFS corrupts it; NFS locking is unreliable |
 | Caches, package envs | Scratch/work | Already per-session |
 
 `astroai agent setup` (and `verify --fix`) relocates known agent runtime
 directories onto the current session's scratch via symlinks and reports what
 it moved. Directories larger than 200 MB are left in place and reported for
 manual migration.
+
+`astroai studio` goes further for its own harness profile: instead of
+symlinking, it points the session log root, the full-text index and the spill
+directory straight at the state root (`~/.dsh/state` on a laptop,
+`/scratch/<user>/.studio-<user>` in a CANFAR session), and keeps the durable
+configuration — `settings.yaml`, `.credentials.yaml`, `profiles/` — on `$HOME`.
+See [studio.md](studio.md#state-and-the-canfar-storage-split).
 
 ## Guarantees
 

@@ -184,6 +184,40 @@ astroai clean --yes --saves
 astroai clean --dry-run
 ```
 
+### `astroai studio`
+
+AstroAI Studio — the browser coding portal built on DeepSeek Harness. Boots an
+AstroAI-owned dsh profile (`astroai`), not the shipped `web` profile, so the
+deployment adds the Agent Teams layers, routes session state off a
+quota-constrained `/arc` home, registers the managed preset root and mounts the
+`astroai mcp serve` server. Full guide: [studio.md](studio.md).
+
+| Flag | What it does |
+|------|----------------|
+| `REPO` | Workspace directory (default: cwd) |
+| `--port N` | Web port (default 3080) |
+| `--profile laptop\|canfar` | Resource profile (default: auto-detect from Skaha env) |
+| `--prepare` | Provision everything and exit |
+| `--doctor` | Pre-flight dsh, profile, composition, skills, providers, MCP; exit non-zero on a blocking problem |
+| `--no-team` | Skip the experimental Agent Teams layers |
+| `--no-install` | Never fetch bundles (offline / image-baked setups) |
+| `--mcp-bin PATH` | Pin the `astroai` the Studio MCP row runs (remembered in `~/.astroai/lab/.env`) |
+| `--skills` | Print skills.sh / agentskills onboarding |
+| `--force` | Overwrite managed scaffolding |
+
+```bash
+astroai studio                          # laptop, cwd
+astroai studio ~/src/astroai/torchsky   # explicit workspace
+astroai studio --prepare                # provision only
+astroai --json studio --doctor          # machine-readable pre-flight
+astroai studio --prepare --profile canfar
+```
+
+Studio's `--profile` selects *resources* (`laptop` / `canfar`) and is never
+passed to dsh; the harness profile is always `astroai`. See
+[docs/studio.md](studio.md) for the storage split, the teams, the provider
+seeding, and the CANFAR proxy.
+
 ### `astroai help`
 
 Print `--help` for the app and every subcommand — the aggregate of all help

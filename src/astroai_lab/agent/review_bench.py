@@ -388,6 +388,16 @@ def resolve_panel_route(
     )
 
 
+def unserviceable_keys() -> set[str]:
+    """Keys whose router dsh cannot accept as written.
+
+    A hand-declared route (one the installed provider catalog does not ship)
+    needs ``api``, ``base_url`` and a model list; dsh rejects an incomplete one
+    where it is written, which would take the whole ``settings.yaml`` with it.
+    """
+    return {router.key for router in load_support().unserviceable_routes()}
+
+
 def ensure_dsh_settings(
     home: Path | None = None,
     *,
@@ -405,9 +415,11 @@ def ensure_dsh_settings(
     if not keys:
         return None
     catalog = load_support()
-    key_to_route = catalog.key_to_route()
-    first_key = next(k for k in catalog.dsh_keys if k in keys)
-    provider, model = key_to_route[first_key]
+    key_to_route = catalog.key_to_dsh_route()
+    usable = [k for k in catalog.dsh_keys if k in keys and k not in unserviceable_keys()]
+    if not usable:
+        return None
+    provider, model = key_to_route[usable[0]]
     if force_provider:
         for key, (route_id, default_model) in key_to_route.items():
             if route_id == force_provider and key in keys:
@@ -426,10 +438,20 @@ def ensure_dsh_settings(
     if not isinstance(providers, dict):
         providers = doc["llm-pi-ai"]["providers"] = {}
     for name in keys:
-        route, _ = key_to_route[name]
+        router = next(
+            (r for r in load_support().routers if r.key == name),
+            None,
+        )
+        if router is None or not router.serviceable():
+            # dsh refuses a hand-declared route with no api/baseURL/models where
+            # it is written, which would reject the whole settings document —
+            # so an incomplete route is skipped instead of half-written.
+            continue
+        route = router.provider_id
         entry = providers.get(route)
-        if not isinstance(entry, dict) or entry.get("apiKeyEnv") != name:
-            providers[route] = {"apiKeyEnv": name}
+        wanted = router.provider_entry()
+        if not isinstance(entry, dict) or entry != wanted:
+            providers[route] = wanted
     current = doc.get("agent-default-model")
     pinned = current.get("provider") if isinstance(current, dict) else None
     if force_provider or not pinned:

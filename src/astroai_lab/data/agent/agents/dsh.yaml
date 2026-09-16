@@ -19,5 +19,5 @@ plugins: [skill, mcp, config]
 notes: >-
   Studio Team / review-bench via `astroai agent setup` into
   ~/.astroai/lab/review-bench and ~/.dsh/profiles/web/cordis.patch.yml.
-  Coding UI: `astroai studio` or image astroai/studio. Headless Team:
-  `astroai panel run`.
+  Coding UI: `astroai studio` (own profile `astroai`, see docs/studio.md) or
+  image astroai/studio. Headless Team: `astroai panel run`.

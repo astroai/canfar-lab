@@ -61,6 +61,8 @@ def test_tools_list_exposes_cluster_and_job_tools() -> None:
         "job_logs",
         "job_cancel",
         "job_list",
+        "session_resources",
+        "jobs_report",
     ]
     for tool in resp["result"]["tools"]:
         assert "inputSchema" in tool
@@ -70,6 +72,71 @@ def test_tools_list_exposes_cluster_and_job_tools() -> None:
 def test_tools_call_unknown_tool() -> None:
     resp = handle_message(_rpc("tools/call", {"name": "nope", "arguments": {}}))
     assert resp["error"]["code"] == -32602
+
+
+def test_session_resources_tool_reports_this_session() -> None:
+    resp = handle_message(_rpc("tools/call", {"name": "session_resources", "arguments": {}}))
+    payload = json.loads(resp["result"]["content"][0]["text"])
+    assert "work_dir" in payload["paths"]
+    assert "notes" in payload
+
+
+def test_session_resources_survives_a_broken_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A probe failure is reported, never raised: the server stays alive."""
+
+    def _boom(*_a: object, **_k: object) -> object:
+        raise OSError("no /proc here")
+
+    monkeypatch.setattr("astroai_lab.core.session_resources.collect_resources", _boom)
+    resp = handle_message(_rpc("tools/call", {"name": "session_resources", "arguments": {}}))
+    assert "error" not in resp
+    payload = json.loads(resp["result"]["content"][0]["text"])
+    assert "resource snapshot unavailable" in payload["error"]
+
+
+def test_jobs_report_renders_markdown(monkeypatch: pytest.MonkeyPatch) -> None:
+    rows = [
+        {
+            "run_id": "alpha",
+            "status": "running",
+            "metadata": {"cpus": 4, "gpus": 1, "start_time": "2026-09-15T10:00:00Z"},
+        },
+        {"submission_id": "beta", "status": "succeeded"},
+    ]
+    monkeypatch.setattr(
+        "astroai_workload.mcp.job_list_payload", lambda address=None: {"jobs": rows}
+    )
+    resp = handle_message(_rpc("tools/call", {"name": "jobs_report", "arguments": {}}))
+    payload = json.loads(resp["result"]["content"][0]["text"])
+    assert payload["job_count"] == 2
+    assert payload["status_counts"] == {"running": 1, "succeeded": 1}
+    markdown = payload["markdown"]
+    assert "| alpha | running | 4 | 1 |" in markdown
+    assert "| beta | succeeded | - | - |" in markdown
+
+
+def test_jobs_report_filters_one_run_and_handles_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rows = [{"run_id": "alpha", "status": "failed"}, {"run_id": "beta", "status": "running"}]
+    monkeypatch.setattr(
+        "astroai_workload.mcp.job_list_payload", lambda address=None: {"jobs": rows}
+    )
+    resp = handle_message(
+        _rpc("tools/call", {"name": "jobs_report", "arguments": {"run_id": "beta"}})
+    )
+    payload = json.loads(resp["result"]["content"][0]["text"])
+    assert payload["job_count"] == 1
+    assert payload["status_counts"] == {"running": 1}
+
+    monkeypatch.setattr("astroai_workload.mcp.job_list_payload", lambda address=None: {})
+    empty = json.loads(
+        handle_message(_rpc("tools/call", {"name": "jobs_report", "arguments": {}}))["result"][
+            "content"
+        ][0]["text"]
+    )
+    assert empty["job_count"] == 0
+    assert "No jobs on this cluster" in empty["markdown"]
 
 
 def test_tools_call_cluster_status(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -8,6 +8,7 @@ import pytest
 
 from astroai_lab.core.home_layout import (
     AGENT_RUNTIME_DIRS,
+    DSH_RUNTIME_DIRS,
     relocate_agent_runtime,
 )
 
@@ -86,3 +87,40 @@ def test_dry_run_touches_nothing(env: Path) -> None:
     real.mkdir(parents=True)
     actions = relocate_agent_runtime(home, data, dry_run=True)
     assert actions and not real.is_symlink()
+
+
+def test_harness_session_state_is_relocated(env: Path) -> None:
+    """dsh's session logs and KV stores are append-heavy and unbounded."""
+    home, data = env
+    relocate_agent_runtime(home, data)
+    for rel in DSH_RUNTIME_DIRS:
+        link = home / rel
+        assert link.is_symlink(), rel
+        assert data in link.resolve().parents
+
+
+def test_harness_config_stays_on_home(env: Path) -> None:
+    """Credentials, settings and installed profiles must survive the session."""
+    home, data = env
+    settings = home / ".dsh" / "settings.yaml"
+    settings.parent.mkdir(parents=True)
+    settings.write_text("agent-default-model: {}\n", encoding="utf-8")
+    profile = home / ".dsh" / "profiles" / "astroai"
+    profile.mkdir(parents=True)
+
+    relocated = {home / rel for rel in AGENT_RUNTIME_DIRS}
+
+    assert settings not in relocated
+    assert profile not in relocated
+    assert settings.is_file() and not settings.is_symlink()
+
+
+def test_harness_dirs_come_after_the_claude_ones(env: Path) -> None:
+    """Order is documented behaviour; keep the harness entries appended."""
+    assert AGENT_RUNTIME_DIRS[:4] == (
+        ".claude/projects",
+        ".claude/todos",
+        ".claude/statsig",
+        ".claude/shell-snapshots",
+    )
+    assert AGENT_RUNTIME_DIRS[4:] == DSH_RUNTIME_DIRS

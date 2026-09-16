@@ -1,7 +1,8 @@
 """Minimal MCP (Model Context Protocol) server over stdio for Ray cluster ops.
 
-Exposes cluster lifecycle and jobs so agents can start workers and run
-programs with the same functions as the CLI. Cluster tools need the
+Exposes cluster lifecycle, jobs, this session's own resources, and a
+markdown job report so agents can start workers, run programs, and report
+on them with the same functions as the CLI. Cluster tools need the
 canfar client. Job tools need Ray (a ray-manager image, or Ray in this
 venv).
 
@@ -170,6 +171,104 @@ def _tool_job_cancel(args: dict[str, Any]) -> dict[str, Any]:
 
 def _tool_job_list(args: dict[str, Any]) -> dict[str, Any]:
     return job_list_payload(args.get("address"))
+
+
+def _tool_session_resources(args: dict[str, Any]) -> dict[str, Any]:
+    """This session's CPU/RAM/GPU/scratch/home headroom.
+
+    Cheap and read-only. An agent should call it before promising heavy work:
+    on CANFAR the interactive session is capped, home is quota-constrained and
+    scratch is per-session. Absent data is reported as null rather than guessed.
+    """
+    del args
+    payload: dict[str, Any] = {}
+    try:
+        from astroai_lab.core.session_resources import collect_resources
+
+        payload = collect_resources().to_dict()
+    except Exception as exc:  # noqa: BLE001 — the tool must never break a session
+        payload = {"error": f"resource snapshot unavailable: {exc}"}
+    try:
+        from astroai_lab.core.paths import resolve_paths
+
+        paths = resolve_paths()
+        payload["paths"] = {
+            "work_dir": str(paths.work_dir),
+            "scratch_dir": str(paths.scratch_dir) if paths.scratch_dir else None,
+            "arc_projects": str(paths.arc_projects) if paths.arc_projects else None,
+        }
+    except Exception as exc:  # noqa: BLE001
+        payload.setdefault("paths", {})["error"] = str(exc)
+    return payload
+
+
+def _tool_jobs_report(args: dict[str, Any]) -> dict[str, Any]:
+    """A markdown report over every job on the cluster, for pasting into a reply."""
+    rows = job_list_payload(args.get("address")).get("jobs") or []
+    if not isinstance(rows, list):
+        rows = []
+    keep = str(args.get("run_id") or "").strip()
+    if keep:
+        rows = [row for row in rows if _row_id(row) == keep]
+
+    counts: dict[str, int] = {}
+    for row in rows:
+        state = _row_field(row, "status") or "unknown"
+        counts[state] = counts.get(state, 0) + 1
+
+    lines = [f"# Cluster job report ({len(rows)} job(s))", ""]
+    if counts:
+        lines.append("Status: " + ", ".join(f"{n}× {name}" for name, n in sorted(counts.items())))
+        lines.append("")
+    if rows:
+        lines += [
+            "| run id | status | cpus | gpus | started |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+        for row in rows:
+            lines.append(
+                "| {id} | {status} | {cpus} | {gpus} | {started} |".format(
+                    id=_row_id(row) or "(unnamed)",
+                    status=_row_field(row, "status") or "unknown",
+                    cpus=_row_field(row, "cpus") or "-",
+                    gpus=_row_field(row, "gpus") or "-",
+                    started=_row_field(row, "start_time") or "-",
+                )
+            )
+    else:
+        lines.append("No jobs on this cluster.")
+    lines += [
+        "",
+        "Next actions: `job_status` / `job_logs` for one run; `job_cancel` to stop one; ",
+        "`cluster_status` for workers; `session_resources` before promising more work.",
+    ]
+    return {
+        "markdown": "\n".join(lines),
+        "job_count": len(rows),
+        "status_counts": counts,
+        "jobs": rows,
+    }
+
+
+def _row_field(row: Any, name: str) -> Any:
+    """Best-effort field read: dashboard rows vary between Ray versions."""
+    if isinstance(row, dict):
+        if name in row:
+            return row[name]
+        for key in ("metadata", "runtime_env", "resources"):
+            nested = row.get(key)
+            if isinstance(nested, dict) and name in nested:
+                return nested[name]
+        return None
+    return None
+
+
+def _row_id(row: Any) -> str:
+    for name in ("run_id", "submission_id", "job_id", "id"):
+        value = _row_field(row, name)
+        if value:
+            return str(value)
+    return ""
 
 
 TOOLS: list[dict[str, Any]] = [
@@ -367,6 +466,34 @@ TOOLS: list[dict[str, Any]] = [
             },
         },
         "handler": _tool_job_list,
+    },
+    {
+        "name": "session_resources",
+        "description": (
+            "This session's CPU, RAM, GPU, /scratch and $HOME headroom, plus the "
+            "work/scratch/arc paths. Call before promising heavy work: CANFAR "
+            "interactive sessions are capped and home is quota-constrained."
+        ),
+        "inputSchema": {"type": "object", "properties": {}},
+        "handler": _tool_session_resources,
+    },
+    {
+        "name": "jobs_report",
+        "description": (
+            "Markdown report over every job on the cluster (or one run_id), with "
+            "status counts and next actions. Use it to report results directly."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {
+                    "type": "string",
+                    "description": "Restrict the report to one job.",
+                },
+                "address": {"type": "string"},
+            },
+        },
+        "handler": _tool_jobs_report,
     },
 ]
 
