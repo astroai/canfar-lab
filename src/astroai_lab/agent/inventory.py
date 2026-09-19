@@ -161,17 +161,17 @@ def verify_setup(home: Path, *, probe_binaries: bool = False) -> list[str]:
     # fresh images without hermes/openclaw don't fail the container gate.
     issues.extend(registry_verify_issues(home, installed_only=True, probe_binaries=probe_binaries))
 
-    legacy_clis: list[str] = []
+    home_clis: list[str] = []
     for agent in list_registry_agents():
         info = classify_binary(str(agent["binary"]), home=home)
-        if info.get("legacy"):
-            legacy_clis.append(agent["id"])
-    if legacy_clis:
+        if info.get("home_install") and not info.get("managed"):
+            home_clis.append(agent["id"])
+    if home_clis:
         issues.append(
-            "Legacy agent CLIs on $SCRATCH (prefer $HOME): "
-            + ", ".join(legacy_clis)
-            + ". Reinstall with: astroai agent install NAME"
-            + "  (or use the upstream installer)"
+            "Agent CLIs under $HOME (/arc — slow NFS); prefer $SCRATCH: "
+            + ", ".join(home_clis)
+            + ". Move with: astroai agent remove NAME --clean-home"
+            + " && astroai agent install NAME"
         )
 
     return issues

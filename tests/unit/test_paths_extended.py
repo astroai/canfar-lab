@@ -36,7 +36,9 @@ def test_quota_used_pct_missing() -> None:
     assert quota_used_pct(Path("/no/such/path")) is None
 
 
-def test_user_bin_dir_prefers_home_local(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_user_bin_dir_prefers_scratch_local(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     scratch = tmp_path / "scratch"
     scratch.mkdir()
     (scratch / ".local" / "bin").mkdir(parents=True)
@@ -44,14 +46,16 @@ def test_user_bin_dir_prefers_home_local(tmp_path: Path, monkeypatch: pytest.Mon
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("SCRATCH", str(scratch))
+    monkeypatch.setenv("WORK", str(tmp_path / "work"))
+    (tmp_path / "work").mkdir(exist_ok=True)
     monkeypatch.delenv("ASTROAI_LAB_BIN_DIR", raising=False)
-    assert user_bin_dir() == home / ".local" / "bin"
+    assert user_bin_dir() == scratch / ".local" / "bin"
 
 
-def test_user_bin_dir_falls_back_to_home_local(
+def test_user_bin_dir_falls_back_to_runtime_without_scratch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Without env override, installs land in ~/.local/bin (upstream default)."""
+    """Without scratch, installs land in runtime_root/bin — never ~/.local/bin."""
     monkeypatch.chdir(tmp_path)
     work = tmp_path / "work"
     work.mkdir()
@@ -64,14 +68,15 @@ def test_user_bin_dir_falls_back_to_home_local(
     monkeypatch.setenv("ASTROAI_LAB_RUNTIME_ROOT", str(work / ".runtime-test"))
 
     bin_dir = user_bin_dir()
-    assert bin_dir == home / ".local" / "bin"
+    assert bin_dir == work / ".runtime-test" / "bin"
     assert bin_dir.is_dir()
+    assert home / ".local" / "bin" != bin_dir
 
 
-def test_user_bin_dir_home_default_without_env(
+def test_user_bin_dir_runtime_default_without_env(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Default bin dir is ~/.local/bin when no overrides at all."""
+    """Default without scratch: runtime_root/bin, not home."""
     monkeypatch.chdir(tmp_path)
     work = tmp_path / "work"
     work.mkdir()
@@ -84,7 +89,9 @@ def test_user_bin_dir_home_default_without_env(
     monkeypatch.delenv("ASTROAI_LAB_RUNTIME_ROOT", raising=False)
 
     bin_dir = user_bin_dir()
-    assert bin_dir == home / ".local" / "bin"
+    assert ".runtime-" in str(bin_dir)
+    assert bin_dir.name == "bin"
+    assert not str(bin_dir).startswith(str(home))
 
 
 def test_find_arc_project_root_no_mount(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

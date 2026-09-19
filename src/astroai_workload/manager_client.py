@@ -1,6 +1,6 @@
 """HTTP client for a CANFAR ray-manager's /api/v1 endpoints.
 
-Lets any AstroAI session (webterm, notebook, marimo, or an agent like
+Lets any AstroAI session (terminal, notebook, marimo, or an agent like
 orx/hermes) drive cluster lifecycle over the manager's public connect URL
 without running inside the manager pod. Uses the same auth path as the
 ``canfar`` CLI (client cert or bearer token) for HTTPS requests.

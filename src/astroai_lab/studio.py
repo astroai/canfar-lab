@@ -43,6 +43,9 @@ _STUDIO_BASH_MARK = "# astroai-studio-bash-timeout"
 #: Places a global npm install can land, in resolution order.
 _DSH_SEARCH_PATHS = (
     "/opt/astroai/bin/dsh",
+    # Scratch-canonical managed bin (ASTROAI_LAB_BIN_DIR) — prefer over /arc home.
+    "${ASTROAI_LAB_BIN_DIR}/dsh",
+    "${SCRATCH}/.local/bin/dsh",
     "~/.npm-global/bin/dsh",
     "~/.local/bin/dsh",
     "/usr/local/bin/dsh",
@@ -106,7 +109,7 @@ def dsh_binary() -> str | None:
     if found:
         return found
     for raw in _DSH_SEARCH_PATHS:
-        candidate = Path(raw).expanduser()
+        candidate = Path(os.path.expandvars(raw)).expanduser()
         if candidate.is_file() and os.access(candidate, os.X_OK):
             return str(candidate)
     return None

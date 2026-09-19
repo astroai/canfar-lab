@@ -2,13 +2,13 @@
 
 Two personas, exercised for each installable id:
 
-1. **Brand-new user** — empty $HOME bin. Dry-run install is allowed; setup
-   scaffolds config without writing under home for dry-run; mocked
-   installers land a home-canonical binary.
+1. **Brand-new user** — empty managed bin on scratch. Dry-run install is
+   allowed; setup scaffolds config without writing under home for dry-run;
+   mocked installers land a scratch-canonical binary.
 
-2. **User with their own crap** — pre-existing ``~/.local/bin/<binary>``,
-   broken config files, leftover home trees. Install is allowed (home is
-   canonical); remove clears the home CLI; verify --fix repairs configs.
+2. **User with their own crap** — pre-existing ``~/.local/bin/<binary>`` on
+   home (/arc). Install refuses until ``--clean-home``; remove clears the
+   home CLI; verify --fix repairs configs.
 
 No network downloads in the default suite — installers are mocked so CI stays
 fast and offline-safe. Live URL reachability lives in a separate optional
@@ -47,14 +47,19 @@ UTILITY_IDS = sorted(install_mod.TOOL_UTILITIES)
 
 
 def _session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path, Path]:
-    """Isolate HOME + managed bin/npm under tmp; hide host agent binaries."""
+    """Isolate HOME + managed bin/npm under tmp; hide host agent binaries.
+
+    Managed bin is on a fake scratch path (scratch-canonical), never under HOME.
+    """
     home = tmp_path / "home"
-    bin_dir = home / ".local" / "bin"
-    npm_prefix = home / ".local"
+    scratch = tmp_path / "scratch"
+    bin_dir = scratch / ".local" / "bin"
+    npm_prefix = scratch / ".local"
     home.mkdir()
     bin_dir.mkdir(parents=True)
 
     monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("SCRATCH", str(scratch))
     monkeypatch.setenv("ASTROAI_LAB_BIN_DIR", str(bin_dir))
     monkeypatch.setenv("ASTROAI_LAB_NPM_PREFIX", str(npm_prefix))
     monkeypatch.setattr(install_mod, "_bin_dir", lambda: bin_dir)
@@ -162,8 +167,8 @@ def test_new_user_dry_run_install_allowed(
     # Empty home: no refuse.
     assert install_registry_agent(agent_id, dry_run=True) == agent_id
     assert list(bin_dir.iterdir()) == []
-    # ~/.local/bin may exist (canonical land site); no agent configs yet.
-    assert not any(p.name.startswith(".") and p.name != ".local" for p in home.iterdir())
+    # Managed bin is on scratch; home should have no agent configs yet.
+    assert not any(p.name.startswith(".") for p in home.iterdir())
 
 
 @pytest.mark.parametrize("agent_id", REGISTRY_IDS, ids=REGISTRY_IDS)
@@ -272,7 +277,7 @@ def test_new_user_mocked_install_lands_managed_binary(
     assert (bin_dir / binary).is_file()
     info = install_mod.classify_binary(binary, home=home)
     assert info["managed"] is True
-    assert info["home_install"] is True
+    assert info["home_install"] is False
     # npm agents may also appear under npm prefix in real life; we only land bin_dir.
 
 
@@ -282,22 +287,28 @@ def test_new_user_mocked_install_lands_managed_binary(
 
 
 @pytest.mark.parametrize("agent_id", REGISTRY_IDS, ids=REGISTRY_IDS)
-def test_dirty_home_allows_install_and_remove(
+def test_dirty_home_refuses_install_until_clean(
     agent_id: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from astroai_lab.errors import LabError
+
     home, bin_dir, _ = _session(tmp_path, monkeypatch)
     agent = get_registry_agent(agent_id)
     assert agent is not None
     binary = str(agent["binary"])
     home_bin = _drop_home_binary(home, binary)
-    assert home_bin == bin_dir / binary
+    assert home_bin != bin_dir / binary
+    assert home_bin.is_file()
 
-    # Home is canonical — install must not refuse.
-    assert install_registry_agent(agent_id, dry_run=True) == agent_id
+    # Home-owned CLI blocks managed install until --clean-home.
+    with pytest.raises(LabError, match="already installed under your home"):
+        install_registry_agent(agent_id, dry_run=True)
 
-    results = remove_registry_agent(agent_id, home=home, dry_run=False)
+    results = remove_registry_agent(agent_id, home=home, dry_run=False, clean_home=True)
     assert not home_bin.exists()
     assert results
+    # After clean-home, dry-run install is allowed again.
+    assert install_registry_agent(agent_id, dry_run=True) == agent_id
 
 
 @pytest.mark.parametrize("agent_id", REGISTRY_IDS, ids=REGISTRY_IDS)
@@ -341,7 +352,7 @@ def test_dirty_broken_config_is_repaired(
 def test_dirty_home_plus_managed_prefers_managed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Managed ~/.local/bin wins; refuse leaves regular files alone."""
+    """Managed scratch bin wins; refuse leaves regular managed files alone."""
     home, bin_dir, _ = _session(tmp_path, monkeypatch)
     managed = bin_dir / "kilo"
     managed.write_text("#!/bin/sh\n", encoding="utf-8")
@@ -445,8 +456,9 @@ def test_codex_package_install_puts_host_and_bwrap_on_path(
     assert (bin_dir / "codex").exists()
     assert (bin_dir / "codex-code-mode-host").exists()
     assert (bin_dir / "bwrap").exists()
-    # Upstream-compatible: binaries live under ~/.local (not a scratch tree).
-    assert bin_dir.is_relative_to(home / ".local")
+    # Scratch-canonical: binaries live under $SCRATCH/.local, not /arc home.
+    assert bin_dir.is_relative_to(tmp_path / "scratch" / ".local")
+    assert not bin_dir.is_relative_to(home)
 
 
 def test_codex_fix_adds_mcp_timeouts_for_legacy_config(

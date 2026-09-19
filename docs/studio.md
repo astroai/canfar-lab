@@ -52,7 +52,6 @@ $DSH_HOME/profiles/astroai/cordis.patch.yml    # the Studio layer (generated)
 $DSH_HOME/profiles/astroai/pnpm-workspace.yaml # nodeLinker: hoisted
 $DSH_HOME/cordis.patch.yml                     # machine layer: bash-sandbox timeoutMs
 ~/.astroai/lab/studio/studio-profile.yaml      # the resolved resource profile
-~/.astroai/lab/studio/presets/                 # Studio-owned preset root
 ~/.astroai/lab/review-bench/                   # managed presets, skills, bin
 ```
 
@@ -219,7 +218,7 @@ Run `astroai studio --doctor` first; it checks the harness binary, the profile
 manifest and layer order, the composed tree (`dsh --profile astroai
 --dump-config`), the state root, the port, the MCP handshake and its tool
 inventory, skill discovery, the provider routes and the session's resource
-envelope, and prints the fix for anything that fails. Exit status is `2` when a
+envelope, and prints the fix for anything that fails. Exit status is `1` when a
 check is fatal, so it doubles as a container smoke test.
 
 | Symptom | Cause |

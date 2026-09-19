@@ -331,10 +331,11 @@ def registry_agent_status(
 ) -> dict[str, Any]:
     """Installed status for a registry agent: binary location + config present.
 
-    Binaries under ``ASTROAI_LAB_BIN_DIR`` (``~/.local/bin``) are *managed*.
-    Leftover ``$SCRATCH/.local/bin`` copies are *legacy* (not treated as
-    installed for update). Config paths stay on home for persistence.
-    Version probing is opt-in (``probe_ver=True``).
+    Binaries under ``ASTROAI_LAB_BIN_DIR`` (``$SCRATCH/.local/bin``) are
+    *managed*. Leftover ``~/.local/bin`` copies under ``$HOME`` (/arc) are
+    user-owned home installs — install refuses until ``--clean-home``.
+    Config paths stay on home for persistence. Version probing is opt-in
+    (``probe_ver=True``).
     """
     home = home or Path.home()
     binary = str(agent["binary"])
@@ -488,8 +489,8 @@ def _install_curl(agent: dict[str, Any]) -> str:
     if found is None:
         raise LabError(
             f"{binary} not found after install — open a new shell",
-            hint="Check the installer output; binary should land under $HOME "
-            "(~/.local/bin or the agent's own bin dir)",
+            hint="Check the installer output; binary should land under "
+            "$SCRATCH/.local/bin or the agent's own bin dir",
         )
     _link_into_local_bin(found, binary)
     _verify_cmd(binary, extra_paths=extra)
@@ -551,6 +552,8 @@ def install_registry_agent(agent_id: str, *, dry_run: bool = False) -> str:
         refuse_if_home_owned,
     )
 
+    refuse_if_home_owned(agent_id)
+
     if agent_id in TOOLS:
         install_tool(agent_id, dry_run=dry_run)
         return agent_id
@@ -561,7 +564,6 @@ def install_registry_agent(agent_id: str, *, dry_run: bool = False) -> str:
     from astroai_lab.agent.setup_state import agent_setup_lock
 
     with agent_setup_lock():
-        refuse_if_home_owned(agent_id)
         method = agent["install"]["method"]
         if method == "npm":
             return _install_npm(agent)
@@ -613,12 +615,13 @@ def remove_registry_agent(
         binary = str(agent["binary"])
         from astroai_lab.agent.install import RemoveResult, _remove_file
 
-        for home_bin in home_bin_candidates(binary, home=home):
-            result = _remove_file(home_bin, f"home-binary:{binary}", dry_run=dry_run)
-            if result:
-                results.append(result.__dict__ if isinstance(result, RemoveResult) else result)
-        if not dry_run:
-            clear_legacy_scratch_binary(binary)
+        if clean_home:
+            for home_bin in home_bin_candidates(binary, home=home):
+                result = _remove_file(home_bin, f"home-binary:{binary}", dry_run=dry_run)
+                if result:
+                    results.append(result.__dict__ if isinstance(result, RemoveResult) else result)
+            if not dry_run:
+                clear_legacy_scratch_binary(binary)
         return results
 
 

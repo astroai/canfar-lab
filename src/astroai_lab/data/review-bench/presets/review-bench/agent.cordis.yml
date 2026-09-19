@@ -513,7 +513,7 @@
           Mandatory probes:
           1. Report WORK/SRCDIR/SCRATCH/HOME paths and whether the artefact writes under /scratch vs /arc.
           2. Check for pip --user / $HOME/.local installs and PYTHONPATH pollution.
-          3. Say whether the claimed workload fits an interactive studio/webterm session or needs hub → Start batch compute (ray-manager).
+          3. Say whether the claimed workload fits an interactive studio/terminal session or needs hub → Start batch compute (ray-manager).
 
           Cross-domain issues get one line at the end.
 

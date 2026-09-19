@@ -3,7 +3,7 @@ name: canfar-session
 description: >-
   CANFAR / AstroAI session resource limits, storage tiers, and when to offload
   work to headless ray-manager batch compute. Use when planning heavy jobs,
-  GPU work, or diagnosing OOM / quota issues in Studio or webterm.
+  GPU work, or diagnosing OOM / quota issues in Studio or terminal.
 ---
 
 # CANFAR session awareness

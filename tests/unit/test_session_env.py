@@ -36,7 +36,7 @@ def _scratch_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[P
     return work, scratch
 
 
-def test_resolve_session_env_prefers_home_bin(
+def test_resolve_session_env_prefers_scratch_bin(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     work, scratch = _scratch_session(tmp_path, monkeypatch)
@@ -55,7 +55,7 @@ def test_resolve_session_env_prefers_home_bin(
         monkeypatch.delenv(var, raising=False)
 
     env = resolve_session_env(ensure=True)
-    assert env.astroai_lab_bin_dir == home / ".local" / "bin"
+    assert env.astroai_lab_bin_dir == scratch / ".local" / "bin"
     assert env.uv_cache_dir == scratch_cache_root(work, scratch) / "uv"
 
 

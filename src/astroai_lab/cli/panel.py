@@ -380,6 +380,7 @@ def _on_skaha() -> bool:
 
 def _panel_web(repo: str | None, port: int, dry_run: bool) -> None:
     from astroai_lab import panel as _panel
+    from astroai_lab import studio as _studio
     from astroai_lab.utils.subprocess import run
 
     ui.print_warn(
@@ -399,7 +400,11 @@ def _panel_web(repo: str | None, port: int, dry_run: bool) -> None:
             ui.print_json({"repo": str(repo_path), "web": False})
             return
         raise typer.Exit(2)
-    cmd = ["npx", "-y", "@deepseek-ai/dsh", "--profile", "web"]
+    dsh_bin = _studio.dsh_binary()
+    if dsh_bin is None:
+        ui.print_error(str(_studio.dsh_missing_error()))
+        raise typer.Exit(1)
+    cmd = [dsh_bin, "--profile", "web"]
     if patch.is_file():
         cmd += ["--patch", str(patch)]
     cmd += ["--no-open", "--port", str(port)]

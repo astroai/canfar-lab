@@ -161,12 +161,11 @@ def test_layer_targets_the_rows_it_claims_and_parses(home: Path) -> None:
     assert mcp["config"]["env"]["HOME"] == "process.env.HOME"
 
 
-def test_preset_roots_prefer_the_studio_root_then_the_bench(home: Path) -> None:
+def test_preset_roots_use_the_managed_bench(home: Path) -> None:
     plan = sp.plan_studio_profile(home, profile="laptop")
     doc = load_patch(plan.layer_yaml)
     roots = next(row for row in doc if row.get("id") == "agent-presets")["config"]["roots"]
     assert [r["path"] for r in roots] == [
-        str(sp.managed_studio_preset_root(home)),
         str(sp.managed_bench_dir(home) / "presets"),
     ]
     assert all(r["trust"] == "system" for r in roots)
@@ -386,7 +385,7 @@ def test_dry_run_writes_nothing(home: Path) -> None:
 
 
 def test_doctor_reports_a_missing_dsh_as_fatal(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sp.shutil, "which", lambda *_: None)
+    monkeypatch.setattr("astroai_lab.studio.dsh_binary", lambda: None)
     report = sp.doctor(home, profile="laptop", probe_handshake=False)
     assert report["fatal"] is True
     dsh = next(check for check in report["checks"] if check["name"] == "dsh")
@@ -394,7 +393,7 @@ def test_doctor_reports_a_missing_dsh_as_fatal(home: Path, monkeypatch: pytest.M
 
 
 def test_doctor_reports_profile_state(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sp.shutil, "which", lambda *_: "/usr/bin/dsh")
+    monkeypatch.setattr("astroai_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
     monkeypatch.setattr(sp, "dsh_version", lambda *_: "0.1.5-rc.2")
     monkeypatch.setattr(sp, "dump_config", lambda *a, **k: (0, "tree", ""))
     sp.apply_studio_profile(
@@ -403,12 +402,19 @@ def test_doctor_reports_profile_state(home: Path, monkeypatch: pytest.MonkeyPatc
     )
     report = sp.doctor(home, profile="laptop", probe_handshake=False, with_team=False)
     names = {check["name"] for check in report["checks"]}
-    assert {"dsh", "profile", "profile-layer-order", "composition", "state-root"} <= names
+    assert {
+        "dsh",
+        "dsh-pin",
+        "profile",
+        "profile-layer-order",
+        "composition",
+        "state-root",
+    } <= names
     assert report["fatal"] is False
 
 
 def test_doctor_flags_a_broken_composition(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sp.shutil, "which", lambda *_: "/usr/bin/dsh")
+    monkeypatch.setattr("astroai_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
     monkeypatch.setattr(sp, "dsh_version", lambda *_: "0.1.5-rc.2")
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),
@@ -490,7 +496,7 @@ def test_baked_mcp_command_ignores_a_foreign_layer(tmp_path: Path) -> None:
 def test_doctor_probes_the_baked_row_not_the_path(
     home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(sp.shutil, "which", lambda *_: "/usr/bin/dsh")
+    monkeypatch.setattr("astroai_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
     monkeypatch.setattr(sp, "dsh_version", lambda *_: "0.1.5-rc.2")
     monkeypatch.setattr(sp, "dump_config", lambda *a, **k: (0, "tree", ""))
     sp.apply_studio_profile(

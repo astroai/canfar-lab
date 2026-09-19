@@ -59,4 +59,4 @@ Platform CLIs (`canfar`, `cadcget`, `astroai`) live in `/opt/astroai/venv/cadc`;
 Search: `rg`, `fd`, `sg` (`astroai agent plugins install ast-grep-cli`). View files: `peek <path>` or `bat`/`less`.
 Help: `astroai help`, `astroai cluster status`, `astroai status --json`.
 
-In webterm, prefer `peek` when pointing the user at generated plans, logs, or archives.
+In terminal, prefer `peek` when pointing the user at generated plans, logs, or archives.

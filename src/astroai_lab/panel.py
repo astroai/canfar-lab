@@ -131,8 +131,21 @@ verbatim dissent, and open falsification tests. Print the verdict table to
 stdout at the end."""
 
 
-def dsh_cmd(*, patch: Path | None, task: str) -> list[str]:
-    cmd = ["npx", "-y", "@deepseek-ai/dsh", "--profile", "headless"]
+def dsh_cmd(*, patch: Path | None, task: str, dsh_bin: str | None = None) -> list[str]:
+    """Build a headless ``dsh`` argv. Prefer a real binary over ``npx -y``."""
+    from astroai_lab import studio as _studio
+
+    resolved = dsh_bin or _studio.dsh_binary()
+    if resolved is None:
+        raise LabError(
+            "No `dsh` executable found.",
+            hint=(
+                f"Install it globally: npm install -g {_studio.DSH_NPM}\n"
+                "Do not use `npx -y @deepseek-ai/dsh …`: npm swallows the "
+                "launcher flags Panel depends on."
+            ),
+        )
+    cmd = [resolved, "--profile", "headless"]
     if patch is not None and patch.is_file():
         cmd += ["--patch", str(patch)]
     cmd.append(task)

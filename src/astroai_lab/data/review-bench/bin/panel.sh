@@ -7,7 +7,7 @@
 # audit) as a headless one-shot and writes the same artifacts the web chair
 # writes: panel/<YYYY-MM-DD>-<slug>/{00-brief.md,01-findings.json,02-report.md}.
 #
-# Works anywhere with a shell: ghostty-web / webterm terminals, vscode and
+# Works anywhere with a shell: AstroAI terminal sessions, vscode and
 # notebook terminals, your laptop. Needs a model credential: either
 # `~/dsh/use-opencode-go.sh` (opencode Zen, no DeepSeek key) or
 # `export DEEPSEEK_API_KEY=sk-...`.
@@ -78,5 +78,31 @@ verbatim dissent, and open falsification tests. Print the verdict table to
 stdout at the end.
 EOF
 
+# Prefer a real `dsh` binary — `npx -y @deepseek-ai/dsh` swallows launcher flags
+# on npm ≥ 10. Image bake puts dsh on PATH; laptop: npm install -g @deepseek-ai/dsh@…
+dsh_bin="${ASTROAI_STUDIO_DSH:-}"
+if [[ -z "${dsh_bin}" ]]; then
+  dsh_bin="$(command -v dsh || true)"
+fi
+if [[ -z "${dsh_bin}" ]]; then
+  for candidate in \
+      /opt/astroai/bin/dsh \
+      "${ASTROAI_LAB_BIN_DIR:+${ASTROAI_LAB_BIN_DIR}/dsh}" \
+      "${SCRATCH:+${SCRATCH}/.local/bin/dsh}" \
+      ~/.npm-global/bin/dsh \
+      ~/.local/bin/dsh \
+      /usr/local/bin/dsh; do
+    [[ -n "${candidate}" ]] || continue
+    if [[ -x "${candidate/#\~/$HOME}" ]]; then
+      dsh_bin="${candidate/#\~/$HOME}"
+      break
+    fi
+  done
+fi
+if [[ -z "${dsh_bin}" ]]; then
+  echo "panel.sh: no dsh executable found (install @deepseek-ai/dsh@0.1.5-rc.2 globally)" >&2
+  exit 1
+fi
+
 # shellcheck disable=SC2086
-exec npx -y @deepseek-ai/dsh --profile headless ${patch[@]+"${patch[@]}"} "$task"
+exec "${dsh_bin}" --profile headless ${patch[@]+"${patch[@]}"} "$task"

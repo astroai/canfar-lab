@@ -189,7 +189,7 @@ One rule worth remembering: the panel is a critic, not an oracle. If the report 
 it means someone reproduced your number a different way — that is the only thing the word means
 here.
 
-## 10. Terminal sessions (ghostty-web, webterm, vscode/notebook terminals): `panel.sh`
+## 10. Terminal sessions (terminal, vscode/notebook terminals): `panel.sh`
 
 ```sh
 ~/dsh/panel.sh /scratch/src/torchregress "C1: <falsifiable claim>; C2: ..." my-slug
@@ -246,7 +246,7 @@ API base. Until then:
 | Laptop (`~/dsh/dsh-web.sh <repo>`) | **Full panel.** localhost:3080, zero proxy risk. The default. |
 | `astroai/vscode` session | **`panel.sh` + files.** Real terminal + editor for running the panel and reading `panel/*/02-report.md`; the dsh web UI itself won't survive the `/proxy/` path (see above). |
 | `astroai/notebook` session | **`panel.sh` in a JupyterLab terminal** (proven pattern across these repos). Same UI caveat as vscode. |
-| `astroai/webterm`, `ghostty-web` | **`panel.sh`.** This is the terminal-native experience: same brief/ledger/report, no browser needed. |
+| `astroai/terminal` | **`panel.sh`.** This is the terminal-native experience: same brief/ledger/report, no browser needed. |
 | `astroai/marimo` | No. No shell, no port proxy. |
 | Plain terminal CLI | `panel.sh`. Presets are web-profile-only; no CLI flag mounts them. (A real CLI panel would need an SDK router driving 8 persona sessions — not built.) |
 

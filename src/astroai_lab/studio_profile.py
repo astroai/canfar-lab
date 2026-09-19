@@ -106,6 +106,7 @@ MCP_TOOL_TIMEOUT_MS = 600_000
 #: finds them, so a stale CLI on the row is visible rather than silent.
 CANFAR_MCP_TOOLS = (
     "job_submit",
+    "job_run",
     "job_status",
     "job_list",
     "job_logs",
@@ -113,6 +114,7 @@ CANFAR_MCP_TOOLS = (
     "cluster_start",
     "cluster_status",
     "cluster_stop",
+    "dashboard_url",
     "session_resources",
     "jobs_report",
 )
@@ -128,7 +130,8 @@ PROFILE_PATCH_FILENAME = "cordis.patch.yml"
 PROFILE_MANIFEST_FILENAME = "package.json"
 PROFILE_WORKSPACE_FILENAME = "pnpm-workspace.yaml"
 
-DSH_INSTALL_HINT = "npm install -g @deepseek-ai/dsh"
+# Pin stays in sync with studio.DSH_VERSION / agents/dsh.yaml.
+DSH_INSTALL_HINT = "npm install -g @deepseek-ai/dsh@0.1.5-rc.2"
 
 
 # ---------------------------------------------------------------------------
@@ -431,7 +434,6 @@ def studio_layer_yaml(
     """
     timeout_ms = PROFILE_BASH_TIMEOUT_SEC[profile] * 1000
     keep = managed_bench_preset_root(home)
-    studio_presets = managed_studio_preset_root(home)
     layer_path = " → ".join(
         bundle_basename(name) for name in desired_bundles([], with_team=with_team)
     )
@@ -454,14 +456,12 @@ def studio_layer_yaml(
         "# ── agent preset roster ────────────────────────────────────────────────",
         "# The row is inserted by dsh-web-app; the shipped standard/minimal/cordis/ptc",
         "# presets stay (includeShippedRoot) and `$DSH_HOME/.agent-presets` still wins",
-        "# for user-authored copies (includeUserRoot). Roots are scanned in order, so",
-        "# the managed Studio root shadows the bench copy when both are installed.",
+        "# for user-authored copies (includeUserRoot). Studio Team lives under the",
+        "# managed review-bench preset root (ensure_review_bench installs it).",
         "- id: agent-presets",
         "  config:",
         "    default: standard",
         "    roots:",
-        f"      - path: {_yaml_scalar(str(studio_presets))}",
-        "        trust: system",
         f"      - path: {_yaml_scalar(str(keep))}",
         "        trust: system",
         "",
@@ -734,10 +734,14 @@ def _install_bundles(
     if dry_run:
         actions.append("would run: " + " ".join(plan.commands[0]))
         return True
-    dsh = dsh_bin or shutil.which("dsh")
+    dsh = dsh_bin
+    if dsh is None:
+        from astroai_lab import studio as studio_mod
+
+        dsh = studio_mod.dsh_binary()
     if dsh is None:
         actions.append(
-            "TEAM LAYERS UNAVAILABLE: no `dsh` on PATH — run "
+            "TEAM LAYERS UNAVAILABLE: no `dsh` executable — run "
             f"`{DSH_INSTALL_HINT}` and then `astroai studio --prepare` again"
         )
         return False
@@ -1009,14 +1013,16 @@ def doctor(
     from astroai_lab import studio as studio_mod
 
     checks: list[Check] = []
-    resolved_dsh = dsh_bin or shutil.which("dsh")
+    # Same resolution as launch: ASTROAI_STUDIO_DSH, PATH, then image search paths.
+    resolved_dsh = dsh_bin or studio_mod.dsh_binary()
+    pinned = studio_mod.DSH_VERSION
 
     if resolved_dsh is None:
         checks.append(
             Check(
                 name="dsh",
                 ok=False,
-                detail="no `dsh` on PATH",
+                detail="no `dsh` executable found",
                 hint=f"{DSH_INSTALL_HINT}  (never `npx -y @deepseek-ai/dsh`: npm swallows "
                 "launcher flags)",
                 fatal=True,
@@ -1024,6 +1030,7 @@ def doctor(
         )
     else:
         version = dsh_version(resolved_dsh)
+        pin_ok = version is not None and pinned in version
         checks.append(
             Check(
                 name="dsh",
@@ -1033,6 +1040,17 @@ def doctor(
                 fatal=version is None,
             )
         )
+        if version is not None:
+            checks.append(
+                Check(
+                    name="dsh-pin",
+                    ok=pin_ok,
+                    detail=f"want {pinned}" + ("" if pin_ok else f", got {version}"),
+                    hint=None
+                    if pin_ok
+                    else f"{DSH_INSTALL_HINT}  (Studio pin; keep containers Dockerfile in sync)",
+                )
+            )
 
     directory = profile_dir(home)
     bundles = read_bundles(directory)

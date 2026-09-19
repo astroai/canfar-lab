@@ -10,7 +10,7 @@ It does project environments (`init` / `save` / `resume`), the Ray cluster
 |------|------|
 | [`canfar`](https://github.com/opencadc/canfar) | Auth, session lifecycle, `canfar data` |
 | CADC clients (`cadcget`, `vcp`, …) | Archive and VOSpace I/O |
-| [Session images](https://github.com/astroai/canfar-containers) | `images.canfar.net/astroai/*` only (`webterm`, `notebook`, `vscode`, `marimo`, Ray) — never `skaha/*` |
+| [Session images](https://github.com/astroai/canfar-containers) | `images.canfar.net/astroai/*` only (`terminal`, `notebook`, `vscode`, `marimo`, Ray) — never `skaha/*` |
 
 | Doc | Scope |
 |-----|--------|
@@ -193,7 +193,7 @@ More: [containers RAY.md](https://github.com/astroai/canfar-containers/blob/main
 
 ```bash
 canfar login
-canfar create --name demo webterm
+canfar create --name demo terminal
 canfar ps
 canfar open <session-id>
 canfar delete <session-id>
@@ -241,15 +241,15 @@ astroai agent install <TAB>
 
 ## AI coding agents
 
-Configs and CLI binaries stay on `/arc` home (`~/.local/bin` and agent dirs).
-You can install/update agents with upstream installers without AstroAI.
-Skills: ``npx skills add …`` (skills.sh) — not managed by AstroAI.
-Caches and agent runtime DBs still use `$SCRATCH`.
+Agent configs stay on `/arc` home; CLI binaries install to `$SCRATCH/.local/bin`
+(fast local disk — `/arc` NFS is too slow for CLI installs). Skills:
+``npx skills add …`` (skills.sh) — not managed by AstroAI. Caches and agent
+runtime DBs also use `$SCRATCH`.
 
 ```bash
 astroai agent list
 astroai agent install kilo
-# or: curl -fsSL … | bash   # same home land site as upstream
+# CLIs land on $SCRATCH/.local/bin (override: ASTROAI_LAB_BIN_DIR)
 astroai agent setup hermes
 astroai agent setup --all
 npx skills add astroai/canfar-skills

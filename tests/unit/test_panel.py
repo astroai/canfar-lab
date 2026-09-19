@@ -54,15 +54,22 @@ def test_build_task_carries_protocol_and_claims(tmp_path: Path) -> None:
     assert "ask_<role>" in task
 
 
-def test_dsh_cmd_attaches_repo_patch(tmp_path: Path) -> None:
+def test_dsh_cmd_attaches_repo_patch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("astroai_lab.studio.dsh_binary", lambda: "/opt/astroai/bin/dsh")
     patch = tmp_path / ".dsh" / "cordis.patch.yml"
     patch.parent.mkdir(parents=True)
     patch.write_text("[]\n", encoding="utf-8")
     cmd = panel_mod.dsh_cmd(patch=patch, task="do it")
-    assert cmd[:5] == ["npx", "-y", "@deepseek-ai/dsh", "--profile", "headless"]
+    assert cmd[:3] == ["/opt/astroai/bin/dsh", "--profile", "headless"]
     assert "--patch" in cmd and str(patch) in cmd and cmd[-1] == "do it"
     bare = panel_mod.dsh_cmd(patch=tmp_path / ".dsh" / "missing.yml", task="do it")
     assert "--patch" not in bare
+
+
+def test_dsh_cmd_rejects_missing_binary(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("astroai_lab.studio.dsh_binary", lambda: None)
+    with pytest.raises(LabError, match="No `dsh` executable"):
+        panel_mod.dsh_cmd(patch=None, task="do it")
 
 
 def test_run_panel_dry_run_resolves_without_exec(
@@ -87,6 +94,7 @@ def test_run_panel_fallback_on_opencode_go_error(
 ) -> None:
     monkeypatch.setenv("OPENCODE_API_KEY", "zen")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "d-key")
+    monkeypatch.setattr("astroai_lab.studio.dsh_binary", lambda: "/opt/astroai/bin/dsh")
     calls: list[list[str]] = []
 
     def fake_run(cmd, *, cwd=None, **_kwargs):  # noqa: ANN001
@@ -100,6 +108,7 @@ def test_run_panel_fallback_on_opencode_go_error(
     assert result["route"] == "deepseek-official"
     assert result["fallback_note"] and "falling back" in result["fallback_note"]
     assert len(calls) == 2
+    assert calls[0][0] == "/opt/astroai/bin/dsh"
 
 
 def test_scaffold_matches_template(tmp_path: Path) -> None:

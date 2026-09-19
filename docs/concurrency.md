@@ -9,7 +9,7 @@ concurrently, and the guarantees `astroai` makes.
 | State | Location | Why |
 |-------|----------|-----|
 | Agent configs (MCP servers, settings, skills) | `$HOME` (`~/.cursor`, `~/.claude.json`, …) | Durable, small, read-mostly; shared so every session is configured identically |
-| Agent CLIs | `$HOME` (`~/.local/bin`, `~/.opencode/bin`, …) | Match upstream installers; update without AstroAI |
+| Agent CLIs | `$SCRATCH/.local/bin` (via `ASTROAI_LAB_BIN_DIR`) | Fast local disk — `/arc/home` NFS is too slow for CLI installs/updates |
 | Auth (`canfar`, `gh`, tokens) | `$HOME` | Must survive sessions |
 | Env saves / lab state (`~/.astroai/lab`) | `$HOME` | Explicit snapshots + stamps |
 | Ray cluster state (`~/.astroai/ray`) | `$HOME` | Written by the manager and CLI control plane |
@@ -51,7 +51,7 @@ See [studio.md](studio.md#state-and-the-canfar-storage-split).
 
 - Run `astroai agent install` / `remove` / `verify --fix` in one session
   at a time; if another holds the lock you get a clear message instead of
-  a raced `~/.local/bin`.
+  a raced `$SCRATCH/.local/bin`.
 - Chat/session history of relocated agents dies with the scratch disk.
   Configs, skills, and auth persist. Copy anything you need out of
   `$SCRATCH` before the session ends.

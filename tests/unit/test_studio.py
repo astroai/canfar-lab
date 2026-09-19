@@ -126,6 +126,21 @@ def test_dsh_binary_prefers_the_env_override(
     assert studio_mod.dsh_binary() != str(tmp_path / "nope")
 
 
+def test_dsh_binary_finds_scratch_managed_bin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scratch_bin = tmp_path / "scratch" / ".local" / "bin"
+    scratch_bin.mkdir(parents=True)
+    binary = scratch_bin / "dsh"
+    binary.write_text("#!/bin/sh\n", encoding="utf-8")
+    binary.chmod(0o755)
+    monkeypatch.delenv("ASTROAI_STUDIO_DSH", raising=False)
+    monkeypatch.setenv("ASTROAI_LAB_BIN_DIR", str(scratch_bin))
+    monkeypatch.setenv("SCRATCH", str(tmp_path / "scratch"))
+    monkeypatch.setattr(studio_mod.shutil, "which", lambda _: None)
+    assert studio_mod.dsh_binary() == str(binary)
+
+
 def test_cli_studio_prepare_dry_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "home"
     home.mkdir()
@@ -169,3 +184,21 @@ def test_studio_env_routes_stores_off_home_on_canfar(
     laptop = studio_mod.studio_env(profile="laptop", home=tmp_path)
     assert laptop["ASTROAI_STUDIO_STATE"] == str(tmp_path / ".dsh" / "state")
     assert "npm_config_store_dir" not in laptop
+
+
+def test_dsh_version_pin_matches_agent_yaml() -> None:
+    """Studio pin, review-bench pin, and agent install source must stay aligned."""
+    from importlib import resources
+
+    import yaml
+
+    from astroai_lab.agent import review_bench as rb
+
+    text = (resources.files("astroai_lab") / "data" / "agent" / "agents" / "dsh.yaml").read_text(
+        encoding="utf-8"
+    )
+    data = yaml.safe_load(text)
+    source = data["install"]["source"]
+    assert source == f"@deepseek-ai/dsh@{studio_mod.DSH_VERSION}"
+    assert rb.DSH_VERSION == studio_mod.DSH_VERSION
+    assert studio_mod.DSH_VERSION in sp.DSH_INSTALL_HINT

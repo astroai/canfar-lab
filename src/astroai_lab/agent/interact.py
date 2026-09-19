@@ -69,14 +69,14 @@ def inspect_interact_endpoints() -> dict[str, Any]:
             )
         )
 
-    # WebTerm / Jupyter / VSCode / Marimo
-    if session_kind in ("webterm", "unknown"):
+    # Terminal / Jupyter / VSCode / Marimo (webterm = legacy session kind)
+    if session_kind in ("terminal", "webterm", "unknown"):
         endpoints.append(
             EndpointInfo(
-                name="WebTerm Terminal",
+                name="Terminal",
                 port=5000,
                 path_prefix="/",
-                description="ttyd web terminal session",
+                description="browser terminal session (ghostty-web + tmux)",
                 active=_check_port("127.0.0.1", 5000),
                 url_hint="http://127.0.0.1:5000/",
             )

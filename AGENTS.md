@@ -31,10 +31,12 @@ pixi install
 ## Verification
 
 ```bash
-astroai doctor
-# or the repo's documented pixi / pytest tasks — see README and
-# `.cursor/harness/config.json`
+./scripts/ci.sh                 # lint, format, typecheck, CLI audit, pytest
+astroai studio --doctor         # Studio pre-flight (needs dsh on PATH)
+astroai panel doctor            # headless Team / review-bench
 ```
+
+Harness verify tasks in `.cursor/harness/config.json` map to the same gate.
 
 ## In-session project template
 
