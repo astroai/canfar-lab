@@ -210,9 +210,7 @@ def test_ensure_agent_runtime_skips_synthetic_home(tmp_path: Path) -> None:
     assert ensure_agent_runtime_on_scratch(fake) == []
 
 
-def test_ensure_agent_runtime_on_real_home(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_ensure_agent_runtime_on_real_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """install/setup entry point: env redirects + symlinks under the real home."""
     from astroai_lab.core import home_layout as hl
 
