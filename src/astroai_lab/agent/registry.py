@@ -990,8 +990,12 @@ def update_registry_agent(
     errors: list[str] = []
 
     from astroai_lab.agent.setup_state import agent_setup_lock
+    from astroai_lab.core.home_layout import ensure_agent_runtime_on_scratch
 
     with agent_setup_lock(home):
+        # Keep scratch redirects even when the binary is already up-to-date.
+        for label in ensure_agent_runtime_on_scratch(home, dry_run=dry_run):
+            actions.append(f"runtime: {label}")
         status = registry_agent_status(agent, home)
         if status["binary_ok"] and not force_reinstall:
             actions.append(f"binary up-to-date ({agent_id})")
