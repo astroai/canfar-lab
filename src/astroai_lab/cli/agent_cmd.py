@@ -432,6 +432,31 @@ def _emit_agent_list(
     )
 
 
+@agent_app.command("layout")
+def agent_layout_cmd(
+    ctx: typer.Context,
+) -> None:
+    """Re-link agent runtime trees onto $SCRATCH; restore durable ~/.dsh dirs.
+
+    Safe to run every session boot. Scratch dies with the session, so stamped
+    ``agent setup`` must not be the only path that repairs dangling links —
+    otherwise Studio Connect 401s after the first successful setup.
+    """
+    opts = get_opts(ctx)
+    from astroai_lab.core.home_layout import ensure_agent_runtime_on_scratch
+
+    actions = ensure_agent_runtime_on_scratch(Path.home(), dry_run=opts.dry_run)
+    if opts.json:
+        ui.print_json({"ok": True, "actions": actions, "dry_run": opts.dry_run})
+        return
+    if not actions:
+        ui.print_ok("Agent runtime layout already on scratch")
+        return
+    for a in actions:
+        ui.print_hint(f"runtime: {a}")
+    ui.print_ok(f"Agent runtime layout updated ({len(actions)} action(s))")
+
+
 @agent_app.command("setup")
 def agent_setup_cmd(
     ctx: typer.Context,

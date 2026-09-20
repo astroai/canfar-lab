@@ -124,14 +124,32 @@ def test_dry_run_touches_nothing(env: Path) -> None:
     assert actions and not real.is_symlink()
 
 
-def test_harness_session_state_is_relocated(env: Path) -> None:
-    """dsh's session logs and KV stores are append-heavy and unbounded."""
+def test_harness_session_state_stays_on_home(env: Path) -> None:
+    """dsh sessions/storages are durable on $HOME — not scratch-linked."""
     home, data = env
     relocate_agent_runtime(home, data)
     for rel in DSH_RUNTIME_DIRS:
-        link = home / rel
-        assert link.is_symlink(), rel
-        assert data in link.resolve().parents
+        path = home / rel
+        assert not path.exists() or not path.is_symlink(), rel
+
+
+def test_repair_dsh_restores_scratch_symlinks(env: Path) -> None:
+    from astroai_lab.core.home_layout import repair_dsh_durable_dirs
+
+    home, data = env
+    scratch_sessions = data / "_dsh" / "sessions"
+    scratch_sessions.mkdir(parents=True)
+    (scratch_sessions / "ws.json").write_text("{}", encoding="utf-8")
+    link = home / ".dsh" / "sessions"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(scratch_sessions, target_is_directory=True)
+
+    actions = repair_dsh_durable_dirs(home)
+    assert any(a == "restore:.dsh/sessions" for a in actions)
+    assert link.is_dir() and not link.is_symlink()
+    assert (link / "ws.json").is_file()
+    # storages missing → mkdir
+    assert (home / ".dsh" / "storages").is_dir()
 
 
 def test_omp_runtime_trees_are_relocated(env: Path) -> None:
@@ -286,11 +304,10 @@ def test_seed_hermes_home_dry_run(tmp_path: Path) -> None:
 
 
 def test_harness_dirs_come_after_the_claude_ones(env: Path) -> None:
-    """Order is documented behaviour; Claude first, then dsh/omp, then CLIs."""
+    """Order is documented behaviour; Claude first, then omp, then CLIs."""
     n_claude = len(CLAUDE_RUNTIME_DIRS)
     assert AGENT_RUNTIME_DIRS[:n_claude] == CLAUDE_RUNTIME_DIRS
-    assert AGENT_RUNTIME_DIRS[n_claude : n_claude + len(DSH_RUNTIME_DIRS)] == DSH_RUNTIME_DIRS
-    omp_start = n_claude + len(DSH_RUNTIME_DIRS)
+    omp_start = n_claude
     assert AGENT_RUNTIME_DIRS[omp_start : omp_start + len(OMP_RUNTIME_DIRS)] == OMP_RUNTIME_DIRS
     rest = AGENT_RUNTIME_DIRS[omp_start + len(OMP_RUNTIME_DIRS) :]
     assert rest == (
@@ -299,3 +316,6 @@ def test_harness_dirs_come_after_the_claude_ones(env: Path) -> None:
         *PI_RUNTIME_DIRS,
         *OPENCLAW_RUNTIME_DIRS,
     )
+    # dsh is durable on home — not in the relocate list.
+    assert not any(rel.startswith(".dsh/") for rel in AGENT_RUNTIME_DIRS)
+    assert DSH_RUNTIME_DIRS == (".dsh/sessions", ".dsh/storages")

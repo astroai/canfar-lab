@@ -26,8 +26,9 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-#: Harness-home children that hold session-scale runtime data. dsh's shipped
-#: defaults are ``dshHomePath('sessions')`` and ``dshHomePath('storages')``.
+#: dsh session logs + KV stores. These stay on ``$HOME`` (durable across CANFAR
+#: sessions — see docs/STUDIO.md). Listed only so :func:`repair_dsh_durable_dirs`
+#: can undo older scratch symlinks that break Studio Connect.
 DSH_RUNTIME_DIRS: tuple[str, ...] = (
     ".dsh/sessions",
     ".dsh/storages",
@@ -83,9 +84,11 @@ OPENCLAW_RUNTIME_DIRS: tuple[str, ...] = (
 )
 
 # Home-relative runtime paths that must be per-session.
+# Intentionally excludes :data:`DSH_RUNTIME_DIRS` — dsh workspaces are durable
+# on ``$HOME/.dsh``; scratch-linking them leaves dangling symlinks next boot
+# (agent-setup stamp skips re-link → Studio never captures a web token).
 AGENT_RUNTIME_DIRS: tuple[str, ...] = (
     *CLAUDE_RUNTIME_DIRS,
-    *DSH_RUNTIME_DIRS,
     *OMP_RUNTIME_DIRS,
     *CURSOR_RUNTIME_DIRS,
     *CODEX_RUNTIME_DIRS,
@@ -232,6 +235,48 @@ def hermes_home_dir(*, home: Path | None = None) -> Path:
     return home / ".hermes"
 
 
+def repair_dsh_durable_dirs(home: Path, *, dry_run: bool = False) -> list[str]:
+    """Restore ``~/.dsh/{sessions,storages}`` as real directories on *home*.
+
+    Older lab builds symlinked these onto ``$SCRATCH``. Scratch dies with the
+    session; the next boot then sees a dangling link, dsh never prints a web
+    token, and Studio Connect 401s. Undo those links (migrate any surviving
+    target contents back onto home) so workspaces stay durable.
+    """
+    actions: list[str] = []
+    for rel in DSH_RUNTIME_DIRS:
+        src = home / rel
+        if src.is_symlink():
+            if dry_run:
+                actions.append(f"restore:{rel}")
+                continue
+            target: Path | None
+            try:
+                target = src.resolve(strict=False)
+            except OSError:
+                target = None
+            src.unlink(missing_ok=True)
+            src.mkdir(parents=True, exist_ok=True)
+            if target is not None and target.is_dir():
+                for child in target.iterdir():
+                    dest = src / child.name
+                    if dest.exists():
+                        continue
+                    try:
+                        shutil.move(str(child), str(dest))
+                    except OSError:
+                        continue
+            actions.append(f"restore:{rel}")
+            continue
+        if not src.exists():
+            if dry_run:
+                actions.append(f"mkdir:{rel}")
+                continue
+            src.mkdir(parents=True, exist_ok=True)
+            actions.append(f"mkdir:{rel}")
+    return actions
+
+
 def ensure_agent_runtime_on_scratch(
     home: Path | None = None,
     *,
@@ -239,8 +284,9 @@ def ensure_agent_runtime_on_scratch(
 ) -> list[str]:
     """Create scratch roots, apply env redirects, and symlink hot agent trees.
 
-    Intended entry point for ``astroai agent install`` / ``agent setup`` so
-    both paths leave CLIs writing under ``$SCRATCH`` before they first run.
+    Intended entry point for ``astroai agent install`` / ``agent setup`` /
+    ``agent layout`` so CLIs write under ``$SCRATCH`` before they first run.
+    Also repairs durable dsh dirs that older builds left pointing at scratch.
 
     No-ops (empty list) when *home* is not the real user home — unit tests
     pass a temp tree and must not get session-scratch symlinks.
@@ -265,6 +311,7 @@ def ensure_agent_runtime_on_scratch(
         actions.extend(seed_hermes_home(env.xdg_data_home / "hermes-home", home, dry_run=False))
     else:
         actions.extend(seed_hermes_home(env.xdg_data_home / "hermes-home", home, dry_run=True))
+    actions.extend(repair_dsh_durable_dirs(home, dry_run=dry_run))
     actions.extend(relocate_agent_runtime(home, env.xdg_data_home, dry_run=dry_run))
     return actions
 
