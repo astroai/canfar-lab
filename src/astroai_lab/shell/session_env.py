@@ -228,6 +228,10 @@ class SessionEnv:
             "XDG_STATE_HOME": str(self.xdg_state_home),
             # Puppeteer (omp browser tool + stock Chrome) — never dlopen from /arc.
             "PUPPETEER_CACHE_DIR": str(self.xdg_cache_home / "puppeteer"),
+            # Codex SQLite WAL off /arc (config/auth stay under ~/.codex via CODEX_HOME).
+            "CODEX_SQLITE_HOME": str(self.xdg_data_home / "codex-sqlite"),
+            # Hermes state.db lives under HERMES_HOME; keep it on scratch.
+            "HERMES_HOME": str(self.xdg_data_home / "hermes-home"),
             "UV_LINK_MODE": os.environ.get("UV_LINK_MODE", "").strip() or "copy",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
         }
@@ -267,15 +271,18 @@ class SessionEnv:
             self.xdg_data_home,
             self.xdg_state_home,
             self.xdg_cache_home / "puppeteer",
+            self.xdg_data_home / "codex-sqlite",
+            self.xdg_data_home / "hermes-home",
             self.astroai_lab_npm_prefix,
         ):
             path.mkdir(parents=True, exist_ok=True)
         if self.astroai_lab_team_bin is not None:
             self.astroai_lab_team_bin.mkdir(parents=True, exist_ok=True)
         # omp only honors XDG when $XDG_*/omp already exists (upstream DirResolver).
-        from astroai_lab.core.home_layout import ensure_omp_xdg_roots
+        from astroai_lab.core.home_layout import ensure_omp_xdg_roots, seed_hermes_home
 
         ensure_omp_xdg_roots(self.xdg_cache_home, self.xdg_data_home, self.xdg_state_home)
+        seed_hermes_home(self.xdg_data_home / "hermes-home", Path.home())
 
 
 def _pythonpath_extra(work: Path) -> str:

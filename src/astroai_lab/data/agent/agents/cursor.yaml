@@ -20,4 +20,4 @@ config:
 verify:
   - "agent --version"
 plugins: [skill, mcp, config, addon, rule]
-notes: "Upstream binary is `agent`. Install with: astroai agent install cursor"
+notes: "Upstream binary is `agent`. Chats/projects relocate to scratch; install with: astroai agent install cursor"

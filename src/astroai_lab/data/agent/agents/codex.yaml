@@ -23,4 +23,6 @@ verify:
 plugins: [skill, mcp, config, addon]
 notes: >-
   Public package release (no gh login). Install lands bin/codex next to
-  codex-code-mode-host and puts packaged bwrap on PATH.
+  codex-code-mode-host and puts packaged bwrap on PATH. Sessions/SQLite go to
+  scratch (CODEX_SQLITE_HOME + ~/.codex/{sessions,sqlite,log} relocate);
+  config/auth stay under ~/.codex.

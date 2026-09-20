@@ -9,10 +9,16 @@ import pytest
 from astroai_lab.core.home_layout import (
     AGENT_RUNTIME_DIRS,
     AGENT_RUNTIME_FORCE_DIRS,
+    CLAUDE_RUNTIME_DIRS,
+    CODEX_RUNTIME_DIRS,
+    CURSOR_RUNTIME_DIRS,
     DSH_RUNTIME_DIRS,
     OMP_RUNTIME_DIRS,
+    OPENCLAW_RUNTIME_DIRS,
+    PI_RUNTIME_DIRS,
     ensure_omp_xdg_roots,
     relocate_agent_runtime,
+    seed_hermes_home,
 )
 
 
@@ -50,18 +56,20 @@ def test_small_existing_dir_is_relocated(env: Path) -> None:
 
 
 def test_oversized_dir_is_left_and_reported(env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Non-forced Claude trees still respect MIGRATE_LIMIT_MB."""
     from astroai_lab.core import home_layout
 
     monkeypatch.setattr(home_layout, "MIGRATE_LIMIT_MB", 0)
     home, data = env
-    big = home / ".claude" / "projects"
+    # .claude/todos is runtime but not in AGENT_RUNTIME_FORCE_DIRS.
+    big = home / ".claude" / "todos"
     big.mkdir(parents=True)
     (big / "huge.db").write_bytes(b"x" * 4096)
 
     actions = relocate_agent_runtime(home, data)
 
-    assert not (home / ".claude" / "projects").is_symlink()
-    assert any(a.startswith("skipped:") for a in actions)
+    assert not (home / ".claude" / "todos").is_symlink()
+    assert any(a.startswith("skipped:.claude/todos") for a in actions)
 
 
 def test_oversized_omp_natives_are_force_relocated(
@@ -174,13 +182,68 @@ def test_ensure_omp_xdg_roots_seeds_missing(tmp_path: Path) -> None:
     assert ensure_omp_xdg_roots(cache, data, state) == []
 
 
+def test_agent_cli_runtime_trees_are_relocated(env: Path) -> None:
+    """codex / cursor / pi / openclaw hot trees leave /arc via symlinks."""
+    home, data = env
+    relocate_agent_runtime(home, data)
+    for rel in (*CURSOR_RUNTIME_DIRS, *CODEX_RUNTIME_DIRS, *PI_RUNTIME_DIRS, *OPENCLAW_RUNTIME_DIRS):
+        link = home / rel
+        assert link.is_symlink(), rel
+        assert data in link.resolve().parents
+
+
+def test_oversized_codex_sessions_are_force_relocated(
+    env: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from astroai_lab.core import home_layout
+
+    monkeypatch.setattr(home_layout, "MIGRATE_LIMIT_MB", 0)
+    home, data = env
+    sessions = home / ".codex" / "sessions"
+    sessions.mkdir(parents=True)
+    (sessions / "rollout.jsonl").write_bytes(b"x" * 8192)
+
+    actions = relocate_agent_runtime(home, data)
+
+    link = home / ".codex" / "sessions"
+    assert link.is_symlink()
+    assert (link.resolve() / "rollout.jsonl").is_file()
+    assert any(a == "relocate:.codex/sessions" for a in actions)
+    assert ".codex/sessions" in AGENT_RUNTIME_FORCE_DIRS
+
+
+def test_seed_hermes_home_copies_config_once(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    hermes = tmp_path / "scratch" / "hermes-home"
+    home.mkdir()
+    (home / ".hermes").mkdir()
+    (home / ".hermes" / "config.yaml").write_text("model: x\n", encoding="utf-8")
+
+    actions = seed_hermes_home(hermes, home)
+    assert hermes.is_dir()
+    assert (hermes / "config.yaml").read_text(encoding="utf-8") == "model: x\n"
+    assert "seed:hermes-config" in actions
+    assert seed_hermes_home(hermes, home) == []
+
+
+def test_seed_hermes_home_dry_run(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    hermes = tmp_path / "scratch" / "hermes-home"
+    home.mkdir()
+    (home / ".hermes").mkdir()
+    (home / ".hermes" / "config.yaml").write_text("model: x\n", encoding="utf-8")
+    actions = seed_hermes_home(hermes, home, dry_run=True)
+    assert "seed:hermes-home" in actions
+    assert "seed:hermes-config" in actions
+    assert not hermes.exists()
+
+
 def test_harness_dirs_come_after_the_claude_ones(env: Path) -> None:
-    """Order is documented behaviour; keep the harness entries appended."""
-    assert AGENT_RUNTIME_DIRS[:4] == (
-        ".claude/projects",
-        ".claude/todos",
-        ".claude/statsig",
-        ".claude/shell-snapshots",
-    )
-    assert AGENT_RUNTIME_DIRS[4 : 4 + len(DSH_RUNTIME_DIRS)] == DSH_RUNTIME_DIRS
-    assert AGENT_RUNTIME_DIRS[4 + len(DSH_RUNTIME_DIRS) :] == OMP_RUNTIME_DIRS
+    """Order is documented behaviour; Claude first, then dsh/omp, then CLIs."""
+    n_claude = len(CLAUDE_RUNTIME_DIRS)
+    assert AGENT_RUNTIME_DIRS[:n_claude] == CLAUDE_RUNTIME_DIRS
+    assert AGENT_RUNTIME_DIRS[n_claude : n_claude + len(DSH_RUNTIME_DIRS)] == DSH_RUNTIME_DIRS
+    omp_start = n_claude + len(DSH_RUNTIME_DIRS)
+    assert AGENT_RUNTIME_DIRS[omp_start : omp_start + len(OMP_RUNTIME_DIRS)] == OMP_RUNTIME_DIRS
+    rest = AGENT_RUNTIME_DIRS[omp_start + len(OMP_RUNTIME_DIRS) :]
+    assert rest == (*CURSOR_RUNTIME_DIRS, *CODEX_RUNTIME_DIRS, *PI_RUNTIME_DIRS, *OPENCLAW_RUNTIME_DIRS)

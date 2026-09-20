@@ -27,4 +27,5 @@ plugins:
   - addon
 notes: >-
   Settings ~/.pi/agent/settings.json; auth ~/.pi/agent/auth.json (seeded from
-  OPENROUTER_API_KEY on setup). Or `pi` then `/login openrouter`.
+  OPENROUTER_API_KEY on setup). Sessions under ~/.pi/agent/sessions relocate to
+  scratch. Or `pi` then `/login openrouter`.

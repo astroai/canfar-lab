@@ -20,6 +20,8 @@ setup:
   post_install: null # headless via `hermes -z`; interactive onboard optional
 verify:
   - "test -x \"$(command -v hermes)\""
-  - "test -f ~/.hermes/config.yaml"
+  - "test -f \"${HERMES_HOME:-$HOME/.hermes}/config.yaml\""
 plugins: [skill, mcp, config, addon]
-notes: Config ~/.hermes/config.yaml; set OPENROUTER_API_KEY; headless via `hermes -z`
+notes: >-
+  Config under HERMES_HOME (scratch; seeded from ~/.hermes/config.yaml).
+  Set OPENROUTER_API_KEY; headless via `hermes -z`.

@@ -197,15 +197,45 @@ def test_scratch_seeds_omp_xdg_and_puppeteer_cache(
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
-    for var in ("XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "PUPPETEER_CACHE_DIR"):
+    for var in (
+        "XDG_CACHE_HOME",
+        "XDG_DATA_HOME",
+        "XDG_STATE_HOME",
+        "PUPPETEER_CACHE_DIR",
+        "CODEX_SQLITE_HOME",
+        "HERMES_HOME",
+    ):
         monkeypatch.delenv(var, raising=False)
 
     env = resolve_session_env(ensure=True)
     exports = env.exports()
     assert exports["XDG_STATE_HOME"] == str(env.xdg_state_home)
     assert exports["PUPPETEER_CACHE_DIR"] == str(env.xdg_cache_home / "puppeteer")
+    assert exports["CODEX_SQLITE_HOME"] == str(env.xdg_data_home / "codex-sqlite")
+    assert exports["HERMES_HOME"] == str(env.xdg_data_home / "hermes-home")
     assert not str(env.xdg_state_home).startswith(str(home))
     assert (env.xdg_cache_home / "omp").is_dir()
     assert (env.xdg_data_home / "omp").is_dir()
     assert (env.xdg_state_home / "omp").is_dir()
     assert (env.xdg_cache_home / "puppeteer").is_dir()
+    assert (env.xdg_data_home / "codex-sqlite").is_dir()
+    assert (env.xdg_data_home / "hermes-home").is_dir()
+
+
+def test_hermes_config_seeded_from_arc_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """HERMES_HOME on scratch adopts ~/.hermes/config.yaml once."""
+    _scratch_session(tmp_path, monkeypatch)
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".hermes").mkdir()
+    (home / ".hermes" / "config.yaml").write_text("provider: openai\n", encoding="utf-8")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("HERMES_HOME", raising=False)
+
+    env = resolve_session_env(ensure=True)
+    cfg = env.xdg_data_home / "hermes-home" / "config.yaml"
+    assert cfg.is_file()
+    assert cfg.read_text(encoding="utf-8") == "provider: openai\n"
+    assert env.exports()["HERMES_HOME"] == str(env.xdg_data_home / "hermes-home")

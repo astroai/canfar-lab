@@ -19,4 +19,4 @@ verify:
   - "openclaw --version"
   - "test -f ~/.openclaw/openclaw.json"
 plugins: [skill, mcp, config, addon]
-notes: Node >=24.15 (baked); ~/.openclaw/openclaw.json; openclaw agent headless
+notes: Node >=24.15 (baked); ~/.openclaw/openclaw.json; agents/state/workspace relocate to scratch; openclaw agent headless

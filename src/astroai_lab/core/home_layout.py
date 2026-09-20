@@ -13,25 +13,12 @@ Policy:
   that is acceptable and documented.
 
 Compliant apps follow ``XDG_DATA_HOME`` (already scratch-backed by
-``session_env``). The entries below are for agents that hardcode their
-runtime locations under ``$HOME`` (Claude Code, DeepSeek Harness, and Oh My
-Pi / ``omp`` today). Existing real directories are migrated into scratch only
-when small (``MIGRATE_LIMIT_MB``), except paths listed in
-``AGENT_RUNTIME_FORCE_DIRS`` which always move — those are known CephFS
-latency bombs (hundreds of MB of natives / Chrome / SQLite).
+``session_env``). The entries below cover agents that hardcode runtime under
+``$HOME``. Soft migrate when ≤ ``MIGRATE_LIMIT_MB``; ``AGENT_RUNTIME_FORCE_DIRS``
+always move (SQLite WAL / natives / Chrome / unbounded transcripts).
 
-DeepSeek Harness state is only *partly* hardcoded: ``astroai studio`` points its
-own profile's session root, full-text index and spill files at the state root
-(see :mod:`astroai_lab.studio_profile`). The two directories below cover every
-*other* dsh profile — ``web``, ``headless``, ``astroai panel run`` — whose
-shipped defaults resolve under the harness home. Their durable configuration
-(``settings.yaml``, ``.credentials.yaml``, ``profiles/``) deliberately stays on
-``$HOME``.
-
-Oh My Pi (``omp``) defaults to ``~/.omp`` unless ``$XDG_{DATA,CACHE,STATE}_HOME/omp``
-already exists (see upstream ``DirResolver``). Seeding those XDG roots (see
-:func:`ensure_omp_xdg_roots`) makes *new* writes land on scratch; the
-``.omp/...`` force-relocate paths clean up installs that already wrote to /arc.
+Also see :mod:`astroai_lab.shell.session_env` for ``CODEX_SQLITE_HOME`` /
+``HERMES_HOME`` / XDG / ``PUPPETEER_CACHE_DIR`` env redirects.
 """
 
 from __future__ import annotations
@@ -48,7 +35,6 @@ DSH_RUNTIME_DIRS: tuple[str, ...] = (
 
 #: Oh My Pi — natives (~360MB dlopen), Puppeteer Chrome (~380MB), SQLite WAL
 #: DBs, session transcripts, composer autosaves, daemon sockets, and logs.
-#: All of these are catastrophic over CephFS /arc/home.
 OMP_RUNTIME_DIRS: tuple[str, ...] = (
     ".omp/natives",
     ".omp/puppeteer",
@@ -57,19 +43,70 @@ OMP_RUNTIME_DIRS: tuple[str, ...] = (
     ".omp/logs",
 )
 
-# Home-relative runtime paths that must be per-session. Order matters only
-# for readability; parents are created as needed.
-AGENT_RUNTIME_DIRS: tuple[str, ...] = (
+#: Claude Code — remaining append-heavy / cache trees beyond projects/todos.
+CLAUDE_RUNTIME_DIRS: tuple[str, ...] = (
     ".claude/projects",
     ".claude/todos",
     ".claude/statsig",
     ".claude/shell-snapshots",
+    ".claude/file-history",
+    ".claude/paste-cache",
+    ".claude/image-cache",
+    ".claude/debug",
+    ".claude/plans",
+    ".claude/tasks",
+    ".claude/session-env",
+)
+
+#: Cursor Agent CLI — chats/*/store.db (SQLite) + project transcripts.
+CURSOR_RUNTIME_DIRS: tuple[str, ...] = (
+    ".cursor/chats",
+    ".cursor/projects",
+    ".cursor/ai-tracking",
+)
+
+#: Codex CLI — JSONL rollouts + SQLite state (also CODEX_SQLITE_HOME in session_env).
+CODEX_RUNTIME_DIRS: tuple[str, ...] = (
+    ".codex/sessions",
+    ".codex/sqlite",
+    ".codex/log",
+)
+
+#: Pi (earendil) — session JSONL trees (auth/settings stay under ~/.pi/agent/).
+PI_RUNTIME_DIRS: tuple[str, ...] = (".pi/agent/sessions",)
+
+#: OpenClaw — per-agent SQLite + workspace state (config JSON stays).
+OPENCLAW_RUNTIME_DIRS: tuple[str, ...] = (
+    ".openclaw/agents",
+    ".openclaw/state",
+    ".openclaw/workspace",
+)
+
+# Home-relative runtime paths that must be per-session.
+AGENT_RUNTIME_DIRS: tuple[str, ...] = (
+    *CLAUDE_RUNTIME_DIRS,
     *DSH_RUNTIME_DIRS,
     *OMP_RUNTIME_DIRS,
+    *CURSOR_RUNTIME_DIRS,
+    *CODEX_RUNTIME_DIRS,
+    *PI_RUNTIME_DIRS,
+    *OPENCLAW_RUNTIME_DIRS,
 )
 
 #: Always relocate even when larger than :data:`MIGRATE_LIMIT_MB`.
-AGENT_RUNTIME_FORCE_DIRS: frozenset[str] = frozenset(OMP_RUNTIME_DIRS)
+AGENT_RUNTIME_FORCE_DIRS: frozenset[str] = frozenset(
+    (
+        *OMP_RUNTIME_DIRS,
+        *CURSOR_RUNTIME_DIRS,
+        *CODEX_RUNTIME_DIRS,
+        *PI_RUNTIME_DIRS,
+        *OPENCLAW_RUNTIME_DIRS,
+        ".claude/projects",
+        ".claude/file-history",
+        ".claude/paste-cache",
+        ".claude/image-cache",
+    )
+)
 
 MIGRATE_LIMIT_MB = 200
 
@@ -100,6 +137,30 @@ def ensure_omp_xdg_roots(*xdg_homes: Path) -> list[str]:
             continue
         target.mkdir(parents=True, exist_ok=True)
         actions.append(f"seed:xdg-omp:{root.name}")
+    return actions
+
+
+def seed_hermes_home(hermes_home: Path, home: Path, *, dry_run: bool = False) -> list[str]:
+    """Point Hermes at scratch via ``HERMES_HOME``; copy durable config once.
+
+    Hermes stores ``state.db`` (SQLite WAL) next to ``config.yaml`` under
+    ``HERMES_HOME`` (default ``~/.hermes``). Moving only the DB is awkward, so
+    we relocate the whole home to scratch and adopt ``config.yaml`` from /arc
+    when present.
+    """
+    actions: list[str] = []
+    src_cfg = home / ".hermes" / "config.yaml"
+    dst_cfg = hermes_home / "config.yaml"
+    if dry_run:
+        if not hermes_home.is_dir():
+            actions.append("seed:hermes-home")
+        if src_cfg.is_file() and not dst_cfg.is_file():
+            actions.append("seed:hermes-config")
+        return actions
+    hermes_home.mkdir(parents=True, exist_ok=True)
+    if src_cfg.is_file() and not dst_cfg.is_file():
+        shutil.copy2(src_cfg, dst_cfg)
+        actions.append("seed:hermes-config")
     return actions
 
 
