@@ -188,6 +188,7 @@ class SessionEnv:
     xdg_cache_home: Path
     xdg_config_home: Path
     xdg_data_home: Path
+    xdg_state_home: Path
     pythonpath_extra: str
 
     def exports(self) -> dict[str, str]:
@@ -224,6 +225,9 @@ class SessionEnv:
             "XDG_CACHE_HOME": str(self.xdg_cache_home),
             "XDG_CONFIG_HOME": str(self.xdg_config_home),
             "XDG_DATA_HOME": str(self.xdg_data_home),
+            "XDG_STATE_HOME": str(self.xdg_state_home),
+            # Puppeteer (omp browser tool + stock Chrome) — never dlopen from /arc.
+            "PUPPETEER_CACHE_DIR": str(self.xdg_cache_home / "puppeteer"),
             "UV_LINK_MODE": os.environ.get("UV_LINK_MODE", "").strip() or "copy",
             "PIP_DISABLE_PIP_VERSION_CHECK": "1",
         }
@@ -261,11 +265,17 @@ class SessionEnv:
             self.tmpdir,
             self.xdg_cache_home,
             self.xdg_data_home,
+            self.xdg_state_home,
+            self.xdg_cache_home / "puppeteer",
             self.astroai_lab_npm_prefix,
         ):
             path.mkdir(parents=True, exist_ok=True)
         if self.astroai_lab_team_bin is not None:
             self.astroai_lab_team_bin.mkdir(parents=True, exist_ok=True)
+        # omp only honors XDG when $XDG_*/omp already exists (upstream DirResolver).
+        from astroai_lab.core.home_layout import ensure_omp_xdg_roots
+
+        ensure_omp_xdg_roots(self.xdg_cache_home, self.xdg_data_home, self.xdg_state_home)
 
 
 def _pythonpath_extra(work: Path) -> str:
@@ -299,8 +309,10 @@ def resolve_session_env(*, ensure: bool = True) -> SessionEnv:
     # runtimes do not eat the home quota; tiny durable specs stay on /arc.
     if scratch is not None:
         xdg_data = _session_cache_path("XDG_DATA_HOME", cache_root / "data", work, scratch)
+        xdg_state = _session_cache_path("XDG_STATE_HOME", cache_root / "state", work, scratch)
     else:
         xdg_data = Path(os.environ.get("XDG_DATA_HOME", str(home / ".local" / "share")))
+        xdg_state = Path(os.environ.get("XDG_STATE_HOME", str(home / ".local" / "state")))
     xdg_cache = _session_cache_path("XDG_CACHE_HOME", cache_root, work, scratch)
 
     if scratch is not None:
@@ -351,6 +363,7 @@ def resolve_session_env(*, ensure: bool = True) -> SessionEnv:
         xdg_cache_home=xdg_cache,
         xdg_config_home=xdg_config,
         xdg_data_home=xdg_data,
+        xdg_state_home=xdg_state,
         pythonpath_extra=_pythonpath_extra(work),
     )
     if ensure:

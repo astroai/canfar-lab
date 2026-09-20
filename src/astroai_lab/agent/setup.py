@@ -679,14 +679,21 @@ def relocate_agent_runtime_state(home: Path, *, dry_run: bool) -> list[str]:
     contend or corrupt (NFS flock is unreliable). Config stays on $HOME;
     runtime goes to scratch via symlinks. See astroai_lab.core.home_layout.
     """
-    from astroai_lab.core.home_layout import relocate_agent_runtime
+    from astroai_lab.core.home_layout import ensure_omp_xdg_roots, relocate_agent_runtime
     from astroai_lab.shell.session_env import resolve_session_env
 
     try:
-        data_root = resolve_session_env(ensure=False).xdg_data_home
+        env = resolve_session_env(ensure=False)
+        data_root = env.xdg_data_home
     except Exception:  # noqa: BLE001 — relocation must never block setup
         return []
-    return relocate_agent_runtime(home, data_root, dry_run=dry_run)
+    actions: list[str] = []
+    if not dry_run:
+        actions.extend(
+            ensure_omp_xdg_roots(env.xdg_cache_home, env.xdg_data_home, env.xdg_state_home)
+        )
+    actions.extend(relocate_agent_runtime(home, data_root, dry_run=dry_run))
+    return actions
 
 
 def write_stamp(home: Path, mode: str, *, dry_run: bool) -> None:

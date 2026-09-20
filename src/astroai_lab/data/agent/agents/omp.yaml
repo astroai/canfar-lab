@@ -21,7 +21,9 @@ config:
   markers:
     - "~/.omp"
     - "~/.omp/agent"
+    - "~/.omp/natives"
+    - "~/.omp/puppeteer"
 verify:
   - "omp --version"
 plugins: [skill, mcp, config, addon]
-notes: Binary is `omp`. Installs the prebuilt release into $ASTROAI_LAB_BIN_DIR (no bun). Distinct from `pi` (earendil-works).
+notes: Binary is `omp`. Installs the prebuilt release into $ASTROAI_LAB_BIN_DIR (no bun). Runtime (natives/Chrome/SQLite/sessions) is force-relocated to scratch — never leave it on /arc/home. Distinct from `pi` (earendil-works).

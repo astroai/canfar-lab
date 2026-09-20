@@ -187,3 +187,25 @@ def test_export_shell_includes_astroai_lab_vars(
     # NOTE: no "SCRATCH absent" assertion — a writable /scratch on the host is
     # the canonical scratch default and is legitimately exported when unset.
     assert "CANFAR_LAB_" not in out
+
+
+def test_scratch_seeds_omp_xdg_and_puppeteer_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """omp only uses XDG when $XDG_*/omp exists; seed those + Puppeteer cache."""
+    work, scratch = _scratch_session(tmp_path, monkeypatch)
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    for var in ("XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME", "PUPPETEER_CACHE_DIR"):
+        monkeypatch.delenv(var, raising=False)
+
+    env = resolve_session_env(ensure=True)
+    exports = env.exports()
+    assert exports["XDG_STATE_HOME"] == str(env.xdg_state_home)
+    assert exports["PUPPETEER_CACHE_DIR"] == str(env.xdg_cache_home / "puppeteer")
+    assert not str(env.xdg_state_home).startswith(str(home))
+    assert (env.xdg_cache_home / "omp").is_dir()
+    assert (env.xdg_data_home / "omp").is_dir()
+    assert (env.xdg_state_home / "omp").is_dir()
+    assert (env.xdg_cache_home / "puppeteer").is_dir()
