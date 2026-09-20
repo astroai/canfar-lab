@@ -293,4 +293,9 @@ def test_harness_dirs_come_after_the_claude_ones(env: Path) -> None:
     omp_start = n_claude + len(DSH_RUNTIME_DIRS)
     assert AGENT_RUNTIME_DIRS[omp_start : omp_start + len(OMP_RUNTIME_DIRS)] == OMP_RUNTIME_DIRS
     rest = AGENT_RUNTIME_DIRS[omp_start + len(OMP_RUNTIME_DIRS) :]
-    assert rest == (*CURSOR_RUNTIME_DIRS, *CODEX_RUNTIME_DIRS, *PI_RUNTIME_DIRS, *OPENCLAW_RUNTIME_DIRS)
+    assert rest == (
+        *CURSOR_RUNTIME_DIRS,
+        *CODEX_RUNTIME_DIRS,
+        *PI_RUNTIME_DIRS,
+        *OPENCLAW_RUNTIME_DIRS,
+    )
