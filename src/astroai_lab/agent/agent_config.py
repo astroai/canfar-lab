@@ -50,6 +50,10 @@ def _agent_and_config(
             ),
         )
     home = home or Path.home()
+    if agent_id == "hermes":
+        from astroai_lab.core.home_layout import hermes_home_dir
+
+        return agent, config, hermes_home_dir(home=home) / "config.yaml"
     return agent, config, _resolve_path(str(path), home)
 
 

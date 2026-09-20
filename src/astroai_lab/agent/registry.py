@@ -281,6 +281,18 @@ def _path_has_state(path: Path) -> bool:
     return False
 
 
+def agent_config_file(agent: dict[str, Any], home: Path) -> Path | None:
+    """Resolved settings file for a registry agent (honors HERMES_HOME)."""
+    config = agent.get("config") or {}
+    if not config.get("path"):
+        return None
+    if str(agent["id"]) == "hermes":
+        from astroai_lab.core.home_layout import hermes_home_dir
+
+        return hermes_home_dir(home=home) / "config.yaml"
+    return expand_home(str(config["path"]), home)
+
+
 def config_state_paths(agent: dict[str, Any], home: Path) -> list[Path]:
     """On-disk locations that mean this agent has been configured or logged in.
 
@@ -303,11 +315,11 @@ def config_state_paths(agent: dict[str, Any], home: Path) -> list[Path]:
         seen.add(key)
         out.append(path)
 
-    config = agent.get("config") or {}
-    if config.get("path"):
-        cfg = expand_home(str(config["path"]), home)
+    cfg = agent_config_file(agent, home)
+    if cfg is not None:
         add(cfg)
         add(cfg.parent)
+    config = agent.get("config") or {}
     for marker in config.get("markers") or []:
         add(expand_home(str(marker), home))
     aid = str(agent["id"])
@@ -356,7 +368,7 @@ def registry_agent_status(
     cfg_path: Path | None = None
     config_declared = bool(config.get("path"))
     if config_declared:
-        cfg_path = expand_home(str(config["path"]), home)
+        cfg_path = agent_config_file(agent, home)
     config_present = any(_path_has_state(p) for p in config_state_paths(agent, home))
     # Declared settings file missing is still ok when login/state dirs exist
     # (agy writes settings sparsely; auth lives in the keyring).
@@ -551,8 +563,11 @@ def install_registry_agent(agent_id: str, *, dry_run: bool = False) -> str:
         install_tool,
         refuse_if_home_owned,
     )
+    from astroai_lab.core.home_layout import ensure_agent_runtime_on_scratch
 
     refuse_if_home_owned(agent_id)
+    if not dry_run:
+        ensure_agent_runtime_on_scratch(Path.home(), dry_run=False)
 
     if agent_id in TOOLS:
         install_tool(agent_id, dry_run=dry_run)
@@ -694,13 +709,16 @@ def _remove_registry_method(
     rm(_bin_dir() / binary, f"binary:{binary}")
 
     # Config file (registry config.path).
-    config = agent.get("config") or {}
-    if config.get("path"):
-        cfg = expand_home(str(config["path"]), home)
+    cfg = agent_config_file(agent, home)
+    if cfg is not None:
         rm(cfg, f"config:{cfg}")
         lab_dir = home / ".astroai" / "lab"
         if purge and cfg.parent not in {home, lab_dir}:
             rm_tree(cfg.parent, f"purge:{cfg.parent}")
+        if str(agent_id) == "hermes":
+            legacy = home / ".hermes" / "config.yaml"
+            if legacy != cfg:
+                rm(legacy, f"config:{legacy}")
 
     # Plugin-applied files (Phase 3 recursive removal). Run the precise
     # plugin sweep first so installed plugins report `removed` (not `skipped`),
@@ -852,6 +870,11 @@ def setup_registry_agent(
     from astroai_lab.agent.bundle_path import bundle_root
     from astroai_lab.agent.inventory import list_bundles
     from astroai_lab.agent.setup import run_bundle
+    from astroai_lab.core.home_layout import ensure_agent_runtime_on_scratch
+
+    # Scratch layout first so config scaffolds and plugins write off /arc.
+    for label in ensure_agent_runtime_on_scratch(home, dry_run=dry_run):
+        actions.append(f"runtime: {label}")
 
     # Bundle first when one exists — otherwise an empty scaffold would block
     # install_file() from writing the real starter template (new-user footgun).
@@ -869,9 +892,8 @@ def setup_registry_agent(
             )
             actions.append(f"applied config bundle ({agent_id})")
 
-    config = agent.get("config") or {}
-    if config.get("path"):
-        cfg = expand_home(str(config["path"]), home)
+    cfg = agent_config_file(agent, home)
+    if cfg is not None:
         if cfg.is_file():
             actions.append(f"config exists ({cfg})")
         elif dry_run:
@@ -880,6 +902,15 @@ def setup_registry_agent(
             cfg.parent.mkdir(parents=True, exist_ok=True)
             cfg.write_text(_config_scaffold(agent), encoding="utf-8")
             actions.append(f"created config ({cfg})")
+            # Mirror onto ~/.hermes when HERMES_HOME is scratch so legacy
+            # paths and seed_hermes_home stay consistent.
+            if agent_id == "hermes":
+                legacy = home / ".hermes" / "config.yaml"
+                if cfg.resolve() != legacy.resolve() and not legacy.is_file():
+                    legacy.parent.mkdir(parents=True, exist_ok=True)
+                    import shutil
+
+                    shutil.copy2(cfg, legacy)
 
     rel = AGENT_SKILL_DIRS.get(agent_id)
     if rel:
@@ -1031,8 +1062,8 @@ def fix_registry_agent(
     errors: list[str] = []
 
     config = agent.get("config") or {}
-    if config.get("path"):
-        cfg = expand_home(str(config["path"]), home)
+    cfg = agent_config_file(agent, home)
+    if cfg is not None:
         fmt = str(config.get("format", "json"))
         if not cfg.is_file():
             if dry_run:

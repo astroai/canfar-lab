@@ -164,6 +164,111 @@ def seed_hermes_home(hermes_home: Path, home: Path, *, dry_run: bool = False) ->
     return actions
 
 
+#: Env keys that must be in the process/shell so agent CLIs write off /arc.
+AGENT_SCRATCH_ENV_KEYS: tuple[str, ...] = (
+    "XDG_CACHE_HOME",
+    "XDG_DATA_HOME",
+    "XDG_STATE_HOME",
+    "PUPPETEER_CACHE_DIR",
+    "CODEX_SQLITE_HOME",
+    "HERMES_HOME",
+    "ASTROAI_LAB_BIN_DIR",
+    "ASTROAI_LAB_NPM_PREFIX",
+    "NPM_CONFIG_PREFIX",
+    "NPM_CONFIG_CACHE",
+    "UV_CACHE_DIR",
+    "PIP_CACHE_DIR",
+)
+
+
+def apply_agent_scratch_env(exports: dict[str, str]) -> list[str]:
+    """Push scratch redirects into ``os.environ`` for this process + children."""
+    import os
+
+    applied: list[str] = []
+    for key in AGENT_SCRATCH_ENV_KEYS:
+        val = exports.get(key)
+        if not val:
+            continue
+        if os.environ.get(key) == val:
+            continue
+        os.environ[key] = val
+        applied.append(f"env:{key}")
+    return applied
+
+
+def hermes_home_dir(*, home: Path | None = None) -> Path:
+    """Resolved Hermes state directory (``HERMES_HOME`` when session-backed).
+
+    Honors ``HERMES_HOME`` only when it lives under *home* or under
+    ``$SCRATCH`` (CANFAR session). Otherwise keep the legacy ``~/.hermes``
+    path so unit tests that only flip ``HOME`` stay self-contained.
+    """
+    import os
+
+    home = home or Path.home()
+    existing = os.environ.get("HERMES_HOME", "").strip()
+    if not existing:
+        return home / ".hermes"
+    hh = Path(existing)
+    try:
+        home_r = home.resolve()
+        hh_r = hh.resolve()
+    except OSError:
+        return home / ".hermes"
+    try:
+        if hh_r == home_r or hh_r.is_relative_to(home_r):
+            return hh
+    except (ValueError, AttributeError):
+        pass
+    scratch = os.environ.get("SCRATCH", "").strip()
+    if scratch:
+        try:
+            scratch_r = Path(scratch).resolve()
+            if hh_r == scratch_r or hh_r.is_relative_to(scratch_r):
+                return hh
+        except (OSError, ValueError, AttributeError):
+            pass
+    return home / ".hermes"
+
+
+def ensure_agent_runtime_on_scratch(
+    home: Path | None = None,
+    *,
+    dry_run: bool = False,
+) -> list[str]:
+    """Create scratch roots, apply env redirects, and symlink hot agent trees.
+
+    Intended entry point for ``astroai agent install`` / ``agent setup`` so
+    both paths leave CLIs writing under ``$SCRATCH`` before they first run.
+
+    No-ops (empty list) when *home* is not the real user home — unit tests
+    pass a temp tree and must not get session-scratch symlinks.
+    """
+    home = home or Path.home()
+    try:
+        if home.resolve() != Path.home().resolve():
+            return []
+    except OSError:
+        return []
+
+    from astroai_lab.shell.session_env import resolve_session_env
+
+    actions: list[str] = []
+    env = resolve_session_env(ensure=not dry_run)
+    exports = env.exports()
+    if not dry_run:
+        actions.extend(apply_agent_scratch_env(exports))
+        actions.extend(
+            ensure_omp_xdg_roots(env.xdg_cache_home, env.xdg_data_home, env.xdg_state_home)
+        )
+        actions.extend(seed_hermes_home(env.xdg_data_home / "hermes-home", home, dry_run=False))
+    else:
+        actions.extend(seed_hermes_home(env.xdg_data_home / "hermes-home", home, dry_run=True))
+    actions.extend(relocate_agent_runtime(home, env.xdg_data_home, dry_run=dry_run))
+    return actions
+
+
 def relocate_agent_runtime(
     home: Path,
     data_root: Path,

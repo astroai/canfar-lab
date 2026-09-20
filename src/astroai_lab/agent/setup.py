@@ -679,28 +679,12 @@ def relocate_agent_runtime_state(home: Path, *, dry_run: bool) -> list[str]:
     contend or corrupt (NFS flock is unreliable). Config stays on $HOME;
     runtime goes to scratch via symlinks. See astroai_lab.core.home_layout.
     """
-    from astroai_lab.core.home_layout import (
-        ensure_omp_xdg_roots,
-        relocate_agent_runtime,
-        seed_hermes_home,
-    )
-    from astroai_lab.shell.session_env import resolve_session_env
+    from astroai_lab.core.home_layout import ensure_agent_runtime_on_scratch
 
     try:
-        env = resolve_session_env(ensure=False)
-        data_root = env.xdg_data_home
+        return ensure_agent_runtime_on_scratch(home, dry_run=dry_run)
     except Exception:  # noqa: BLE001 — relocation must never block setup
         return []
-    actions: list[str] = []
-    if not dry_run:
-        actions.extend(
-            ensure_omp_xdg_roots(env.xdg_cache_home, env.xdg_data_home, env.xdg_state_home)
-        )
-        actions.extend(seed_hermes_home(env.xdg_data_home / "hermes-home", home, dry_run=False))
-    else:
-        actions.extend(seed_hermes_home(env.xdg_data_home / "hermes-home", home, dry_run=True))
-    actions.extend(relocate_agent_runtime(home, data_root, dry_run=dry_run))
-    return actions
 
 
 def write_stamp(home: Path, mode: str, *, dry_run: bool) -> None:
@@ -904,6 +888,7 @@ def agent_sync(*, dry_run: bool = False) -> None:
 
     def _run() -> None:
         ensure_agent_dirs(home, dry_run=dry_run)
+        relocate_agent_runtime_state(home, dry_run=dry_run)
         for name in names:
             run_bundle(name, root, home, None, force=True, dry_run=dry_run)
         from astroai_lab.agent import review_bench as _review_bench

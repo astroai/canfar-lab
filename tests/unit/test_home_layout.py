@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -182,11 +183,57 @@ def test_ensure_omp_xdg_roots_seeds_missing(tmp_path: Path) -> None:
     assert ensure_omp_xdg_roots(cache, data, state) == []
 
 
+def test_ensure_agent_runtime_skips_synthetic_home(tmp_path: Path) -> None:
+    """Unit-test homes must not get session-scratch symlinks."""
+    from astroai_lab.core.home_layout import ensure_agent_runtime_on_scratch
+
+    fake = tmp_path / "not-real-home"
+    fake.mkdir()
+    assert ensure_agent_runtime_on_scratch(fake) == []
+
+
+def test_ensure_agent_runtime_on_real_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """install/setup entry point: env redirects + symlinks under the real home."""
+    from astroai_lab.core import home_layout as hl
+
+    home = tmp_path / "home"
+    scratch = tmp_path / "scratch"
+    home.mkdir()
+    scratch.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("SCRATCH", str(scratch))
+    monkeypatch.setenv("WORK", str(scratch / "work"))
+    for var in (
+        "XDG_DATA_HOME",
+        "XDG_CACHE_HOME",
+        "XDG_STATE_HOME",
+        "HERMES_HOME",
+        "CODEX_SQLITE_HOME",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    actions = hl.ensure_agent_runtime_on_scratch(home, dry_run=False)
+    assert any(a.startswith(("link:", "env:")) for a in actions)
+    assert (home / ".codex" / "sessions").is_symlink()
+    assert os.environ.get("CODEX_SQLITE_HOME", "").startswith(str(scratch))
+    assert os.environ.get("HERMES_HOME", "").startswith(str(scratch))
+    hermes = Path(os.environ["HERMES_HOME"])
+    assert hermes.is_dir()
+
+
 def test_agent_cli_runtime_trees_are_relocated(env: Path) -> None:
     """codex / cursor / pi / openclaw hot trees leave /arc via symlinks."""
     home, data = env
     relocate_agent_runtime(home, data)
-    for rel in (*CURSOR_RUNTIME_DIRS, *CODEX_RUNTIME_DIRS, *PI_RUNTIME_DIRS, *OPENCLAW_RUNTIME_DIRS):
+    cli_dirs = (
+        *CURSOR_RUNTIME_DIRS,
+        *CODEX_RUNTIME_DIRS,
+        *PI_RUNTIME_DIRS,
+        *OPENCLAW_RUNTIME_DIRS,
+    )
+    for rel in cli_dirs:
         link = home / rel
         assert link.is_symlink(), rel
         assert data in link.resolve().parents

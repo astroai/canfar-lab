@@ -729,6 +729,26 @@ def test_setup_registry_agent_scaffolds_config(tmp_path: Path, _no_plugins) -> N
     assert any("config exists" in a for a in result2["actions"])
 
 
+def test_setup_registry_records_runtime_actions_on_session_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _no_plugins
+) -> None:
+    """`agent setup <id>` must symlink hot trees when home is the session home."""
+    home = tmp_path / "home"
+    scratch = tmp_path / "scratch"
+    home.mkdir()
+    scratch.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("SCRATCH", str(scratch))
+    monkeypatch.setenv("WORK", str(scratch / "work"))
+    for var in ("XDG_DATA_HOME", "HERMES_HOME", "CODEX_SQLITE_HOME"):
+        monkeypatch.delenv(var, raising=False)
+
+    result = setup_registry_agent("codex", home=home, dry_run=False)
+    assert result["ok"]
+    assert any(str(a).startswith("runtime:") for a in result["actions"])
+    assert (home / ".codex" / "sessions").is_symlink()
+
+
 def test_setup_registry_agent_muse_writes_schema_version(tmp_path: Path, _no_plugins) -> None:
     """Muse Code rejects settings.json without schema_version: 1."""
     import json

@@ -924,6 +924,10 @@ def install_tool(name: str, *, dry_run: bool = False) -> None:
 
 
 def _install_tool_locked(name: str, npm_timeout: int) -> None:
+    # Scratch roots + env redirects before upstream installers write state.
+    from astroai_lab.core.home_layout import ensure_agent_runtime_on_scratch
+
+    ensure_agent_runtime_on_scratch(Path.home(), dry_run=False)
     resolve_session_env(ensure=True)
     _ensure_bin_dir()
     arch = platform.machine()
