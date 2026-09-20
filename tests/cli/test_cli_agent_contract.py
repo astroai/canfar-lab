@@ -22,6 +22,7 @@ CANONICAL_VERBS = {
     "remove",
     "wipe",
     "setup",
+    "layout",
     "config",
     "update",
     "verify",
