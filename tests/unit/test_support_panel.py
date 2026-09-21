@@ -81,7 +81,13 @@ def test_ensure_settings_never_writes_model(
     monkeypatch.setenv("OPENCODE_API_KEY", "zen")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "d-key")
     ensured = rb.ensure_dsh_settings(tmp_path, dry_run=False)
-    assert set(ensured) == {"opencode-go", "deepseek-official"}
+    assert set(ensured) == {
+        "opencode-go",
+        "deepseek-official",
+        "google",
+        "openai",
+        "anthropic",
+    }
     import yaml
 
     doc = yaml.safe_load((tmp_path / ".dsh" / "settings.yaml").read_text(encoding="utf-8"))

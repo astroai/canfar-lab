@@ -28,7 +28,7 @@ routers:
       - deepseek-flash
       - deepseek-v4-pro
       - muse-spark-1.3-contributor
-    notes: "OpenCode Go (OpenAI-compatible). Studio installs dsh-opencode-session so chats send x-opencode-session (required by the Go gateway)."
+    notes: "OpenCode Go (OpenAI-compatible). Prepare seeds the route without the key; paste OPENCODE_API_KEY in Settings after Connect. Studio also installs dsh-opencode-session so chats send x-opencode-session."
 
   - id: deepseek-official
     key: DEEPSEEK_API_KEY

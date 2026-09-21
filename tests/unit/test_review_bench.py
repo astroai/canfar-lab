@@ -91,7 +91,14 @@ def test_ensure_settings_never_touches_user_model(
         encoding="utf-8",
     )
     ensured = rb.ensure_dsh_settings(tmp_path, dry_run=False)
-    assert ensured == ["opencode-go"]
+    assert "opencode-go" in ensured
+    assert set(ensured) == {
+        "opencode-go",
+        "deepseek-official",
+        "google",
+        "openai",
+        "anthropic",
+    }
     doc = yaml.safe_load(settings.read_text(encoding="utf-8"))
     assert doc["agent-default-model"] == {"provider": "google", "model": "custom-1"}
     entry = doc["llm-pi-ai"]["providers"]["opencode-go"]
@@ -113,7 +120,7 @@ def test_hand_declared_models_prefer_live_catalog(
         lambda *_a, **_k: ("live-model-a", "muse-spark-1.3-contributor"),
     )
     ensured = rb.ensure_dsh_settings(tmp_path, dry_run=False)
-    assert ensured == ["opencode-go"]
+    assert "opencode-go" in ensured
     entry = yaml.safe_load((tmp_path / ".dsh" / "settings.yaml").read_text(encoding="utf-8"))[
         "llm-pi-ai"
     ]["providers"]["opencode-go"]
@@ -129,7 +136,7 @@ def test_ensure_settings_writes_catalog_routes_by_their_dsh_name(
     """`openai-official` has to be written as the catalog route `openai`."""
     monkeypatch.setenv("OPENAI_API_KEY", "oa-key")
     ensured = rb.ensure_dsh_settings(tmp_path, dry_run=False)
-    assert ensured == ["openai"]
+    assert "openai" in ensured
     doc = yaml.safe_load((tmp_path / ".dsh" / "settings.yaml").read_text(encoding="utf-8"))
     assert doc["llm-pi-ai"]["providers"]["openai"] == {"apiKeyEnv": "OPENAI_API_KEY"}
     assert "agent-default-model" not in doc
@@ -178,7 +185,9 @@ def test_ensure_settings_dry_run_writes_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("DEEPSEEK_API_KEY", "d-key")
-    assert rb.ensure_dsh_settings(tmp_path, dry_run=True) == ["deepseek-official"]
+    dry = rb.ensure_dsh_settings(tmp_path, dry_run=True)
+    assert "deepseek-official" in dry
+    assert "opencode-go" in dry
     assert not (tmp_path / ".dsh" / "settings.yaml").exists()
 
 
@@ -216,7 +225,28 @@ def test_ensure_review_bench_installs_and_idempotent(tmp_path: Path) -> None:
     assert rb.ensure_review_bench(tmp_path, dry_run=False, force=True) is True
 
 
-def test_no_keys_without_env(tmp_path: Path) -> None:
+def test_no_keys_still_seeds_provider_refs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """First-boot CANFAR has no key yet — prepare must still seed apiKeyEnv refs."""
+    for name in (
+        "OPENCODE_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "GEMINI_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+    ):
+        monkeypatch.delenv(name, raising=False)
     assert rb.discover_dsh_keys(tmp_path) == {}
-    assert rb.ensure_dsh_settings(tmp_path, dry_run=False) == []
+    ensured = rb.ensure_dsh_settings(tmp_path, dry_run=False)
+    assert set(ensured) == {
+        "opencode-go",
+        "deepseek-official",
+        "google",
+        "openai",
+        "anthropic",
+    }
+    doc = yaml.safe_load((tmp_path / ".dsh" / "settings.yaml").read_text(encoding="utf-8"))
+    providers = doc["llm-pi-ai"]["providers"]
+    assert providers["opencode-go"]["apiKeyEnv"] == "OPENCODE_API_KEY"
+    assert providers["opencode-go"]["baseURL"] == "https://opencode.ai/zen/go/v1"
+    assert providers["deepseek-official"] == {"apiKeyEnv": "DEEPSEEK_API_KEY"}
     assert os.environ.get("OPENCODE_API_KEY") is None  # never leak into process env

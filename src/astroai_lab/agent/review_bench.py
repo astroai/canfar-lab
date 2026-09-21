@@ -378,12 +378,18 @@ def ensure_provider_entry(
     route_id: str,
     dry_run: bool = False,
 ) -> str | None:
-    """Ensure one provider credential reference exists; never touches agent-default-model."""
+    """Ensure one provider credential reference exists; never touches agent-default-model.
+
+    The key itself is not required at write time. ``apiKeyEnv`` is only a
+    name — the secret can arrive later via Settings → Models,
+    ``~/.astroai/lab/.env``, or ``$DSH_HOME/.credentials.yaml`` after the
+    session is already up (CANFAR first-boot has no pre-session place to
+    set it).
+    """
     home = home or Path.home()
-    keys = discover_dsh_keys(home)
     catalog = load_support()
     router = catalog.router_by_id(route_id)
-    if router is None or router.key not in keys or not router.serviceable():
+    if router is None or not router.serviceable():
         return None
 
     model_ids: tuple[str, ...] | None = None
@@ -430,21 +436,20 @@ def ensure_dsh_settings(
     *,
     dry_run: bool = False,
 ) -> list[str]:
-    """Ensure provider credential references for every present key.
+    """Seed provider credential refs for every serviceable support.yaml route.
 
     Writes ``llm-pi-ai.providers.<id> = {apiKeyEnv[, api, baseURL, models]}``.
     Never reads or writes ``agent-default-model`` — model/provider choice is
     the user's in dsh Settings. Hand-declared routes include a models catalog
-    (dsh requires it). Returns the ensured provider ids.
+    (dsh requires it). Keys are not required here: first-boot CANFAR has
+    nowhere to put ``OPENCODE_API_KEY`` before Connect; the user pastes it
+    in Settings after the session starts. Returns the ensured provider ids.
     """
     home = home or Path.home()
-    keys = discover_dsh_keys(home)
-    if not keys:
-        return []
     catalog = load_support()
     ensured: list[str] = []
     for router in catalog.routers:
-        if router.key not in keys or not router.serviceable():
+        if not router.serviceable():
             continue
         if dry_run:
             ensured.append(router.provider_id)

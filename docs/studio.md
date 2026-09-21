@@ -143,10 +143,13 @@ provider (protocol + Go endpoint). The models catalog is fetched live from
 fallback only). Provider/model *choice* stays yours in Settings → Models;
 astroai never writes `agent-default-model`.
 
-Keys are never written into a patch or a profile; they come from the
-environment, `~/.astroai/lab/.env`, or `$DSH_HOME/.credentials.yaml`. Add a
-gateway by hand in **Settings → Add a custom provider**, or declare it once in
-`support.yaml` so every machine and image gets it.
+Keys are **not** required before the session starts. Prepare only writes
+`apiKeyEnv` names (and the Go endpoint/models); the secret itself comes later
+from Settings → Models, the environment, `~/.astroai/lab/.env`, or
+`$DSH_HOME/.credentials.yaml`. On CANFAR that means: Connect → paste the key
+in Settings → pick a model. Add a gateway by hand in **Settings → Add a custom
+provider**, or declare it once in `support.yaml` so every machine and image
+gets it.
 
 ## CANFAR
 
