@@ -99,6 +99,7 @@ def test_ensure_settings_never_touches_user_model(
     assert entry["api"] == "openai-completions"
     assert entry["baseURL"] == "https://opencode.ai/zen/go/v1"
     assert {"id": "deepseek-v4.1-flash"} in entry["models"]
+    assert {"id": "muse-spark-1.3-contributor"} in entry["models"]
 
 
 def test_ensure_settings_writes_catalog_routes_by_their_dsh_name(

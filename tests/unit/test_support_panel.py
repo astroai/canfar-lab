@@ -27,6 +27,7 @@ def test_support_yaml_loads() -> None:
     assert cat.routers[0].key == "OPENCODE_API_KEY"
     assert cat.routers[0].base_url.endswith("/zen/go/v1")
     assert "deepseek-v4.1-flash" in cat.routers[0].models
+    assert "muse-spark-1.3-contributor" in cat.routers[0].models
     assert cat.routers[0].serviceable()
     assert not hasattr(cat.routers[0], "panel_default")
     assert "dsh" in cat.panel_agents

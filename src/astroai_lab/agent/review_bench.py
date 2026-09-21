@@ -400,6 +400,16 @@ def ensure_provider_entry(
     if not isinstance(providers, dict):
         providers = doc["llm-pi-ai"]["providers"] = {}
     wanted = router.provider_entry()
+    if router.hand_declared and router.base_url:
+        from astroai_lab.agent.support import fetch_openai_compat_model_ids
+
+        fetched = fetch_openai_compat_model_ids(router.base_url)
+        if fetched:
+            # Prefer live catalog; keep yaml seed order for any ids the
+            # endpoint omitted (rare), then append the rest.
+            seed = list(router.models)
+            merged = list(dict.fromkeys([*seed, *fetched]))
+            wanted["models"] = [{"id": mid} for mid in merged]
     if providers.get(router.provider_id) != wanted:
         providers[router.provider_id] = wanted
         settings.parent.mkdir(parents=True, exist_ok=True)

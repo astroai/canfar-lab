@@ -116,6 +116,28 @@ def _parse_model_ids(raw: Any) -> tuple[str, ...]:
     return tuple(out)
 
 
+def fetch_openai_compat_model_ids(base_url: str, *, timeout: float = 8.0) -> tuple[str, ...]:
+    """``GET {base_url}/models`` — used to refresh hand-declared catalogs."""
+    import json
+    import urllib.error
+    import urllib.request
+
+    url = base_url.rstrip("/") + "/models"
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310 — fixed https hosts
+            payload = json.load(resp)
+    except (OSError, urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
+        return ()
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(data, list):
+        return ()
+    return tuple(
+        str(item["id"]).strip()
+        for item in data
+        if isinstance(item, dict) and item.get("id")
+    )
+
+
 @lru_cache
 def load_support() -> SupportCatalog:
     from astroai_lab.errors import LabError
