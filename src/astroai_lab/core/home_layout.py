@@ -281,12 +281,16 @@ def ensure_agent_runtime_on_scratch(
     home: Path | None = None,
     *,
     dry_run: bool = False,
+    boot: bool = False,
 ) -> list[str]:
     """Create scratch roots, apply env redirects, and symlink hot agent trees.
 
     Intended entry point for ``astroai agent install`` / ``agent setup`` /
     ``agent layout`` so CLIs write under ``$SCRATCH`` before they first run.
     Also repairs durable dsh dirs that older builds left pointing at scratch.
+
+    When *boot* is true, only apply env + restore durable ``~/.dsh`` dirs — skip
+    the multi-hundred-MB force-relocates so Studio can bind ``:5000`` quickly.
 
     No-ops (empty list) when *home* is not the real user home — unit tests
     pass a temp tree and must not get session-scratch symlinks.
@@ -305,14 +309,16 @@ def ensure_agent_runtime_on_scratch(
     exports = env.exports()
     if not dry_run:
         actions.extend(apply_agent_scratch_env(exports))
-        actions.extend(
-            ensure_omp_xdg_roots(env.xdg_cache_home, env.xdg_data_home, env.xdg_state_home)
-        )
-        actions.extend(seed_hermes_home(env.xdg_data_home / "hermes-home", home, dry_run=False))
-    else:
+        if not boot:
+            actions.extend(
+                ensure_omp_xdg_roots(env.xdg_cache_home, env.xdg_data_home, env.xdg_state_home)
+            )
+            actions.extend(seed_hermes_home(env.xdg_data_home / "hermes-home", home, dry_run=False))
+    elif not boot:
         actions.extend(seed_hermes_home(env.xdg_data_home / "hermes-home", home, dry_run=True))
     actions.extend(repair_dsh_durable_dirs(home, dry_run=dry_run))
-    actions.extend(relocate_agent_runtime(home, env.xdg_data_home, dry_run=dry_run))
+    if not boot:
+        actions.extend(relocate_agent_runtime(home, env.xdg_data_home, dry_run=dry_run))
     return actions
 
 

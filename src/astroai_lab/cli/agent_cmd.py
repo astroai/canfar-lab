@@ -435,22 +435,36 @@ def _emit_agent_list(
 @agent_app.command("layout")
 def agent_layout_cmd(
     ctx: typer.Context,
+    boot: Annotated[
+        bool,
+        typer.Option(
+            "--boot",
+            help="Session-boot fast path: restore durable ~/.dsh only (no heavy relocates).",
+        ),
+    ] = False,
 ) -> None:
     """Re-link agent runtime trees onto $SCRATCH; restore durable ~/.dsh dirs.
 
     Safe to run every session boot. Scratch dies with the session, so stamped
     ``agent setup`` must not be the only path that repairs dangling links —
     otherwise Studio Connect 401s after the first successful setup.
+
+    Use ``--boot`` from session entrypoints so Studio can bind :5000 before
+    multi-hundred-MB force-relocates finish (those run as a full layout in bg).
     """
     opts = get_opts(ctx)
     from astroai_lab.core.home_layout import ensure_agent_runtime_on_scratch
 
-    actions = ensure_agent_runtime_on_scratch(Path.home(), dry_run=opts.dry_run)
+    actions = ensure_agent_runtime_on_scratch(Path.home(), dry_run=opts.dry_run, boot=boot)
     if opts.json:
-        ui.print_json({"ok": True, "actions": actions, "dry_run": opts.dry_run})
+        ui.print_json({"ok": True, "actions": actions, "dry_run": opts.dry_run, "boot": boot})
         return
     if not actions:
-        ui.print_ok("Agent runtime layout already on scratch")
+        ui.print_ok(
+            "Agent runtime layout already on scratch"
+            if not boot
+            else "Boot layout ok (durable ~/.dsh)"
+        )
         return
     for a in actions:
         ui.print_hint(f"runtime: {a}")
