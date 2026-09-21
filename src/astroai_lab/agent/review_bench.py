@@ -385,8 +385,20 @@ def ensure_provider_entry(
     router = catalog.router_by_id(route_id)
     if router is None or router.key not in keys or not router.serviceable():
         return None
+
+    model_ids: tuple[str, ...] | None = None
+    if router.hand_declared and router.base_url:
+        from astroai_lab.agent.support import fetch_openai_compat_model_ids
+
+        fetched = fetch_openai_compat_model_ids(router.base_url)
+        # Live catalog wins; yaml seed is offline fallback only.
+        model_ids = fetched if fetched else router.models
+        if not model_ids:
+            return None
+
     if dry_run:
         return router.provider_id
+
     settings = home / ".dsh" / "settings.yaml"
     doc: dict = {}
     if settings.is_file():
@@ -399,17 +411,9 @@ def ensure_provider_entry(
     providers = doc.setdefault("llm-pi-ai", {}).setdefault("providers", {})
     if not isinstance(providers, dict):
         providers = doc["llm-pi-ai"]["providers"] = {}
-    wanted = router.provider_entry()
-    if router.hand_declared and router.base_url:
-        from astroai_lab.agent.support import fetch_openai_compat_model_ids
-
-        fetched = fetch_openai_compat_model_ids(router.base_url)
-        if fetched:
-            # Prefer live catalog; keep yaml seed order for any ids the
-            # endpoint omitted (rare), then append the rest.
-            seed = list(router.models)
-            merged = list(dict.fromkeys([*seed, *fetched]))
-            wanted["models"] = [{"id": mid} for mid in merged]
+    wanted = router.provider_entry(model_ids=model_ids)
+    if not wanted.get("models") and router.hand_declared:
+        return None
     if providers.get(router.provider_id) != wanted:
         providers[router.provider_id] = wanted
         settings.parent.mkdir(parents=True, exist_ok=True)

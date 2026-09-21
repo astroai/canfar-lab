@@ -98,8 +98,29 @@ def test_ensure_settings_never_touches_user_model(
     assert entry["apiKeyEnv"] == "OPENCODE_API_KEY"
     assert entry["api"] == "openai-completions"
     assert entry["baseURL"] == "https://opencode.ai/zen/go/v1"
-    assert {"id": "deepseek-v4.1-flash"} in entry["models"]
-    assert {"id": "muse-spark-1.3-contributor"} in entry["models"]
+    # Live fetch when reachable; otherwise yaml offline fallback.
+    ids = {m["id"] for m in entry["models"]}
+    assert "deepseek-v4.1-flash" in ids
+    assert "muse-spark-1.3-contributor" in ids
+
+
+def test_hand_declared_models_prefer_live_catalog(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENCODE_API_KEY", "zen-key")
+    monkeypatch.setattr(
+        "astroai_lab.agent.support.fetch_openai_compat_model_ids",
+        lambda *_a, **_k: ("live-model-a", "muse-spark-1.3-contributor"),
+    )
+    ensured = rb.ensure_dsh_settings(tmp_path, dry_run=False)
+    assert ensured == ["opencode-go"]
+    entry = yaml.safe_load((tmp_path / ".dsh" / "settings.yaml").read_text(encoding="utf-8"))[
+        "llm-pi-ai"
+    ]["providers"]["opencode-go"]
+    assert entry["models"] == [
+        {"id": "live-model-a"},
+        {"id": "muse-spark-1.3-contributor"},
+    ]
 
 
 def test_ensure_settings_writes_catalog_routes_by_their_dsh_name(

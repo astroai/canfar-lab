@@ -48,23 +48,30 @@ class Router:
         return bool(self.api or self.base_url)
 
     def serviceable(self) -> bool:
-        """Whether dsh will accept the provider entry this router produces."""
+        """Whether dsh will accept the provider entry this router produces.
+
+        Hand-declared routes need protocol + endpoint. A models catalog is
+        required at write time (live fetch, else yaml fallback) — an empty
+        seed alone does not block prepare from attempting the fetch.
+        """
         if not self.hand_declared:
             return True
-        return bool(self.api and self.base_url and self.models)
+        return bool(self.api and self.base_url)
 
-    def provider_entry(self) -> dict[str, Any]:
+    def provider_entry(self, *, model_ids: tuple[str, ...] | None = None) -> dict[str, Any]:
         """The ``llm-pi-ai.providers.<id>`` credential reference.
 
         Catalog routes need only the credential reference; a hand-declared
-        route states protocol + endpoint + models catalog. Never sets
-        ``agent-default-model``.
+        route states protocol + endpoint + models catalog. ``model_ids``
+        overrides the yaml seed (used after a live ``/models`` fetch).
+        Never sets ``agent-default-model``.
         """
         entry: dict[str, Any] = {"apiKeyEnv": self.key}
         if self.hand_declared:
             entry["api"] = self.api
             entry["baseURL"] = self.base_url
-            entry["models"] = [{"id": mid} for mid in self.models]
+            ids = model_ids if model_ids is not None else self.models
+            entry["models"] = [{"id": mid} for mid in ids]
         return entry
 
 
