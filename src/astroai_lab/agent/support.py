@@ -147,9 +147,7 @@ def fetch_openai_compat_model_ids(base_url: str, *, timeout: float = 8.0) -> tup
     if not isinstance(data, list):
         return ()
     return tuple(
-        str(item["id"]).strip()
-        for item in data
-        if isinstance(item, dict) and item.get("id")
+        str(item["id"]).strip() for item in data if isinstance(item, dict) and item.get("id")
     )
 
 

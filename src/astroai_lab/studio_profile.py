@@ -65,8 +65,14 @@ TEAM_BUNDLES: tuple[str, ...] = (
     "@deepseek-ai/dsh-experimental-agent-team-web-profile",
 )
 
+#: Injects ``x-opencode-session`` for OpenCode Go (avoids 400 MissingSessionID).
+#: Vendored under ``data/studio/plugins/`` so CANFAR ``--no-install`` boots still
+#: get it without a pnpm fetch.
+OPENCODE_SESSION_BUNDLE = "dsh-opencode-session"
+ASTROAI_EXTRA_BUNDLES: tuple[str, ...] = (OPENCODE_SESSION_BUNDLE,)
+
 #: Required layer order for every bundle the Studio profile names.
-BUNDLE_ORDER: tuple[str, ...] = WEB_TEMPLATE_BUNDLES + TEAM_BUNDLES
+BUNDLE_ORDER: tuple[str, ...] = WEB_TEMPLATE_BUNDLES + TEAM_BUNDLES + ASTROAI_EXTRA_BUNDLES
 
 #: Bundles that ship inside the dsh installation itself. They resolve from the
 #: running `dsh`, never from the profile's `node_modules`, so they must never be
@@ -254,9 +260,13 @@ def desired_bundles(
     dropped. Studio is a web-based profile, so a manifest that lost ``web-app``
     is repaired rather than honoured.
     """
-    wanted = [*required, *(TEAM_BUNDLES if with_team else ())]
+    wanted = [*required, *(TEAM_BUNDLES if with_team else ()), *ASTROAI_EXTRA_BUNDLES]
     extras = [
-        name for name in existing if name not in wanted and (with_team or name not in TEAM_BUNDLES)
+        name
+        for name in existing
+        if name not in wanted
+        and (with_team or name not in TEAM_BUNDLES)
+        and name not in ASTROAI_EXTRA_BUNDLES
     ]
     return wanted + extras
 
@@ -266,6 +276,38 @@ def team_bundles_missing(existing: list[str], *, with_team: bool) -> list[str]:
     if not with_team:
         return []
     return [name for name in TEAM_BUNDLES if name not in existing]
+
+
+def vendored_opencode_session_plugin() -> Path:
+    """Packaged ``dsh-opencode-session`` tree (offline CANFAR / --no-install)."""
+    return Path(__file__).resolve().parent / "data" / "studio" / "plugins" / OPENCODE_SESSION_BUNDLE
+
+
+def ensure_opencode_session_plugin(
+    profile_dir: Path,
+    *,
+    dry_run: bool = False,
+) -> str | None:
+    """Install the OpenCode Go session-header plugin into the Studio profile.
+
+    OpenCode Go returns ``400 MissingSessionID`` unless every chat request
+    carries ``x-opencode-session``. Stock dsh does not send it; this plugin
+    injects a stable per-conversation value. Always runs — even under
+    ``--no-install`` — by copying the vendored package (no pnpm/network).
+    """
+    import shutil
+
+    src = vendored_opencode_session_plugin()
+    if not (src / "package.json").is_file() or not (src / "lib" / "index.js").is_file():
+        return None
+    dest = profile_dir / "node_modules" / OPENCODE_SESSION_BUNDLE
+    if dry_run:
+        return f"would install {OPENCODE_SESSION_BUNDLE} → {dest}"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.is_dir():
+        shutil.rmtree(dest)
+    shutil.copytree(src, dest)
+    return f"installed {OPENCODE_SESSION_BUNDLE} (x-opencode-session header)"
 
 
 def bundle_installed(directory: Path, name: str) -> bool:
@@ -282,8 +324,14 @@ def bundle_installed(directory: Path, name: str) -> bool:
 
 
 def out_of_tree_bundles(bundles: Iterable[str]) -> list[str]:
-    """Bundles the profile has to install itself (everything but the in-box set)."""
-    return [name for name in bundles if name not in IN_BOX_BUNDLES]
+    """Bundles the profile has to install itself (everything but the in-box set).
+
+    AstroAI extras (``dsh-opencode-session``) are vendored and copied by
+    :func:`ensure_opencode_session_plugin`, so they never go through pnpm.
+    """
+    return [
+        name for name in bundles if name not in IN_BOX_BUNDLES and name not in ASTROAI_EXTRA_BUNDLES
+    ]
 
 
 def uninstalled_bundles(directory: Path, bundles: Iterable[str]) -> list[str]:
@@ -663,6 +711,12 @@ def apply_studio_profile(
     degraded = False
     if not dry_run:
         plan.dir.mkdir(parents=True, exist_ok=True)
+
+    # OpenCode Go needs x-opencode-session on every chat turn. Install the
+    # vendored plugin even when `--no-install` skips pnpm (CANFAR Connect path).
+    opencode_action = ensure_opencode_session_plugin(plan.dir, dry_run=dry_run)
+    if opencode_action:
+        actions.append(opencode_action)
 
     # `pnpm-workspace.yaml` is create-only: a user may have added an
     # `allowBuilds` entry there to permit a git-hosted plugin's build, and

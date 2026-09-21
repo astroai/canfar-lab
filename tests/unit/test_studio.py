@@ -58,7 +58,11 @@ def test_prepare_studio_writes_profile(tmp_path: Path, monkeypatch: pytest.Monke
 
     # The owned dsh profile is written in full, from the shipped web template.
     assert result["dsh_profile"] == sp.STUDIO_PROFILE_NAME
-    assert result["bundles"] == ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]
+    assert result["bundles"] == [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-web-app",
+        "dsh-opencode-session",
+    ]
     manifest = (sp.profile_dir(home) / "package.json").read_text(encoding="utf-8")
     assert "dsh-profile-astroai" in manifest
 

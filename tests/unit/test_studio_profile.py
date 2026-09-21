@@ -87,6 +87,7 @@ def test_desired_bundles_puts_the_team_layers_in_order() -> None:
         "@deepseek-ai/dsh-base",
         "@deepseek-ai/dsh-web-app",
         *sp.TEAM_BUNDLES,
+        *sp.ASTROAI_EXTRA_BUNDLES,
     ]
 
 
@@ -101,6 +102,7 @@ def test_desired_bundles_drops_team_layers_and_keeps_unknowns() -> None:
     assert sp.desired_bundles(existing, with_team=False) == [
         "@deepseek-ai/dsh-base",
         "@deepseek-ai/dsh-web-app",
+        *sp.ASTROAI_EXTRA_BUNDLES,
         "@acme/dsh-extra",
     ]
 
@@ -128,7 +130,7 @@ def test_bundle_installed_checks_profile_then_fallback(home: Path) -> None:
 def test_plan_is_pure_and_describes_a_fresh_profile(home: Path) -> None:
     plan = sp.plan_studio_profile(home, profile="laptop", with_team=True)
     assert plan.fresh_profile is True
-    assert plan.bundles == (*sp.WEB_TEMPLATE_BUNDLES, *sp.TEAM_BUNDLES)
+    assert plan.bundles == (*sp.WEB_TEMPLATE_BUNDLES, *sp.TEAM_BUNDLES, *sp.ASTROAI_EXTRA_BUNDLES)
     assert plan.manifest["dsh"]["profile"]["patchReload"] == "live"
     assert plan.manifest["name"] == "dsh-profile-astroai"
     assert not plan.dir.exists()  # planning writes nothing
@@ -269,7 +271,11 @@ def test_manifest_is_never_treated_as_foreign_and_keeps_dependencies(home: Path)
     )
     assert not any("kept" in action for action in result["actions"])
     manifest = json.loads((directory / "package.json").read_text(encoding="utf-8"))
-    assert manifest["dsh"]["profile"]["bundles"] == [*sp.WEB_TEMPLATE_BUNDLES, *sp.TEAM_BUNDLES]
+    assert manifest["dsh"]["profile"]["bundles"] == [
+        *sp.WEB_TEMPLATE_BUNDLES,
+        *sp.TEAM_BUNDLES,
+        *sp.ASTROAI_EXTRA_BUNDLES,
+    ]
     assert manifest["dependencies"]["@deepseek-ai/dsh-experimental-agent-team-profile"] == (
         "0.1.5-alpha.2"
     )
@@ -281,7 +287,10 @@ def test_recovery_reinstates_the_team_bundles_in_the_manifest(home: Path) -> Non
     sp.apply_studio_profile(sp.plan_studio_profile(home, profile="laptop"), install_bundles=False)
     manifest_path = sp.profile_dir(home) / "package.json"
     degraded = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert degraded["dsh"]["profile"]["bundles"] == list(sp.WEB_TEMPLATE_BUNDLES)
+    assert degraded["dsh"]["profile"]["bundles"] == [
+        *sp.WEB_TEMPLATE_BUNDLES,
+        *sp.ASTROAI_EXTRA_BUNDLES,
+    ]
 
     fake_install(sp.profile_dir(home))
     result = sp.apply_studio_profile(
@@ -289,7 +298,11 @@ def test_recovery_reinstates_the_team_bundles_in_the_manifest(home: Path) -> Non
     )
     assert result["degraded"] is False
     recovered = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert recovered["dsh"]["profile"]["bundles"] == [*sp.WEB_TEMPLATE_BUNDLES, *sp.TEAM_BUNDLES]
+    assert recovered["dsh"]["profile"]["bundles"] == [
+        *sp.WEB_TEMPLATE_BUNDLES,
+        *sp.TEAM_BUNDLES,
+        *sp.ASTROAI_EXTRA_BUNDLES,
+    ]
 
 
 def test_apply_writes_manifest_layer_and_workspace(home: Path) -> None:
@@ -323,14 +336,18 @@ def test_no_install_retries_every_run_and_never_leaves_a_broken_profile(home: Pa
         sp.plan_studio_profile(home, profile="laptop"), install_bundles=False
     )
     assert first["degraded"] is True
-    assert first["bundles"] == list(sp.WEB_TEMPLATE_BUNDLES)
+    assert first["bundles"] == [*sp.WEB_TEMPLATE_BUNDLES, *sp.ASTROAI_EXTRA_BUNDLES]
     # Installing the packs turns the layers back on without manual file edits.
     fake_install(sp.profile_dir(home))
     second = sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop"), install_bundles=False
     )
     assert second["degraded"] is False
-    assert second["bundles"] == [*sp.WEB_TEMPLATE_BUNDLES, *sp.TEAM_BUNDLES]
+    assert second["bundles"] == [
+        *sp.WEB_TEMPLATE_BUNDLES,
+        *sp.TEAM_BUNDLES,
+        *sp.ASTROAI_EXTRA_BUNDLES,
+    ]
 
 
 def test_degrade_drops_team_layers_so_the_profile_still_boots(
@@ -340,9 +357,12 @@ def test_degrade_drops_team_layers_so_the_profile_still_boots(
     monkeypatch.setattr(sp.shutil, "which", lambda name: None if name == "pnpm" else "/usr/bin/dsh")
     result = sp.apply_studio_profile(plan, dsh_bin="/usr/bin/dsh")
     assert result["degraded"] is True
-    assert result["bundles"] == list(sp.WEB_TEMPLATE_BUNDLES)
+    assert result["bundles"] == [*sp.WEB_TEMPLATE_BUNDLES, *sp.ASTROAI_EXTRA_BUNDLES]
     manifest = json.loads((plan.dir / "package.json").read_text(encoding="utf-8"))
-    assert manifest["dsh"]["profile"]["bundles"] == list(sp.WEB_TEMPLATE_BUNDLES)
+    assert manifest["dsh"]["profile"]["bundles"] == [
+        *sp.WEB_TEMPLATE_BUNDLES,
+        *sp.ASTROAI_EXTRA_BUNDLES,
+    ]
     assert any("pnpm" in action for action in result["actions"])
     assert any("team bundles removed" in action for action in result["actions"])
 
