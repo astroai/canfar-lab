@@ -97,8 +97,8 @@ def test_ensure_settings_never_touches_user_model(
     entry = doc["llm-pi-ai"]["providers"]["opencode-go"]
     assert entry["apiKeyEnv"] == "OPENCODE_API_KEY"
     assert entry["api"] == "openai-completions"
-    assert entry["baseURL"].startswith("https://")
-    assert "models" not in entry
+    assert entry["baseURL"] == "https://opencode.ai/zen/go/v1"
+    assert {"id": "deepseek-v4.1-flash"} in entry["models"]
 
 
 def test_ensure_settings_writes_catalog_routes_by_their_dsh_name(

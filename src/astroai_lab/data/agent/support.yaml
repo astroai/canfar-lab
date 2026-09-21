@@ -7,16 +7,26 @@
 # always `id`: dsh resolves routes from its installed provider catalog
 # (`openai`, `anthropic`, `google`, `deepseek-official`), so an AstroAI name like
 # `openai-official` has to be written as `openai`. A route the catalog does not
-# ship (`opencode-go`) is hand-declared and must also state `api` and `base_url`
-# — dsh refuses an incomplete route where it is written. No model lists here.
+# ship (`opencode-go`) is hand-declared and must state `api`, `base_url`, and a
+# `models` catalog — dsh refuses an incomplete hand-declared route (UNKNOWN_MODEL
+# at chat time). That catalog is not a default: astroai never writes
+# `agent-default-model`; the user still picks provider/model in Settings.
 
 routers:
   - id: opencode-go
     key: OPENCODE_API_KEY
     dsh_route: opencode-go
     api: openai-completions
-    base_url: https://opencode.ai/zen/v1
-    notes: "OpenCode Zen / Console Go (OpenAI-compatible, hand-declared). Headless may need a session header."
+    # OpenCode Go gateway (not zen/v1 pay-as-you-go). Wrong host → INVALID_REQUEST
+    # "Model is unavailable" even when the model id is right.
+    base_url: https://opencode.ai/zen/go/v1
+    models:
+      - deepseek-v4.1-flash
+      - deepseek-flash
+      - deepseek-v4-flash
+      - deepseek-v4-pro
+      - deepseek-v4-flash-vision-exp
+    notes: "OpenCode Go (OpenAI-compatible, hand-declared). Zen pay-as-you-go is a different host."
 
   - id: deepseek-official
     key: DEEPSEEK_API_KEY

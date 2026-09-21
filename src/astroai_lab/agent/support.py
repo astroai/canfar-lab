@@ -1,7 +1,9 @@
 """AstroAI-supported routers (key catalog) and recommended agents.
 
 Routers map a stable AstroAI id to the env key dsh reads. astroai never
-presets providers or models — model choice lives in dsh Settings.
+writes ``agent-default-model`` — model *choice* lives in dsh Settings. Hand-
+declared routes still need a models *catalog* in settings (dsh refuses
+incomplete custom providers with UNKNOWN_MODEL).
 """
 
 from __future__ import annotations
@@ -22,9 +24,9 @@ class Router:
 
     ``id`` is the AstroAI name; ``dsh_route`` is the provider id written
     into dsh settings, which is not always the same string. A route the
-    catalog does not ship is "hand-declared" and must carry ``api`` and
-    ``base_url``, or dsh refuses the configuration where it is written.
-    No model fields: astroai does not choose models.
+    catalog does not ship is "hand-declared" and must carry ``api``,
+    ``base_url``, and a ``models`` catalog, or dsh refuses the configuration
+    where it is written / fails chats with UNKNOWN_MODEL.
     """
 
     id: str
@@ -33,6 +35,7 @@ class Router:
     dsh_route: str = ""
     api: str = ""
     base_url: str = ""
+    models: tuple[str, ...] = ()
 
     @property
     def provider_id(self) -> str:
@@ -48,18 +51,20 @@ class Router:
         """Whether dsh will accept the provider entry this router produces."""
         if not self.hand_declared:
             return True
-        return bool(self.api and self.base_url)
+        return bool(self.api and self.base_url and self.models)
 
     def provider_entry(self) -> dict[str, Any]:
         """The ``llm-pi-ai.providers.<id>`` credential reference.
 
         Catalog routes need only the credential reference; a hand-declared
-        route states protocol + endpoint. Never includes models.
+        route states protocol + endpoint + models catalog. Never sets
+        ``agent-default-model``.
         """
         entry: dict[str, Any] = {"apiKeyEnv": self.key}
         if self.hand_declared:
             entry["api"] = self.api
             entry["baseURL"] = self.base_url
+            entry["models"] = [{"id": mid} for mid in self.models]
         return entry
 
 
@@ -98,6 +103,19 @@ def support_yaml_path() -> Path:
     return bundle_root() / "support.yaml"
 
 
+def _parse_model_ids(raw: Any) -> tuple[str, ...]:
+    """Normalize support.yaml ``models`` to bare ids."""
+    if not raw:
+        return ()
+    out: list[str] = []
+    for item in raw:
+        if isinstance(item, str) and item.strip():
+            out.append(item.strip())
+        elif isinstance(item, dict) and item.get("id"):
+            out.append(str(item["id"]).strip())
+    return tuple(out)
+
+
 @lru_cache
 def load_support() -> SupportCatalog:
     from astroai_lab.errors import LabError
@@ -122,6 +140,7 @@ def load_support() -> SupportCatalog:
                 dsh_route=str(entry.get("dsh_route") or ""),
                 api=str(entry.get("api") or ""),
                 base_url=str(entry.get("base_url") or ""),
+                models=_parse_model_ids(entry.get("models")),
             )
         )
     if "panel_roles" in raw:

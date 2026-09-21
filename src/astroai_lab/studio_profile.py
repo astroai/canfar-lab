@@ -1234,7 +1234,7 @@ def doctor(
                 name="provider-routes",
                 ok=False,
                 detail="dsh cannot load: " + ", ".join(unserviceable),
-                hint="a hand-declared route needs `api` and `base_url` in "
+                hint="a hand-declared route needs `api`, `base_url`, and `models` in "
                 "support.yaml, or add it once in Settings → Add a custom provider",
             )
         )

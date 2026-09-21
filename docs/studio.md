@@ -137,10 +137,9 @@ npx skills add astroai/canfar-skills    # 23 CANFAR platform skills
 [`support.yaml`](https://github.com/astroai/canfar-lab/blob/main/src/astroai_lab/data/agent/support.yaml)
 into `$DSH_HOME/settings.yaml`: the DeepSeek route and the catalog routes
 (`openai`, `anthropic`, `google`) as credential references, and any route dsh's
-installed catalog does not ship — currently OpenCode Zen — as a transport-only
-hand-declared provider (protocol + endpoint, no models), because dsh
-refuses an incomplete route where it is written. Provider/model choice stays
-yours in Settings → Models.
+installed catalog does not ship — currently OpenCode Go — as a hand-declared
+provider (protocol + Go endpoint + models catalog). Provider/model *choice*
+stays yours in Settings → Models; astroai never writes `agent-default-model`.
 
 Keys are never written into a patch or a profile; they come from the
 environment, `~/.astroai/lab/.env`, or `$DSH_HOME/.credentials.yaml`. Add a

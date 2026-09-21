@@ -378,7 +378,7 @@ def ensure_provider_entry(
     route_id: str,
     dry_run: bool = False,
 ) -> str | None:
-    """Ensure one provider credential reference exists; never touches models."""
+    """Ensure one provider credential reference exists; never touches agent-default-model."""
     home = home or Path.home()
     keys = discover_dsh_keys(home)
     catalog = load_support()
@@ -418,9 +418,10 @@ def ensure_dsh_settings(
 ) -> list[str]:
     """Ensure provider credential references for every present key.
 
-    Writes only ``llm-pi-ai.providers.<id> = {apiKeyEnv[, api, baseURL]}``.
+    Writes ``llm-pi-ai.providers.<id> = {apiKeyEnv[, api, baseURL, models]}``.
     Never reads or writes ``agent-default-model`` — model/provider choice is
-    the user's in dsh Settings. Returns the ensured provider ids.
+    the user's in dsh Settings. Hand-declared routes include a models catalog
+    (dsh requires it). Returns the ensured provider ids.
     """
     home = home or Path.home()
     keys = discover_dsh_keys(home)
