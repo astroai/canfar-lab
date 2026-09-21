@@ -31,10 +31,7 @@ DSH_VERSION = "0.1.5-rc.2"
 
 
 class PanelRouteHealth(TypedDict):
-    preferred: str | None
     pinned: str | None
-    effective: str | None
-    pin_orphaned: bool
     keys_present: list[str]
     usable: bool
 
@@ -66,9 +63,8 @@ def managed_bench_dir(home: Path | None = None) -> Path:
 def validate_preset(root: Path | None = None) -> tuple[list[str], list[str]]:
     """Python-side preset check (mirrors ``validate.mjs`` without node).
 
-    Returns ``(checks, failures)``. Rejects unknown ``model:`` pins the way
-    ``ensure_dsh_settings`` relies on: any ``agentOptions.model`` value must
-    be a non-empty string (real schema validation lives in ``validate.mjs``).
+    astroai never presets models: any ``agentOptions.model`` pin is a
+    failure (real schema validation lives in ``validate.mjs``).
     """
     root = root or vendored_review_bench_root()
     checks: list[str] = []
@@ -142,9 +138,13 @@ def validate_preset(root: Path | None = None) -> tuple[list[str], list[str]]:
         failures.append(f"preset: only {len(lenses)} ask_* lenses (want 14)")
     for row in rows:
         config = row.get("config")
-        model = config.get("agentOptions", {}).get("model") if isinstance(config, dict) else None
-        if model is not None and (not isinstance(model, str) or not model.strip()):
-            failures.append(f"preset: row {row.get('id')} pins an invalid model")
+        agent_opts = config.get("agentOptions") if isinstance(config, dict) else None
+        model = agent_opts.get("model") if isinstance(agent_opts, dict) else None
+        if model is not None:
+            failures.append(
+                f"preset: row {row.get('id')} presets model ({model!r}) — "
+                "astroai does not preset models"
+            )
     if not any("astroai" in line for line in text.splitlines()):
         failures.append("preset: customSkillDirs does not mention the managed ~/.astroai path")
     else:
@@ -342,49 +342,23 @@ def read_dsh_pinned_provider(home: Path | None = None) -> str | None:
     return None
 
 
-def preferred_provider(keys: dict[str, str]) -> str | None:
-    """First catalog router whose key is present (preference order)."""
-    if not keys:
-        return None
-    catalog = load_support()
-    key_to_route = catalog.key_to_route()
-    for key in catalog.dsh_keys:
-        if key in keys:
-            return key_to_route[key][0]
-    return None
-
-
 def resolve_panel_route(
     home: Path | None = None,
     *,
     keys: dict[str, str] | None = None,
 ) -> PanelRouteHealth:
-    """Preferred vs pinned vs effective route for doctor/models.
+    """Key health for doctor/routers (read-only; never chooses a model).
 
-    ``effective`` is the pin when its key is present, else the preferred
-    available router. ``pin_orphaned`` means settings pin a provider with no key.
+    ``pinned`` is the user's ``agent-default-model.provider`` if set, reported
+    as-is. ``usable`` means at least one provider key is present.
     """
     home = home or Path.home()
     present = keys if keys is not None else discover_dsh_keys(home)
-    catalog = load_support()
-    key_to_route = catalog.key_to_route()
-    preferred = preferred_provider(present)
     pinned = read_dsh_pinned_provider(home)
-    pin_key = None
-    if pinned:
-        for key, (route_id, _) in key_to_route.items():
-            if route_id == pinned:
-                pin_key = key
-                break
-    pin_orphaned = bool(pinned and pin_key and pin_key not in present)
-    effective = pinned if pinned and not pin_orphaned and pin_key in present else preferred
     return PanelRouteHealth(
-        preferred=preferred,
         pinned=pinned,
-        effective=effective,
-        pin_orphaned=pin_orphaned,
         keys_present=sorted(present),
-        usable=effective is not None,
+        usable=bool(present),
     )
 
 
@@ -392,39 +366,27 @@ def unserviceable_keys() -> set[str]:
     """Keys whose router dsh cannot accept as written.
 
     A hand-declared route (one the installed provider catalog does not ship)
-    needs ``api``, ``base_url`` and a model list; dsh rejects an incomplete one
-    where it is written, which would take the whole ``settings.yaml`` with it.
+    needs ``api`` and ``base_url``; dsh rejects an incomplete one where it is
+    written, which would take the whole ``settings.yaml`` with it.
     """
     return {router.key for router in load_support().unserviceable_routes()}
 
 
-def ensure_dsh_settings(
+def ensure_provider_entry(
     home: Path | None = None,
     *,
+    route_id: str,
     dry_run: bool = False,
-    force_provider: str | None = None,
 ) -> str | None:
-    """Merge the dsh provider route + default model into ``~/.dsh/settings.yaml``.
-
-    Never overwrites a user-pinned ``agent-default-model.provider`` unless
-    ``force_provider`` is set (panel headless fallback). Returns the active
-    provider id (or None).
-    """
+    """Ensure one provider credential reference exists; never touches models."""
     home = home or Path.home()
     keys = discover_dsh_keys(home)
-    if not keys:
-        return None
     catalog = load_support()
-    key_to_route = catalog.key_to_dsh_route()
-    usable = [k for k in catalog.dsh_keys if k in keys and k not in unserviceable_keys()]
-    if not usable:
+    router = catalog.router_by_id(route_id)
+    if router is None or router.key not in keys or not router.serviceable():
         return None
-    provider, model = key_to_route[usable[0]]
-    if force_provider:
-        for key, (route_id, default_model) in key_to_route.items():
-            if route_id == force_provider and key in keys:
-                provider, model = route_id, default_model
-                break
+    if dry_run:
+        return router.provider_id
     settings = home / ".dsh" / "settings.yaml"
     doc: dict = {}
     if settings.is_file():
@@ -437,99 +399,98 @@ def ensure_dsh_settings(
     providers = doc.setdefault("llm-pi-ai", {}).setdefault("providers", {})
     if not isinstance(providers, dict):
         providers = doc["llm-pi-ai"]["providers"] = {}
-    for name in keys:
-        router = next(
-            (r for r in load_support().routers if r.key == name),
-            None,
-        )
-        if router is None or not router.serviceable():
-            # dsh refuses a hand-declared route with no api/baseURL/models where
-            # it is written, which would reject the whole settings document —
-            # so an incomplete route is skipped instead of half-written.
-            continue
-        route = router.provider_id
-        entry = providers.get(route)
-        wanted = router.provider_entry()
-        if not isinstance(entry, dict) or entry != wanted:
-            providers[route] = wanted
-    current = doc.get("agent-default-model")
-    pinned = current.get("provider") if isinstance(current, dict) else None
-    if force_provider or not pinned:
-        doc["agent-default-model"] = {"provider": provider, "model": model}
-        active = provider
-    else:
-        active = str(pinned)
-    notice = doc.setdefault("ui-onboarding", {})
-    if isinstance(notice, dict):
-        notice["welcomeNoticeVersion"] = "astroai-panel-2026-09"
-        notice["astroaiPanel"] = (
-            "AstroAI Studio Team — chaired multi-persona review (astroai panel run / web)."
-        )
-    if not dry_run:
+    wanted = router.provider_entry()
+    if providers.get(router.provider_id) != wanted:
+        providers[router.provider_id] = wanted
         settings.parent.mkdir(parents=True, exist_ok=True)
         backup = settings.with_suffix(settings.suffix + ".pre-astroai.bak")
         if settings.is_file():
             with contextlib.suppress(OSError):
                 shutil.copy2(settings, backup)
         settings.write_text(yaml.safe_dump(doc, sort_keys=True), encoding="utf-8")
-    return active
+    return router.provider_id
+
+
+def ensure_dsh_settings(
+    home: Path | None = None,
+    *,
+    dry_run: bool = False,
+) -> list[str]:
+    """Ensure provider credential references for every present key.
+
+    Writes only ``llm-pi-ai.providers.<id> = {apiKeyEnv[, api, baseURL]}``.
+    Never reads or writes ``agent-default-model`` — model/provider choice is
+    the user's in dsh Settings. Returns the ensured provider ids.
+    """
+    home = home or Path.home()
+    keys = discover_dsh_keys(home)
+    if not keys:
+        return []
+    catalog = load_support()
+    ensured: list[str] = []
+    for router in catalog.routers:
+        if router.key not in keys or not router.serviceable():
+            continue
+        if dry_run:
+            ensured.append(router.provider_id)
+            continue
+        if ensure_provider_entry(home, route_id=router.id, dry_run=False):
+            ensured.append(router.provider_id)
+    return ensured
 
 
 def next_fallback_provider(
     failed: str | None,
     keys: dict[str, str],
 ) -> str | None:
-    """Next router after ``failed`` that has a key present (skip opencode-go for headless)."""
+    """First key-present route that is not ``opencode-go`` (headless-safe).
+
+    ``failed`` is informational: when the first attempt used the user's dsh
+    default and hit an opencode-go session error, fall back to the first
+    usable non-Go route. Never returns ``opencode-go``.
+    """
     catalog = load_support()
     key_to_route = catalog.key_to_route()
-    seen_failed = failed is None
+    if failed is not None and failed != "opencode-go":
+        seen_failed = False
+        for key in catalog.dsh_keys:
+            if key not in keys:
+                continue
+            route_id = key_to_route[key]
+            if not seen_failed:
+                if route_id == failed:
+                    seen_failed = True
+                continue
+            if route_id == "opencode-go":
+                continue
+            return route_id
+        return None
     for key in catalog.dsh_keys:
         if key not in keys:
             continue
-        route_id, _ = key_to_route[key]
-        if not seen_failed:
-            if route_id == failed:
-                seen_failed = True
-            continue
+        route_id = key_to_route[key]
         if route_id == "opencode-go":
-            continue  # Console Go needs a session header for headless
+            continue
         return route_id
     return None
 
 
 def is_opencode_go_headless_error(message: str) -> bool:
-    low = message.lower()
+    low = message.lower().replace("_", "").replace("-", "")
     return (
-        "missingsessionid" in low.replace("_", "")
-        or "x-opencode-session" in low
-        or ("console go" in low and "400" in low)
+        "missingsessionid" in low
+        or "xopencodesession" in low
+        or ("console go" in low and ("400" in low or "401" in low or "403" in low))
+        or ("opencode" in low and "session" in low and ("required" in low or "missing" in low))
+        or ("zen" in low and "session" in low)
     )
 
 
 def panel_role_pins(router_id: str) -> dict[str, str]:
-    """Map ask_<role> tool → model id for ``router_id``."""
-    catalog = load_support()
-    out: dict[str, str] = {}
-    for role in catalog.panel_roles:
-        model = catalog.role_model(role, router_id)
-        if model:
-            out[role] = model
-    return out
+    """Deprecated: astroai no longer presets per-role models (returns {})."""
+    return {}
 
 
 def extract_preset_role_models(root: Path | None = None) -> dict[str, str]:
-    """Parse vendored/managed preset for ask_<role> → model pins."""
-    root = root or vendored_review_bench_root()
-    preset = root / "presets" / "review-bench" / "agent.cordis.yml"
-    if not preset.is_file():
-        return {}
-    text = preset.read_text(encoding="utf-8")
-    roles: dict[str, str] = {}
-    current: str | None = None
-    for line in text.splitlines():
-        if "toolName: ask_" in line:
-            current = line.split("ask_", 1)[1].strip()
-        elif current and "model:" in line:
-            roles[current] = line.split("model:", 1)[1].strip()
-            current = None
-    return roles
+    """Deprecated: presets must not pin models (returns {})."""
+    return {}

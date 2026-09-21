@@ -79,6 +79,7 @@ pixi install && pixi run astroai --help   # checkout
 | [docs/config.md](docs/config.md) | Optional `~/.astroai/lab/config.yaml` |
 | [docs/concurrency.md](docs/concurrency.md) | Shared home: locks, atomic writes, agent runtime placement |
 | [docs/studio.md](docs/studio.md) | AstroAI Studio: the browser coding portal, its dsh profile, teams, storage split |
+| [docs/panel.md](docs/panel.md) | AstroAI Panel / Studio Team review (keys only; models in dsh Settings) |
 
 Data movement is not this CLI. Use **`canfar data`** and `vcp` / `vls`.
 

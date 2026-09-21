@@ -1,4 +1,8 @@
-"""AstroAI-supported routers, panel models, and recommended agents."""
+"""AstroAI-supported routers (key catalog) and recommended agents.
+
+Routers map a stable AstroAI id to the env key dsh reads. astroai never
+presets providers or models — model choice lives in dsh Settings.
+"""
 
 from __future__ import annotations
 
@@ -14,21 +18,17 @@ from astroai_lab.agent.bundle_path import bundle_root
 
 @dataclass(frozen=True)
 class Router:
-    """One supported model route.
+    """One supported model route (key catalog entry).
 
-    ``id`` is the AstroAI/panel name (what ``panel_roles`` is keyed by);
-    ``dsh_route`` is the *provider id written into dsh settings*, which is not
-    always the same string — dsh resolves provider routes from its installed
-    catalog (``openai``, ``anthropic``, ``google``), so ``openai-official`` has
-    to be written as ``openai``. A route the catalog does not ship is
-    "hand-declared" and must carry ``api``, ``base_url`` and a non-empty
-    ``panel_models`` list, or dsh refuses the configuration where it is written.
+    ``id`` is the AstroAI name; ``dsh_route`` is the provider id written
+    into dsh settings, which is not always the same string. A route the
+    catalog does not ship is "hand-declared" and must carry ``api`` and
+    ``base_url``, or dsh refuses the configuration where it is written.
+    No model fields: astroai does not choose models.
     """
 
     id: str
     key: str
-    panel_default: str
-    panel_models: tuple[str, ...]
     notes: str = ""
     dsh_route: str = ""
     api: str = ""
@@ -48,41 +48,40 @@ class Router:
         """Whether dsh will accept the provider entry this router produces."""
         if not self.hand_declared:
             return True
-        return bool(self.api and self.base_url and self.panel_models)
+        return bool(self.api and self.base_url)
 
     def provider_entry(self) -> dict[str, Any]:
-        """The ``llm-pi-ai.providers.<id>`` entry for this router.
+        """The ``llm-pi-ai.providers.<id>`` credential reference.
 
-        A catalog route needs only its credential reference; a hand-declared
-        route states the protocol, endpoint and model list its catalog entry
-        would otherwise supply.
+        Catalog routes need only the credential reference; a hand-declared
+        route states protocol + endpoint. Never includes models.
         """
         entry: dict[str, Any] = {"apiKeyEnv": self.key}
         if self.hand_declared:
             entry["api"] = self.api
             entry["baseURL"] = self.base_url
-            entry["models"] = [{"id": model} for model in self.panel_models]
         return entry
 
 
 @dataclass(frozen=True)
 class SupportCatalog:
     routers: tuple[Router, ...]
-    panel_roles: dict[str, dict[str, str]]
     recommended_agents: tuple[str, ...]
     panel_agents: tuple[str, ...]
+
+    SUPPORT_SCHEMA_VERSION = 2
 
     @property
     def dsh_keys(self) -> tuple[str, ...]:
         return tuple(r.key for r in self.routers)
 
-    def key_to_route(self) -> dict[str, tuple[str, str]]:
-        """``KEY → (panel route id, default model)``."""
-        return {r.key: (r.id, r.panel_default) for r in self.routers}
+    def key_to_route(self) -> dict[str, str]:
+        """``KEY → panel route id`` (no model; astroai does not choose models)."""
+        return {r.key: r.id for r in self.routers}
 
-    def key_to_dsh_route(self) -> dict[str, tuple[str, str]]:
-        """``KEY → (dsh provider id, default model)`` — the settings-side twin."""
-        return {r.key: (r.provider_id, r.panel_default) for r in self.routers}
+    def key_to_dsh_route(self) -> dict[str, str]:
+        """``KEY → dsh provider id`` — the settings-side twin."""
+        return {r.key: r.provider_id for r in self.routers}
 
     def unserviceable_routes(self) -> tuple[Router, ...]:
         """Hand-declared routes missing the fields dsh requires."""
@@ -94,13 +93,6 @@ class SupportCatalog:
                 return router
         return None
 
-    def role_model(self, role: str, router_id: str) -> str | None:
-        row = self.panel_roles.get(role) or {}
-        if router_id in row:
-            return row[router_id]
-        router = self.router_by_id(router_id)
-        return router.panel_default if router else None
-
 
 def support_yaml_path() -> Path:
     return bundle_root() / "support.yaml"
@@ -108,36 +100,40 @@ def support_yaml_path() -> Path:
 
 @lru_cache
 def load_support() -> SupportCatalog:
+    from astroai_lab.errors import LabError
+
     path = support_yaml_path()
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     routers: list[Router] = []
     for entry in raw.get("routers") or []:
         if not isinstance(entry, dict):
             continue
+        if "panel_default" in entry or "panel_models" in entry:
+            raise LabError(
+                f"Router {entry.get('id')} uses removed panel_default/panel_models "
+                "(support schema v2: astroai does not preset models).",
+                hint="Remove panel_default/panel_models/panel_roles from support.yaml",
+            )
         routers.append(
             Router(
                 id=str(entry["id"]),
                 key=str(entry["key"]),
-                panel_default=str(entry["panel_default"]),
-                panel_models=tuple(str(m) for m in (entry.get("panel_models") or [])),
                 notes=str(entry.get("notes") or ""),
                 dsh_route=str(entry.get("dsh_route") or ""),
                 api=str(entry.get("api") or ""),
                 base_url=str(entry.get("base_url") or ""),
             )
         )
-    roles_raw = raw.get("panel_roles") or {}
-    panel_roles: dict[str, dict[str, str]] = {}
-    if isinstance(roles_raw, dict):
-        for role, mapping in roles_raw.items():
-            if isinstance(mapping, dict):
-                panel_roles[str(role)] = {str(k): str(v) for k, v in mapping.items()}
+    if "panel_roles" in raw:
+        raise LabError(
+            "support.yaml uses removed panel_roles (support schema v2).",
+            hint="Delete panel_roles: astroai does not preset per-role models",
+        )
     agents = raw.get("agents") or {}
     recommended = tuple(str(a) for a in (agents.get("recommended") or []))
     panel = tuple(str(a) for a in (agents.get("panel") or []))
     return SupportCatalog(
         routers=tuple(routers),
-        panel_roles=panel_roles,
         recommended_agents=recommended,
         panel_agents=panel,
     )
@@ -150,7 +146,7 @@ def brand_logo_path() -> Path | None:
 
 
 def routers_status(*, keys_present: dict[str, str] | None = None) -> list[dict[str, Any]]:
-    """Rows for ``panel routers`` / ``agent routers``."""
+    """Rows for ``panel routers`` / ``agent routers`` (key presence only)."""
     cat = load_support()
     present = keys_present if keys_present is not None else {}
     rows: list[dict[str, Any]] = []
@@ -160,8 +156,6 @@ def routers_status(*, keys_present: dict[str, str] | None = None) -> list[dict[s
                 "id": router.id,
                 "key": router.key,
                 "key_present": router.key in present,
-                "panel_default": router.panel_default,
-                "panel_models": list(router.panel_models),
                 "notes": router.notes,
                 "dsh_route": router.provider_id,
                 "hand_declared": router.hand_declared,

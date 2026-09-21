@@ -155,7 +155,10 @@ for (const row of toolRows.filter((row) => panelNames.includes(row.config.toolNa
   if (maxDepth !== 1) fail(row.id, `panel row must cap depth at 1, got ${maxDepth}`)
   if (typeof persona !== 'string' || persona.length < 200) fail(row.id, 'persona missing or too thin')
   if (!toolFilter?.allow || toolFilter.allow.length === 0) fail(row.id, 'panel row needs an allow filter')
-  if (!agentOptions?.model) fail(row.id, 'panel row needs a pinned model')
+  // astroai never presets models — children inherit the session route.
+  if (agentOptions?.model) {
+    fail(row.id, 'panel row must not pin model (choose models in dsh Settings)')
+  }
 }
 
 // Filter names must be tools the composition actually registers: `tools.restrict()` rejects

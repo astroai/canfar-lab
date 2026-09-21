@@ -13,22 +13,22 @@ Specialist reviewers, each reachable through its own delegation tool in the
 `review-bench` / AstroAI Studio Team preset. Scale the dispatched set to the
 artefact (phase 0); a full Team is fourteen lenses:
 
-| Tool | Lens | Pinned model |
+| Tool | Lens | Effort |
 |---|---|---|
-| `ask_statistician` | inferential validity, uncertainty calibration, multiplicity, leakage | v4-pro, high |
-| `ask_mathematician` | definitions, assumptions, derivations, identifiability, counterexamples | v4-pro, max |
-| `ask_data_scientist` | data provenance, split hygiene, evaluation design, shift, baselines | v4.1-flash |
-| `ask_ml_engineer` | training/eval correctness, ablations, seed variance, numerics, efficiency | v4.1-flash |
-| `ask_physicist` | units, regimes of validity, limits, systematic error budget, falsifiability | v4-pro, high |
-| `ask_astrophysicist` | astronomical conventions, sample selection, catalogue/photo-z systematics | v4-flash-vision-exp |
-| `ask_software_engineer` | execution-path correctness, tests, determinism, resources, reproducibility | v4.1-flash |
-| `ask_writing_editor` | claim calibration, structure, terminology, captions, novelty framing | v4-pro, low |
-| `ask_canfar_expert` | session layout, scratch vs /arc, quotas, interactive vs batch compute | v4.1-flash |
-| `ask_devops` | lockfiles, CI, containers, env pins, runbooks, secrets | v4.1-flash |
-| `ask_plot_master` | figure honesty, regenerability, axes/units/colormaps | v4-flash-vision-exp |
-| `ask_desloper` | AI slop, dead abstractions, unused deps, speculative flexibility | v4.1-flash |
-| `ask_scientific_innovator` | strongest next falsifiable experiment to raise claim strength | v4-pro, high |
-| `ask_devils_advocate` | strongest case the headline result is wrong or coincidental | v4-pro, high |
+| `ask_statistician` | inferential validity, uncertainty calibration, multiplicity, leakage | high |
+| `ask_mathematician` | definitions, assumptions, derivations, identifiability, counterexamples | max |
+| `ask_data_scientist` | data provenance, split hygiene, evaluation design, shift, baselines | — |
+| `ask_ml_engineer` | training/eval correctness, ablations, seed variance, numerics, efficiency | — |
+| `ask_physicist` | units, regimes of validity, limits, systematic error budget, falsifiability | high |
+| `ask_astrophysicist` | astronomical conventions, sample selection, catalogue/photo-z systematics | — |
+| `ask_software_engineer` | execution-path correctness, tests, determinism, resources, reproducibility | — |
+| `ask_writing_editor` | claim calibration, structure, terminology, captions, novelty framing | low |
+| `ask_canfar_expert` | session layout, scratch vs /arc, quotas, interactive vs batch compute | — |
+| `ask_devops` | lockfiles, CI, containers, env pins, runbooks, secrets | — |
+| `ask_plot_master` | figure honesty, regenerability, axes/units/colormaps | — |
+| `ask_desloper` | AI slop, dead abstractions, unused deps, speculative flexibility | — |
+| `ask_scientific_innovator` | strongest next falsifiable experiment to raise claim strength | high |
+| `ask_devils_advocate` | strongest case the headline result is wrong or coincidental | high |
 
 Each child gets a fresh session, a system-prompt persona, a research-and-run tool set (read,
 read_image, glob, grep, bash, skill, web_search, todo_write), and cannot delegate further. Every

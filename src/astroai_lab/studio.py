@@ -226,9 +226,8 @@ def prepare_studio(
     keys = rb.ensure_dsh_dotenv(home)
     if keys:
         actions.append(f"dotenv keys: {', '.join(sorted(keys))}")
-    route = rb.ensure_dsh_settings(home)
-    if route:
-        actions.append(f"dsh settings route={route}")
+    for provider in rb.ensure_dsh_settings(home):
+        actions.append(f"dsh provider ref: {provider}")
 
     if mcp_bin:
         # Pin it in the shared dotenv, or the next `--prepare` in a fresh shell

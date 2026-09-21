@@ -32,7 +32,8 @@ A model credential, first match wins:
 
 ### 1b. Gemini route (when you have the key)
 
-Append to `~/.dsh/settings.yaml` (create it if missing):
+Append to `~/.dsh/settings.yaml` (create it if missing), or use dsh
+Settings → Models in the UI:
 
 ```yaml
 llm-pi-ai:
@@ -44,11 +45,9 @@ agent-default-model:
   model: gemini-2.5-flash
 ```
 
-Then remap the eight `model:` pins in `~/dsh/presets/review-bench/agent.cordis.yml`:
-statistician, mathematician, physicist, writing_editor → `gemini-2.5-pro`
-(keep their `reasoningEffort`); data_scientist, ml_engineer, software_engineer,
-astrophysicist → `gemini-2.5-flash`. Re-run `~/dsh/install.sh --check`
-(50 checks) and go: `export GEMINI_API_KEY=…` plus `~/dsh/panel.sh` or `dsh-web.sh`.
+astroai never remaps per-role models in the preset — children inherit the
+session route you pick here. Re-run `~/dsh/install.sh --check` and go:
+`export GEMINI_API_KEY=…` plus `~/dsh/panel.sh` or `dsh-web.sh`.
 
 ## 2. Review something
 
@@ -138,8 +137,8 @@ Cheaper options that keep the rigour:
 
 - Name three lenses instead of eight (say "three lenses" in the prompt).
 - Or ask for a scripted breadth pass: *"Use a workflow script, one lens per file."*
-- Point the cheaper roles at a cheaper model: edit `~/dsh/presets/review-bench/agent.cordis.yml`,
-  change `model:` on a row.
+- Pick a cheaper default model in dsh Settings → Models (astroai does not pin
+  per-role models in the preset).
 
 ## 7. If something goes wrong
 

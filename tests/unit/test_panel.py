@@ -52,6 +52,20 @@ def test_build_task_carries_protocol_and_claims(tmp_path: Path) -> None:
     assert "SKILL.md" in task and "panel-round1.js" in task
     assert "established | suggestive | speculative" in task
     assert "ask_<role>" in task
+    assert "not preset" in task  # models inherit the session route
+
+
+def test_panel_lenses_match_preset_tools() -> None:
+    from astroai_lab.agent.review_bench import vendored_review_bench_root
+
+    text = (
+        vendored_review_bench_root() / "presets" / "review-bench" / "agent.cordis.yml"
+    ).read_text(encoding="utf-8")
+    tools = {
+        line.split("ask_", 1)[1].strip() for line in text.splitlines() if "toolName: ask_" in line
+    }
+    assert set(panel_mod.PANEL_LENSES) == tools
+    assert "model:" not in text  # astroai never presets models
 
 
 def test_dsh_cmd_attaches_repo_patch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -78,7 +92,7 @@ def test_run_panel_dry_run_resolves_without_exec(
     monkeypatch.setenv("GEMINI_API_KEY", "g-key")
     result = panel_mod.run_panel(tmp_path, "C1: x covers y", "smoke", dry_run=True)
     assert result["panel_id"].endswith("-smoke")
-    assert result["route"] == "google"
+    assert result["keys_present"] == ["GEMINI_API_KEY"]
     assert "C1: x covers y" in result["task"]
     assert result["report_dir"].endswith(result["panel_id"])
     assert not (tmp_path / ".dsh").exists()  # dry-run writes nothing
@@ -89,7 +103,7 @@ def test_run_panel_rejects_missing_repo(tmp_path: Path) -> None:
         panel_mod.run_panel(tmp_path / "absent", "C1: x", dry_run=True)
 
 
-def test_run_panel_fallback_on_opencode_go_error(
+def test_run_panel_opencode_go_headless_errors_without_retarget(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _isolated_home: Path
 ) -> None:
     monkeypatch.setenv("OPENCODE_API_KEY", "zen")
@@ -99,15 +113,12 @@ def test_run_panel_fallback_on_opencode_go_error(
 
     def fake_run(cmd, *, cwd=None, **_kwargs):  # noqa: ANN001
         calls.append(list(cmd))
-        if len(calls) == 1:
-            raise LabError("MissingSessionID / x-opencode-session required (Console Go 400)")
-        return None
+        raise LabError("MissingSessionID / x-opencode-session required (Console Go 400)")
 
     monkeypatch.setattr("astroai_lab.utils.subprocess.run", fake_run)
-    result = panel_mod.run_panel(tmp_path, "C1: x", "smoke", dry_run=False)
-    assert result["route"] == "deepseek-official"
-    assert result["fallback_note"] and "falling back" in result["fallback_note"]
-    assert len(calls) == 2
+    with pytest.raises(LabError, match="does not change your Settings"):
+        panel_mod.run_panel(tmp_path, "C1: x", "smoke", dry_run=False)
+    assert len(calls) == 1
     assert calls[0][0] == "/opt/astroai/bin/dsh"
 
 

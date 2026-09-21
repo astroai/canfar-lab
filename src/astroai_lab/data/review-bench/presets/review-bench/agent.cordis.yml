@@ -20,8 +20,8 @@
 #
 # The persona tools are ordinary `dsh-tool-subagent` instances: each one
 # spawns a fresh in-process child whose system prompt is shadowed by that
-# row's `persona`, whose model is pinned per row, and whose tool view is
-# restricted by `toolFilter` to research-and-run (no editor, no delegation).
+# row's `persona` (models inherit the session route; never pinned per row),
+# and whose tool view is restricted by `toolFilter` to research-and-run.
 # Sibling calls batched into one assistant message run concurrently
 # (`isConcurrencySafe` since 2026-08-09), which is what makes round 1 a real
 # parallel panel; every child is continuable, so the chair can question it
@@ -248,11 +248,9 @@
     #     the allow lists before running the bench on Windows.
     #   • persona is a strict prompt template, same semantics as the
     #     deployment persona: `{{model}}` and `{{cwd}}` resolve per child.
-    #   • models are pinned per role so the panel is heterogeneous by
-    #     construction; reasoning effort is raised only where the role is
-    #     derivation-heavy. Repoint these at other providers' models as they
-    #     are configured — a panel of one model family shares one family's
-    #     blind spots.
+    #   • models are NOT pinned: children inherit the session route the user
+    #     chose in dsh Settings. Reasoning effort stays raised only where the
+    #     role is derivation-heavy.
 
     - id: ask-statistician
       name: '@deepseek-ai/dsh-tool-subagent'
@@ -262,7 +260,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4-pro
           reasoningEffort: high
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
@@ -297,7 +294,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4-pro
           reasoningEffort: max
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
@@ -326,7 +322,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4.1-flash
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
         persona: |-
@@ -354,7 +349,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4.1-flash
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
         persona: |-
@@ -382,7 +376,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4-pro
           reasoningEffort: high
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
@@ -414,7 +407,6 @@
         # both deepseek-official and the opencode-go route): this role is the one
         # that must read figures with `read_image` (coverage plots, n(z), residuals).
         agentOptions:
-          model: deepseek-v4-flash-vision-exp
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
         persona: |-
@@ -442,7 +434,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4.1-flash
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
         persona: |-
@@ -471,7 +462,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4-pro
           reasoningEffort: low
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
@@ -500,7 +490,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4.1-flash
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
         persona: |-
@@ -525,7 +514,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4.1-flash
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
         persona: |-
@@ -549,7 +537,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4-flash-vision-exp
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
         persona: |-
@@ -574,7 +561,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4.1-flash
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
         persona: |-
@@ -598,7 +584,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4-pro
           reasoningEffort: high
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]
@@ -623,7 +608,6 @@
         backgroundMode: continuable
         maxDepth: 1
         agentOptions:
-          model: deepseek-v4-pro
           reasoningEffort: high
         toolFilter:
           allow: [read, read_image, glob, grep, bash, skill, web_search, todo_write]

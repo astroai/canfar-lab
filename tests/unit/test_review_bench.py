@@ -1,4 +1,4 @@
-"""Tests for review-bench provisioning + dsh credential plumbing."""
+"""Tests for review-bench provisioning + dsh credential plumbing (keys only)."""
 
 from __future__ import annotations
 
@@ -34,6 +34,29 @@ def test_validate_vendored_preset_clean() -> None:
     assert any("managed bench" in c for c in checks)
 
 
+def test_validate_rejects_model_pins(tmp_path: Path) -> None:
+    root = tmp_path / "bench"
+    preset = root / "presets" / "review-bench"
+    preset.mkdir(parents=True)
+    (preset / "agent.cordis.yml").write_text(
+        "- id: ask_statistician\n  config:\n    agentOptions:\n      model: deepseek-v4-pro\n",
+        encoding="utf-8",
+    )
+    (root / "skills" / "review-panel").mkdir(parents=True)
+    (root / "skills" / "review-panel" / "SKILL.md").write_text("x", encoding="utf-8")
+    for name in (
+        "references/rubric.md",
+        "references/panel-round1.js",
+        "references/brief-template.md",
+        "references/report-template.md",
+    ):
+        p = root / "skills" / "review-panel" / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("x", encoding="utf-8")
+    _, failures = rb.validate_preset(root)
+    assert any("does not preset models" in f for f in failures)
+
+
 def test_validate_rejects_missing_tree(tmp_path: Path) -> None:
     checks, failures = rb.validate_preset(tmp_path / "absent")
     assert failures
@@ -57,27 +80,25 @@ def test_discover_reads_opencode_auth(tmp_path: Path, monkeypatch: pytest.Monkey
     assert keys["OPENCODE_API_KEY"] == "zen-key"
 
 
-def test_ensure_settings_keeps_user_pin(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ensure_settings_never_touches_user_model(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("OPENCODE_API_KEY", "zen-key")
     settings = tmp_path / ".dsh" / "settings.yaml"
     settings.parent.mkdir(parents=True)
     settings.write_text(
-        yaml.safe_dump(
-            {"agent-default-model": {"provider": "google", "model": "gemini-2.5-flash"}}
-        ),
+        yaml.safe_dump({"agent-default-model": {"provider": "google", "model": "custom-1"}}),
         encoding="utf-8",
     )
-    route = rb.ensure_dsh_settings(tmp_path, dry_run=False)
-    assert route == "google"  # user pin kept
+    ensured = rb.ensure_dsh_settings(tmp_path, dry_run=False)
+    assert ensured == ["opencode-go"]
     doc = yaml.safe_load(settings.read_text(encoding="utf-8"))
-    assert doc["agent-default-model"]["provider"] == "google"
-    # opencode-go is hand-declared: dsh refuses a route its installed catalog
-    # does not ship unless the api, endpoint and models are stated too.
+    assert doc["agent-default-model"] == {"provider": "google", "model": "custom-1"}
     entry = doc["llm-pi-ai"]["providers"]["opencode-go"]
     assert entry["apiKeyEnv"] == "OPENCODE_API_KEY"
     assert entry["api"] == "openai-completions"
     assert entry["baseURL"].startswith("https://")
-    assert [m["id"] for m in entry["models"]][0] == "deepseek-v4.1-flash"
+    assert "models" not in entry
 
 
 def test_ensure_settings_writes_catalog_routes_by_their_dsh_name(
@@ -85,11 +106,11 @@ def test_ensure_settings_writes_catalog_routes_by_their_dsh_name(
 ) -> None:
     """`openai-official` has to be written as the catalog route `openai`."""
     monkeypatch.setenv("OPENAI_API_KEY", "oa-key")
-    route = rb.ensure_dsh_settings(tmp_path, force_provider="openai-official")
-    assert route == "openai"
+    ensured = rb.ensure_dsh_settings(tmp_path, dry_run=False)
+    assert ensured == ["openai"]
     doc = yaml.safe_load((tmp_path / ".dsh" / "settings.yaml").read_text(encoding="utf-8"))
     assert doc["llm-pi-ai"]["providers"]["openai"] == {"apiKeyEnv": "OPENAI_API_KEY"}
-    assert doc["agent-default-model"] == {"provider": "openai", "model": "gpt-5-mini"}
+    assert "agent-default-model" not in doc
 
 
 def test_unserviceable_routes_are_skipped_not_half_written(
@@ -103,8 +124,8 @@ def test_unserviceable_routes_are_skipped_not_half_written(
     monkeypatch.setenv("OPENCODE_API_KEY", "zen-key")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "d-key")
     assert rb.unserviceable_keys() == {"OPENCODE_API_KEY"}
-    route = rb.ensure_dsh_settings(tmp_path)
-    assert route == "deepseek-official"
+    ensured = rb.ensure_dsh_settings(tmp_path)
+    assert ensured == ["deepseek-official"]
     doc = yaml.safe_load((tmp_path / ".dsh" / "settings.yaml").read_text(encoding="utf-8"))
     assert "opencode-go" not in doc["llm-pi-ai"]["providers"]
 
@@ -118,19 +139,14 @@ def _catalog_with_broken_route() -> object:
             Router(
                 id="opencode-go",
                 key="OPENCODE_API_KEY",
-                panel_default="deepseek-v4.1-flash",
-                panel_models=("deepseek-v4.1-flash",),
                 api="openai-completions",
                 base_url="",
             ),
             Router(
                 id="deepseek-official",
                 key="DEEPSEEK_API_KEY",
-                panel_default="deepseek-flash",
-                panel_models=("deepseek-flash",),
             ),
         ),
-        panel_roles={},
         recommended_agents=(),
         panel_agents=(),
     )
@@ -140,7 +156,7 @@ def test_ensure_settings_dry_run_writes_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("DEEPSEEK_API_KEY", "d-key")
-    assert rb.ensure_dsh_settings(tmp_path, dry_run=True) == "deepseek-official"
+    assert rb.ensure_dsh_settings(tmp_path, dry_run=True) == ["deepseek-official"]
     assert not (tmp_path / ".dsh" / "settings.yaml").exists()
 
 
@@ -180,5 +196,5 @@ def test_ensure_review_bench_installs_and_idempotent(tmp_path: Path) -> None:
 
 def test_no_keys_without_env(tmp_path: Path) -> None:
     assert rb.discover_dsh_keys(tmp_path) == {}
-    assert rb.ensure_dsh_settings(tmp_path, dry_run=False) is None
+    assert rb.ensure_dsh_settings(tmp_path, dry_run=False) == []
     assert os.environ.get("OPENCODE_API_KEY") is None  # never leak into process env

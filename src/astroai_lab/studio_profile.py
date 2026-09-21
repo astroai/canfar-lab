@@ -1219,12 +1219,12 @@ def doctor(
             detail=", ".join(routes)
             if routes
             else (
-                "API keys present but no route written to settings.yaml"
+                "API keys present but no provider ref in settings.yaml"
                 if available_keys
-                else "no API key found yet"
+                else "no API key found yet (models chosen in dsh Settings)"
             ),
-            hint="`astroai studio --prepare` seeds them from support.yaml; "
-            "or add one in Settings → Models",
+            hint="`astroai studio --prepare` seeds credential refs from support.yaml; "
+            "choose provider/model in Settings → Models",
         )
     )
     unserviceable = _unserviceable_routes()
@@ -1234,7 +1234,7 @@ def doctor(
                 name="provider-routes",
                 ok=False,
                 detail="dsh cannot load: " + ", ".join(unserviceable),
-                hint="a hand-declared route needs `api`, `base_url` and models in "
+                hint="a hand-declared route needs `api` and `base_url` in "
                 "support.yaml, or add it once in Settings → Add a custom provider",
             )
         )

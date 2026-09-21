@@ -258,7 +258,7 @@ def agent_list_cmd(
 
 @agent_app.command("routers")
 def agent_routers_cmd(ctx: typer.Context) -> None:
-    """AstroAI-supported LLM routers (same catalog as ``panel routers``)."""
+    """AstroAI-supported LLM routers (same key catalog as ``panel routers``)."""
     from astroai_lab.agent import review_bench as _rb
     from astroai_lab.agent.support import routers_status
 
@@ -266,32 +266,17 @@ def agent_routers_cmd(ctx: typer.Context) -> None:
     keys = _rb.discover_dsh_keys()
     health = _rb.resolve_panel_route(keys=keys)
     rows = routers_status(keys_present=keys)
-    for row in rows:
-        row["preferred"] = row["id"] == health["preferred"]
-        row["pinned"] = row["id"] == health["pinned"]
-        row["effective"] = row["id"] == health["effective"]
     if opts.json:
         ui.print_json({"routers": rows, "route": health})
         return
-    ui.print_hint("AstroAI-supported routers (preference order)")
-    ui.print_hint("  Mark     Id                  Key                   Present  Default")
-    ui.print_hint("  ───────  ──────────────────  ────────────────────  ───────  ────────────")
+    ui.print_hint("AstroAI-supported routers (key catalog — models in dsh Settings)")
+    ui.print_hint("  Id                  Key                   Present  dsh route")
+    ui.print_hint("  ──────────────────  ────────────────────  ───────  ────────────")
     for row in rows:
-        marks = []
-        if row["effective"]:
-            marks.append("*")
-        if row["preferred"] and not row["effective"]:
-            marks.append("P")
-        if row["pinned"]:
-            marks.append("pin" if not health["pin_orphaned"] else "orphan")
-        mark = ",".join(marks) if marks else "-"
         present = "✓" if row["key_present"] else "-"
-        ui.print_hint(
-            f"  {mark:<7}  {row['id']:<18}  {row['key']:<20}  {present:<7}  {row['panel_default']}"
-        )
+        ui.print_hint(f"  {row['id']:<18}  {row['key']:<20}  {present:<7}  {row['dsh_route']}")
         if row.get("notes"):
             ui.print_hint(f"        {row['notes']}")
-    ui.print_hint("  * effective   P preferred (unused)   pin/orphan = ~/.dsh settings pin")
     ui.print_hint("  Same catalog: astroai panel routers | doctor")
 
 
@@ -982,7 +967,7 @@ def agent_env_cmd(
     if with_dsh:
         keys = _rb.discover_dsh_keys(home)
         payload["dsh_keys"] = sorted(keys)
-        payload["dsh_route"] = _rb.ensure_dsh_settings(home, dry_run=True)
+        payload["dsh_providers_ensured"] = _rb.ensure_dsh_settings(home, dry_run=True)
     if opts.json:
         ui.print_json(payload)
         return
@@ -992,8 +977,8 @@ def agent_env_cmd(
         names = payload["dsh_keys"]
         assert isinstance(names, list)
         ui.print_ok(f"dsh keys present: {', '.join(names) if names else '(none)'}")
-        ui.print_ok(f"dsh route: {payload['dsh_route']}")
-        ui.print_hint("Persist with: astroai agent setup (writes .env 0600 + ~/.dsh/settings.yaml)")
+        ui.print_ok(f"dsh providers ensured: {payload['dsh_providers_ensured']}")
+        ui.print_hint("Persist with: astroai agent setup (writes .env 0600 + provider refs)")
 
 
 @agent_app.command("verify")

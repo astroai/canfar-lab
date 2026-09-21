@@ -92,8 +92,8 @@ Two delegation mechanisms, deliberately layered — pick one per task.
 **Specialist consults — the `AstroAI Studio Team` preset.** New session → preset
 **AstroAI Studio Team** gives a chaired team of fourteen personas, each reachable
 through its own tool (`ask_statistician`, `ask_canfar_expert`, `ask_plot_master`,
-`ask_devils_advocate`, …) with its own pinned model and a research-and-run tool
-view. Use it for a review, a referee report, or an adversarial pass. The protocol
+`ask_devils_advocate`, …) with a research-and-run tool
+view (models inherit your session route; never pinned). Use it for a review, a referee report, or an adversarial pass. The protocol
 is the `review-panel` skill.
 
 **Agent Teams — the durable roster.** Ask for a team in the chat and the Lead
@@ -133,13 +133,14 @@ npx skills add astroai/canfar-skills    # 23 CANFAR platform skills
 
 ## Models and providers
 
-`--prepare` seeds the routes declared in
+`--prepare` seeds credential references for the routes declared in
 [`support.yaml`](https://github.com/astroai/canfar-lab/blob/main/src/astroai_lab/data/agent/support.yaml)
 into `$DSH_HOME/settings.yaml`: the DeepSeek route and the catalog routes
 (`openai`, `anthropic`, `google`) as credential references, and any route dsh's
-installed catalog does not ship — currently OpenCode Zen — as a full
-hand-declared provider with its protocol, endpoint and models, because dsh
-refuses an unserviceable route where it is written.
+installed catalog does not ship — currently OpenCode Zen — as a transport-only
+hand-declared provider (protocol + endpoint, no models), because dsh
+refuses an incomplete route where it is written. Provider/model choice stays
+yours in Settings → Models.
 
 Keys are never written into a patch or a profile; they come from the
 environment, `~/.astroai/lab/.env`, or `$DSH_HOME/.credentials.yaml`. Add a

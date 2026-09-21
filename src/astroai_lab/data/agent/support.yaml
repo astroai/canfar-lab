@@ -1,12 +1,14 @@
 # AstroAI-supported LLM routers and agents (panel + agent CLI).
-# Preference order for panel headless = routers list order.
+# Routers are a key catalog only: id <-> env key mapping for credential
+# discovery. astroai never presets providers or models — the user chooses
+# those in dsh Settings → Models (`~/.dsh/settings.yaml`).
 #
 # `dsh_route` is the provider id written into ~/.dsh/settings.yaml, which is not
 # always `id`: dsh resolves routes from its installed provider catalog
 # (`openai`, `anthropic`, `google`, `deepseek-official`), so an AstroAI name like
 # `openai-official` has to be written as `openai`. A route the catalog does not
-# ship (`opencode-go`) is hand-declared and must also state `api`, `base_url` and
-# its models — dsh refuses an unserviceable route where it is written.
+# ship (`opencode-go`) is hand-declared and must also state `api` and `base_url`
+# — dsh refuses an incomplete route where it is written. No model lists here.
 
 routers:
   - id: opencode-go
@@ -14,111 +16,27 @@ routers:
     dsh_route: opencode-go
     api: openai-completions
     base_url: https://opencode.ai/zen/v1
-    panel_default: deepseek-v4.1-flash
-    panel_models:
-      - deepseek-v4.1-flash
-      - deepseek-v4-pro
-      - deepseek-v4-flash
-      - deepseek-v4-flash-vision-exp
-    notes: "OpenCode Zen / Console Go (OpenAI-compatible, hand-declared). Headless may need a session header; prefer DeepSeek official for one-shot."
+    notes: "OpenCode Zen / Console Go (OpenAI-compatible, hand-declared). Headless may need a session header."
 
   - id: deepseek-official
     key: DEEPSEEK_API_KEY
     dsh_route: deepseek-official
-    panel_default: deepseek-flash
-    panel_models:
-      - deepseek-v4-pro
-      - deepseek-v4-flash
-      - deepseek-flash
-      - deepseek-v4-flash-vision-exp
-    notes: "Best for headless panel run; served by dsh's own DeepSeek adapter."
+    notes: "Served by dsh's own DeepSeek adapter."
 
   - id: google
     key: GEMINI_API_KEY
     dsh_route: google
-    panel_default: gemini-2.5-flash
-    panel_models:
-      - gemini-2.5-pro
-      - gemini-2.5-flash
-    notes: "Requires role remaps in the preset when this route wins."
+    notes: "Catalog route `google`."
 
   - id: openai-official
     key: OPENAI_API_KEY
     dsh_route: openai
-    panel_default: gpt-5-mini
-    panel_models:
-      - gpt-5-mini
-      - gpt-5
     notes: "Written as the catalog route `openai`."
 
   - id: anthropic-official
     key: ANTHROPIC_API_KEY
     dsh_route: anthropic
-    panel_default: claude-haiku-4-5
-    panel_models:
-      - claude-haiku-4-5
-      - claude-sonnet-4-5
     notes: "Written as the catalog route `anthropic`."
-
-# Role pins for the AstroAI Panel preset (toolName ask_<role>).
-# Values are model ids on the active router; missing keys fall back to panel_default.
-panel_roles:
-  statistician:
-    opencode-go: deepseek-v4-pro
-    deepseek-official: deepseek-v4-pro
-    google: gemini-2.5-pro
-  mathematician:
-    opencode-go: deepseek-v4-pro
-    deepseek-official: deepseek-v4-pro
-    google: gemini-2.5-pro
-  data_scientist:
-    opencode-go: deepseek-v4.1-flash
-    deepseek-official: deepseek-v4-flash
-    google: gemini-2.5-flash
-  ml_engineer:
-    opencode-go: deepseek-v4.1-flash
-    deepseek-official: deepseek-v4-flash
-    google: gemini-2.5-flash
-  physicist:
-    opencode-go: deepseek-v4-pro
-    deepseek-official: deepseek-v4-pro
-    google: gemini-2.5-pro
-  astrophysicist:
-    opencode-go: deepseek-v4-flash-vision-exp
-    deepseek-official: deepseek-v4-flash-vision-exp
-    google: gemini-2.5-flash
-  software_engineer:
-    opencode-go: deepseek-v4.1-flash
-    deepseek-official: deepseek-v4-flash
-    google: gemini-2.5-flash
-  writing_editor:
-    opencode-go: deepseek-v4-pro
-    deepseek-official: deepseek-v4-pro
-    google: gemini-2.5-pro
-  canfar_expert:
-    opencode-go: deepseek-v4.1-flash
-    deepseek-official: deepseek-v4-flash
-    google: gemini-2.5-flash
-  devops:
-    opencode-go: deepseek-v4.1-flash
-    deepseek-official: deepseek-v4-flash
-    google: gemini-2.5-flash
-  plot_master:
-    opencode-go: deepseek-v4-flash-vision-exp
-    deepseek-official: deepseek-v4-flash-vision-exp
-    google: gemini-2.5-flash
-  desloper:
-    opencode-go: deepseek-v4.1-flash
-    deepseek-official: deepseek-v4-flash
-    google: gemini-2.5-flash
-  scientific_innovator:
-    opencode-go: deepseek-v4-pro
-    deepseek-official: deepseek-v4-pro
-    google: gemini-2.5-pro
-  devils_advocate:
-    opencode-go: deepseek-v4-pro
-    deepseek-official: deepseek-v4-pro
-    google: gemini-2.5-pro
 
 agents:
   # Install/setup these for a full AstroAI laptop/session toolkit.

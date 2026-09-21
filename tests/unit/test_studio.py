@@ -31,7 +31,7 @@ def test_detect_profile_canfar(monkeypatch: pytest.MonkeyPatch) -> None:
 def _stub_bench(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("astroai_lab.agent.review_bench.ensure_review_bench", lambda *a, **k: False)
     monkeypatch.setattr("astroai_lab.agent.review_bench.ensure_dsh_dotenv", lambda *a, **k: {})
-    monkeypatch.setattr("astroai_lab.agent.review_bench.ensure_dsh_settings", lambda *a, **k: None)
+    monkeypatch.setattr("astroai_lab.agent.review_bench.ensure_dsh_settings", lambda *a, **k: [])
 
 
 def test_prepare_studio_writes_profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

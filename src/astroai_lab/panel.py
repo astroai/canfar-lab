@@ -20,7 +20,7 @@ from astroai_lab.errors import LabError
 PANEL_LENSES = (
     "statistician",
     "mathematician",
-    "data scientist",
+    "data_scientist",
     "ml_engineer",
     "physicist",
     "astrophysicist",
@@ -56,9 +56,16 @@ def resolve_repo(repo: str | Path | None) -> Path:
 
 def panel_id_for(repo: Path, slug: str) -> str:
     base = f"{datetime.now().strftime('%F')}-{slugify(slug)}"
-    if not (repo / "panel" / base / "00-brief.md").exists():
+    if not (repo / "panel" / base).exists():
         return base
-    return f"{base}-{datetime.now().strftime('%H%M')}"
+    stamp = datetime.now().strftime("%H%M%S")
+    candidate = f"{base}-{stamp}"
+    if not (repo / "panel" / candidate).exists():
+        return candidate
+    n = 2
+    while (repo / "panel" / f"{candidate}-{n}").exists():
+        n += 1
+    return f"{candidate}-{n}"
 
 
 def scaffold_repo_dsh(target: Path, *, force: bool = False) -> list[str]:
@@ -77,16 +84,21 @@ def scaffold_repo_dsh(target: Path, *, force: bool = False) -> list[str]:
     return wrote
 
 
-def build_task(repo: Path, claims: str, panel_id: str) -> str:
-    """Task prompt identical to ``panel.sh`` (phases 0–2), managed paths."""
+def build_task(repo: Path, claims: str, panel_id: str, *, home: Path | None = None) -> str:
+    """Task prompt identical to ``panel.sh`` (phases 0–2), managed paths.
+
+    Persona lenses inherit the session route the user chose in dsh Settings;
+    astroai never pins models. Paste each lens's ``persona:`` text verbatim,
+    not any model setting.
+    """
     try:
-        bench = managed_bench_dir()
+        bench = managed_bench_dir(home)
         skill_dir = bench / "skills" / "review-panel"
         if not (skill_dir / "SKILL.md").is_file():
             skill_dir = vendored_review_bench_root() / "skills" / "review-panel"
     except LabError:
         skill_dir = vendored_review_bench_root() / "skills" / "review-panel"
-    preset = managed_bench_dir() / "presets" / "review-bench" / "agent.cordis.yml"
+    preset = managed_bench_dir(home) / "presets" / "review-bench" / "agent.cordis.yml"
     if not preset.is_file():
         preset = vendored_review_bench_root() / "presets" / "review-bench" / "agent.cordis.yml"
     lenses = ", ".join(PANEL_LENSES)
@@ -111,9 +123,10 @@ Phase 1 — blind parallel round via the workflow tool. Read
 {skill_dir}/references/panel-round1.js and run it with one lens
 per claim-group: {lenses} (drop lenses that
 are irrelevant to the artefact and state the panel size in the brief).
-Headless workflow children share one generic persona, so paste each lens's
-specialist persona text VERBATIM from
-{preset} (the ask_<role> rows) into its
+Headless workflow children share the session route, so paste each lens's
+specialist ``persona:`` text VERBATIM from
+{preset} (the ask_<role> rows; ignore any model setting — models are
+not preset) into its
 workflow task, followed by: open with the strongest alternative explanation
 for the headline result, run that persona's mandatory probes, then judgement
 checks. One pass each, <=25 tool calls, no delegation, no writes to the repo;
@@ -162,13 +175,17 @@ def run_panel(
 ) -> dict[str, Any]:
     """Run (or plan, with ``dry_run``) a headless AstroAI Panel.
 
-    Returns ``{"repo", "panel_id", "route", "task", "report_dir"}``; with
-    ``dry_run`` nothing executes. Importable from marimo notebooks without a
-    shell: ``from astroai_lab.panel import run_panel``.
+    Returns ``{"repo", "panel_id", "keys_present", "task", "report_dir"}``;
+    with ``dry_run`` nothing executes. Importable from marimo notebooks
+    without a shell: ``from astroai_lab.panel import run_panel``.
+    Model/provider choice stays in dsh Settings; astroai only ensures
+    credential references.
     """
-    from astroai_lab.agent import review_bench as _rb
-    from astroai_lab.agent.support import load_support
+    from pathlib import Path as _Path
 
+    from astroai_lab.agent import review_bench as _rb
+
+    home = _Path.home()
     repo_path = resolve_repo(repo)
     if not repo_path.is_dir():
         raise LabError(
@@ -179,28 +196,24 @@ def run_panel(
     if not patch.is_file() and not dry_run:
         scaffold_repo_dsh(repo_path)
     pid = panel_id_for(repo_path, slug)
-    keys = _rb.discover_dsh_keys()
-    route: str | None = None
+    keys = _rb.discover_dsh_keys(home)
+    ensured: list[str] = []
     if ensure_credentials and not dry_run:
-        _rb.ensure_dsh_dotenv(dry_run=False)
-        route = _rb.ensure_dsh_settings(dry_run=False)
-    elif keys:
-        catalog = load_support()
-        first = next((k for k in catalog.dsh_keys if k in keys), None)
-        if first is not None:
-            route, _ = catalog.key_to_route()[first]
+        _rb.ensure_dsh_dotenv(home, dry_run=False)
+        ensured = _rb.ensure_dsh_settings(home, dry_run=False)
     if not keys and not dry_run:
         raise LabError(
             "No dsh provider key found (checked env, ~/.astroai/lab/.env, opencode auth).",
             hint="Run `opencode auth login` or `export DEEPSEEK_API_KEY=...`, "
             "then `astroai agent setup` to persist it.",
         )
-    task = build_task(repo_path, claims, pid)
+    task = build_task(repo_path, claims, pid, home=home)
     if dry_run:
         return {
             "repo": str(repo_path),
             "panel_id": pid,
-            "route": route,
+            "keys_present": sorted(keys),
+            "providers_ensured": ensured,
             "task": task,
             "report_dir": str(repo_path / "panel" / pid),
         }
@@ -208,34 +221,37 @@ def run_panel(
 
     (repo_path / "panel" / pid).mkdir(parents=True, exist_ok=True)
     cmd = dsh_cmd(patch=patch if patch.is_file() else None, task=task)
-    fallback_note: str | None = None
     try:
         run(cmd, cwd=repo_path)
     except LabError as exc:
         if not _rb.is_opencode_go_headless_error(str(exc)):
             raise
-        fallback = _rb.next_fallback_provider(route, keys)
-        if fallback is None:
-            raise LabError(
-                "OpenCode Go rejected headless (missing session). "
-                "No alternate provider key available.",
-                hint="Export DEEPSEEK_API_KEY or GEMINI_API_KEY, or use "
-                "`astroai panel web` on a laptop.",
-            ) from exc
-        fallback_note = (
-            f"OpenCode Go headless failed (session required); "
-            f"falling back to {fallback} for this run."
+        # astroai never writes agent-default-model, so we cannot silently
+        # retarget the session route. Tell the user to switch in Settings.
+        alt = _rb.next_fallback_provider(None, keys)
+        hint = (
+            "In dsh Settings → Models, pick a non-OpenCode-Go provider "
+            "(e.g. DeepSeek / Gemini), then re-run. "
+            "Or use `astroai studio` on a laptop (session UI)."
         )
-        _rb.ensure_dsh_settings(dry_run=False, force_provider=fallback)
-        route = fallback
-        run(cmd, cwd=repo_path)
+        if alt is None:
+            hint = (
+                "Export DEEPSEEK_API_KEY or GEMINI_API_KEY, choose that "
+                "provider in dsh Settings → Models, then re-run — or use "
+                "`astroai studio` on a laptop."
+            )
+        raise LabError(
+            "OpenCode Go rejected headless (missing session). "
+            "astroai does not change your Settings provider/model.",
+            hint=hint,
+        ) from exc
     return {
         "repo": str(repo_path),
         "panel_id": pid,
-        "route": route,
+        "keys_present": sorted(keys),
+        "providers_ensured": ensured,
         "task": task,
         "report_dir": str(repo_path / "panel" / pid),
-        "fallback_note": fallback_note,
     }
 
 

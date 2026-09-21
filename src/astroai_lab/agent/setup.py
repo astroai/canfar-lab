@@ -792,9 +792,8 @@ def agent_setup(
 
                 if _rb_keys.ensure_dsh_dotenv(home, dry_run=dry_run):
                     actions.append("dsh-dotenv")
-                route = _rb_keys.ensure_dsh_settings(home, dry_run=dry_run)
-                if route:
-                    actions.append(f"dsh-route:{route}")
+                for provider in _rb_keys.ensure_dsh_settings(home, dry_run=dry_run):
+                    actions.append(f"dsh-provider:{provider}")
             except Exception as exc:  # noqa: BLE001 — credentials must never block setup
                 warnings.append(f"dsh-credentials: {exc}")
         errors = [f"{n}: {e}" for n, e in failed]
