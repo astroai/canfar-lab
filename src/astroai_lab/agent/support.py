@@ -130,8 +130,16 @@ def fetch_openai_compat_model_ids(base_url: str, *, timeout: float = 8.0) -> tup
     import urllib.request
 
     url = base_url.rstrip("/") + "/models"
+    # Some gateways 403 bare urllib; curl/browser UAs are accepted.
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "astroai-lab/studio-prepare (+https://github.com/astroai/canfar-lab)",
+            "Accept": "application/json",
+        },
+    )
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310 — fixed https hosts
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 — fixed https hosts
             payload = json.load(resp)
     except (OSError, urllib.error.URLError, TimeoutError, json.JSONDecodeError, ValueError):
         return ()
