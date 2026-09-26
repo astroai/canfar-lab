@@ -50,6 +50,7 @@ Platform = "https://opencadc.github.io/canfar/"
 
 [project.scripts]
 canfar-lab = "canfar_lab.cli.main:main_entry"
+astroai = "canfar_lab.cli.main:main_entry"  # compat alias
 
 [project.entry-points."canfar.commands"]
 lab = "canfar_lab.cli.main:lab_app"

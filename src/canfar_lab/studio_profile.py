@@ -397,9 +397,10 @@ def mcp_serve_command(
     explicit = astroai_bin or mcp_bin_override(home)
     if explicit:
         return (explicit, "mcp", "serve")
-    found = shutil.which("astroai")
-    if found:
-        return (found, "mcp", "serve")
+    for name in ("canfar-lab", "astroai"):
+        found = shutil.which(name)
+        if found:
+            return (found, "mcp", "serve")
     return (sys.executable or "python3", "-m", "canfar_lab", "mcp", "serve")
 
 
