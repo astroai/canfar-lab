@@ -37,6 +37,7 @@ agent_app = typer.Typer(
         "  update        refresh CLI and bundled agent configs\n"
         "  verify        health check (--fix, --clean)\n"
         "  env           shared credential state (--with-dsh)\n"
+        "  keys          model API keys: list / set NAME (stdin) / unset NAME\n"
         "  plugins       MCP/rules/tools (Kind/On/Def/Agents; --description)"
     ),
 )
@@ -979,6 +980,84 @@ def agent_env_cmd(
         ui.print_ok(f"dsh keys present: {', '.join(names) if names else '(none)'}")
         ui.print_ok(f"dsh providers ensured: {payload['dsh_providers_ensured']}")
         ui.print_hint("Persist with: canfar agent setup (writes .env 0600 + provider refs)")
+
+
+keys_app = typer.Typer(
+    help=(
+        "Model API keys shared by agent CLIs, marimo, and the Studio assistant.\n\n"
+        "Values are written to ~/.astroai/lab/.env and dsh credentials (0600) and\n"
+        "are never printed. `set` reads the value from stdin, never from argv."
+    ),
+)
+agent_app.add_typer(keys_app, name="keys")
+
+
+@keys_app.command("list")
+def keys_list_cmd(ctx: typer.Context) -> None:
+    """Supported keys, where each is set, and which agents read it.
+
+    Examples:
+        canfar-lab agent keys list
+        canfar-lab --json agent keys list
+    """
+    from canfar_lab.agent import keys as agent_keys
+
+    opts = get_opts(ctx)
+    rows = agent_keys.status()
+    if opts.json:
+        ui.print_json({"keys": rows})
+        return
+    ui.print_hint("  Provider         Key                   Set  Used by")
+    ui.print_hint("  ───────────────  ────────────────────  ───  ────────────────────")
+    for row in rows:
+        mark = "✓" if row["present"] else "-"
+        used = ", ".join(row["used_by"][:4]) + ("…" if len(row["used_by"]) > 4 else "")
+        ui.print_hint(f"  {row['label']:<15}  {row['key']:<20}  {mark:<3}  {used}")
+    ui.print_hint("Set one: canfar-lab agent keys set OPENROUTER_API_KEY  (paste, then Enter)")
+
+
+@keys_app.command("set")
+def keys_set_cmd(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help="Key name, e.g. OPENROUTER_API_KEY.")],
+) -> None:
+    """Store a key; the value comes from stdin (or a hidden prompt on a TTY).
+
+    Examples:
+        canfar-lab agent keys set OPENROUTER_API_KEY
+        printf %s "$KEY" | canfar-lab agent keys set ANTHROPIC_API_KEY
+    """
+    import sys
+
+    from canfar_lab.agent import keys as agent_keys
+
+    opts = get_opts(ctx)
+    value = typer.prompt(name, hide_input=True) if sys.stdin.isatty() else sys.stdin.readline()
+    result = agent_keys.set_key(None, name, value)
+    if opts.json:
+        ui.print_json(result)
+        return
+    ui.print_ok(f"{name} saved (new terminals and the assistant pick it up)")
+
+
+@keys_app.command("unset")
+def keys_unset_cmd(
+    ctx: typer.Context,
+    name: Annotated[str, typer.Argument(help="Key name to remove.")],
+) -> None:
+    """Remove a key from the shared dotenv and dsh credentials.
+
+    Examples:
+        canfar-lab agent keys unset DEEPSEEK_API_KEY
+    """
+    from canfar_lab.agent import keys as agent_keys
+
+    opts = get_opts(ctx)
+    result = agent_keys.unset_key(None, name)
+    if opts.json:
+        ui.print_json(result)
+        return
+    ui.print_ok(f"{name} removed" if result["changed"] else f"{name} was not set")
 
 
 @agent_app.command("verify")

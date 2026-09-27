@@ -19,7 +19,9 @@ Two resource profiles, nothing more:
 
 from __future__ import annotations
 
+import contextlib
 import os
+import re
 import shutil
 from pathlib import Path
 from typing import Any, Literal
@@ -187,6 +189,121 @@ def apply_studio_bash_timeout(
     return f"bash-sandbox timeoutMs → {timeout_ms} ({path})"
 
 
+_WELCOME_NOTICE_RE = re.compile(r'WELCOME_NOTICE_VERSION\s*=\s*"([^"]+)"')
+
+
+def installed_welcome_notice_version() -> str | None:
+    """The notice version the installed dsh GUI compares acknowledgements to."""
+    binary = dsh_binary()
+    if not binary:
+        return None
+    root = Path(os.path.realpath(binary)).parent.parent
+    for client in (
+        root / "node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js",
+        root.parent / "dsh-client-ui-settings-models/lib/client.js",
+    ):
+        try:
+            match = _WELCOME_NOTICE_RE.search(client.read_text(encoding="utf-8"))
+        except OSError:
+            continue
+        if match:
+            return match.group(1)
+    return None
+
+
+def acknowledge_welcome_notice(home: Path, version: str | None) -> str | None:
+    """Pre-acknowledge dsh's upstream testing notice; Studio shows its own welcome."""
+    import yaml
+
+    if not version:
+        return None
+    settings = sp.dsh_home(home) / "settings.yaml"
+    doc: dict[str, Any] = {}
+    if settings.is_file():
+        try:
+            loaded = yaml.safe_load(settings.read_text(encoding="utf-8"))
+        except (OSError, yaml.YAMLError):
+            return None
+        if isinstance(loaded, dict):
+            doc = loaded
+    section = doc.get("ui-onboarding")
+    if not isinstance(section, dict):
+        section = doc["ui-onboarding"] = {}
+    if section.get("welcomeNoticeVersion") == version:
+        return None
+    section["welcomeNoticeVersion"] = version
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    settings.write_text(yaml.safe_dump(doc, sort_keys=True), encoding="utf-8")
+    return f"dsh welcome notice acknowledged ({version})"
+
+
+def studio_workdir() -> Path | None:
+    """The directory the Studio session opens in (written by the image startup)."""
+    state = os.environ.get("ASTROAI_STUDIO_STATE", "").strip()
+    raw = os.environ.get("ASTROAI_STUDIO_CWD", "").strip()
+    if state and not raw:
+        with contextlib.suppress(OSError):
+            raw = (Path(state) / "studio-cwd").read_text(encoding="utf-8").strip()
+    if not raw:
+        return None
+    path = Path(raw).expanduser()
+    return path.resolve() if path.is_dir() else None
+
+
+def seed_dsh_workspace(home: Path, path: Path | None) -> str | None:
+    """Give a fresh dsh one workspace so the first screen is a chat, not a picker.
+
+    Only an empty registry is touched: a missing store with no sessions yet
+    (nothing for dsh's history bootstrap to recover) or an initialized one
+    with no workspaces. Must run before dsh starts; dsh owns the file after.
+    """
+    import json
+    import uuid
+    from datetime import datetime, timezone
+
+    if path is None:
+        return None
+    store = sp.dsh_home(home) / "storages" / "workspace.json"
+    if store.is_file():
+        try:
+            doc = json.loads(store.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        state = doc.get("global") if isinstance(doc, dict) else None
+        if not isinstance(state, dict) or not state.get("initialized") or state.get("workspaceIds"):
+            return None
+        if doc.get("tables", {}).get("workspaces") or state.get("pendingMutation"):
+            return None
+    else:
+        sessions = sp.dsh_home(home) / "sessions"
+        if sessions.is_dir() and any(sessions.iterdir()):
+            return None
+        doc = {"unit": {"name": "workspace", "version": 2}}
+    now = datetime.now(timezone.utc).isoformat(timespec="milliseconds")  # noqa: UP017 — py3.10
+    now = now.replace("+00:00", "Z")
+    wid = str(uuid.uuid4())
+    real = os.path.realpath(path)
+    doc["global"] = {"initialized": True, "workspaceIds": [wid], "archivedSessionIds": []}
+    doc["tables"] = {
+        "workspaces": {
+            wid: {
+                "path": real,
+                "title": Path(real).name or real,
+                "sessionIds": [],
+                "createdAt": now,
+                "updatedAt": now,
+            }
+        }
+    }
+    store.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(store.with_suffix(".json.tmp"), os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump(doc, fh, indent=2)
+        fh.write("\n")
+    os.replace(store.with_suffix(".json.tmp"), store)
+    return f"dsh workspace seeded: {real}"
+
+
 def prepare_studio(
     home: Path | None = None,
     *,
@@ -228,6 +345,21 @@ def prepare_studio(
         actions.append(f"dotenv keys: {', '.join(sorted(keys))}")
     for provider in rb.ensure_dsh_settings(home):
         actions.append(f"dsh provider ref: {provider}")
+    from canfar_lab.agent.keys import sync_keys
+
+    try:
+        synced = sync_keys(home)
+    except LabError as exc:
+        actions.append(f"WARN key sync skipped: {exc}")
+    else:
+        if synced:
+            actions.append(f"keys synced with dsh credentials: {', '.join(synced)}")
+    for action in (
+        acknowledge_welcome_notice(home, installed_welcome_notice_version()),
+        seed_dsh_workspace(home, studio_workdir()),
+    ):
+        if action:
+            actions.append(action)
 
     if mcp_bin:
         # Pin it in the shared dotenv, or the next `--prepare` in a fresh shell

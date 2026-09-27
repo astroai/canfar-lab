@@ -9,14 +9,15 @@ if [[ -n "${CANFAR_LAB_PROFILE_LOADED:-}" ]]; then
 fi
 CANFAR_LAB_PROFILE_LOADED=1
 
-# Stderr → canfar logs. Also ~/.astroai/lab/boot.log on shared home.
+# Stderr → canfar logs (non-interactive only; a terminal user should not see
+# boot chatter). Always ~/.astroai/lab/boot.log on shared home.
 astroai_boot_log() {
     local ts sid kind line dir
     ts="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf '?')"
     sid="${skaha_sessionid:-${SKAHA_SESSIONID:-?}}"
     kind="${ASTROAI_SESSION_KIND:-?}"
     line="${ts} sid=${sid} pid=$$ kind=${kind} $*"
-    echo "[astroai-boot] ${line}" >&2 || true
+    [[ -t 2 ]] || echo "[astroai-boot] ${line}" >&2 || true
     dir="${CANFAR_LAB_CONFIG_DIR:-${HOME}/.astroai/lab}"
     mkdir -p "${dir}" 2>/dev/null || return 0
     echo "${line}" >> "${dir}/boot.log" 2>/dev/null || true
@@ -43,6 +44,16 @@ else
     echo "astroai: command not found — session paths may be incomplete" >&2
 fi
 unset _canfar_lab_cli
+
+# Model API keys saved from Studio / `astroai agent keys set` (0600, NAME=value).
+_astroai_dotenv="${HOME}/.astroai/lab/.env"
+if [[ -r "${_astroai_dotenv}" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "${_astroai_dotenv}"
+    set +a
+fi
+unset _astroai_dotenv
 
 _CANFAR_LAB_SHELL_DIR="${CANFAR_LAB_SHELL_DIR:-/etc/astroai-lab}"
 if [[ -f "${_CANFAR_LAB_SHELL_DIR}/hooks.sh" ]]; then

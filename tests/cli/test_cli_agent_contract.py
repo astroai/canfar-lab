@@ -14,9 +14,11 @@ from canfar_lab.cli.main import app
 
 runner = CliRunner()
 
-# Lean surface: list/plugins are sub-typers. `env` reports shared credential
-# state (presence only) for OpenRouter + dsh routes.
+# Lean surface: list/plugins/keys are sub-typers. `env` reports shared credential
+# state (presence only) for OpenRouter + dsh routes; `keys` is the write path
+# (list/set/unset, value on stdin) used by the Studio hub.
 CANONICAL_VERBS = {
+    "keys",
     "list",
     "install",
     "remove",

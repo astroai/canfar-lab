@@ -550,3 +550,19 @@ def test_first_error_line_prefers_the_cause() -> None:
     stderr = "\n   at foo\nError: unknown bundle '@x'\nNode.js v24\n"
     assert sp._first_error_line(stderr) == "Error: unknown bundle '@x'"
     assert sp._first_error_line("") == "(no stderr)"
+
+
+def test_brand_plugin_is_vendored_and_replaces_official_row(tmp_path: Path) -> None:
+    action = sp.ensure_vendored_plugin(tmp_path, sp.BRAND_BUNDLE)
+    assert action and "AstroAI branding" in action
+    dest = tmp_path / "node_modules" / sp.BRAND_BUNDLE
+    pkg = json.loads((dest / "package.json").read_text(encoding="utf-8"))
+    assert pkg["name"] == sp.BRAND_BUNDLE
+    assert pkg["exports"]["./client"] == "./lib/client.js"
+    client = (dest / "lib" / "client.js").read_text(encoding="utf-8")
+    assert f'id: "{sp.BRAND_BUNDLE}"' in client
+    for slot in ("sidebar.brand.mark", "sidebar.brand.name", "conversation.hero.brand.mark"):
+        assert slot in client
+    patch = yaml.safe_load((dest / "cordis.patch.yml").read_text(encoding="utf-8"))
+    assert {"id": "ui-brand-official", "disabled": True} in patch
+    assert sp.BRAND_BUNDLE in sp.ASTROAI_EXTRA_BUNDLES

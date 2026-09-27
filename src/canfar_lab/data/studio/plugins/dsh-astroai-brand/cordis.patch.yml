@@ -1,0 +1,8 @@
+# dsh-astroai-brand layer: AstroAI occupants replace the official brand row.
+# Must apply after dsh-web-app, which inserts `ui-brand-official`.
+- id: ui-brand-official
+  disabled: true
+
+- insert:
+    - id: ui-brand-astroai
+      name: dsh-astroai-brand

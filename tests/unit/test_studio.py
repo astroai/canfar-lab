@@ -62,6 +62,7 @@ def test_prepare_studio_writes_profile(tmp_path: Path, monkeypatch: pytest.Monke
         "@deepseek-ai/dsh-base",
         "@deepseek-ai/dsh-web-app",
         "dsh-opencode-session",
+        "dsh-astroai-brand",
     ]
     manifest = (sp.profile_dir(home) / "package.json").read_text(encoding="utf-8")
     assert "dsh-profile-astroai" in manifest

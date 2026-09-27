@@ -36,6 +36,8 @@ class Router:
     api: str = ""
     base_url: str = ""
     models: tuple[str, ...] = ()
+    label: str = ""
+    signup_url: str = ""
 
     @property
     def provider_id(self) -> str:
@@ -76,10 +78,21 @@ class Router:
 
 
 @dataclass(frozen=True)
+class SharedKey:
+    """A credential agents read that is not a dsh route (e.g. OpenRouter)."""
+
+    key: str
+    label: str
+    signup_url: str = ""
+    notes: str = ""
+
+
+@dataclass(frozen=True)
 class SupportCatalog:
     routers: tuple[Router, ...]
     recommended_agents: tuple[str, ...]
     panel_agents: tuple[str, ...]
+    shared_keys: tuple[SharedKey, ...] = ()
 
     SUPPORT_SCHEMA_VERSION = 2
 
@@ -176,8 +189,20 @@ def load_support() -> SupportCatalog:
                 api=str(entry.get("api") or ""),
                 base_url=str(entry.get("base_url") or ""),
                 models=_parse_model_ids(entry.get("models")),
+                label=str(entry.get("label") or ""),
+                signup_url=str(entry.get("signup_url") or ""),
             )
         )
+    shared = tuple(
+        SharedKey(
+            key=str(entry["key"]),
+            label=str(entry.get("label") or entry["key"]),
+            signup_url=str(entry.get("signup_url") or ""),
+            notes=str(entry.get("notes") or ""),
+        )
+        for entry in raw.get("shared_keys") or []
+        if isinstance(entry, dict) and entry.get("key")
+    )
     if "panel_roles" in raw:
         raise LabError(
             "support.yaml uses removed panel_roles (support schema v2).",
@@ -190,6 +215,7 @@ def load_support() -> SupportCatalog:
         routers=tuple(routers),
         recommended_agents=recommended,
         panel_agents=panel,
+        shared_keys=shared,
     )
 
 

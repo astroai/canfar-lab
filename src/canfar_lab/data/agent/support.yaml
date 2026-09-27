@@ -15,6 +15,8 @@
 
 routers:
   - id: opencode-go
+    label: OpenCode Go
+    signup_url: https://opencode.ai/auth
     key: OPENCODE_API_KEY
     dsh_route: opencode-go
     api: openai-completions
@@ -31,24 +33,39 @@ routers:
     notes: "OpenCode Go (OpenAI-compatible). Prepare seeds the route without the key; paste OPENCODE_API_KEY in Settings after Connect. Studio also installs dsh-opencode-session so chats send x-opencode-session."
 
   - id: deepseek-official
+    label: DeepSeek
+    signup_url: https://platform.deepseek.com/api_keys
     key: DEEPSEEK_API_KEY
     dsh_route: deepseek-official
     notes: "Served by dsh's own DeepSeek adapter."
 
   - id: google
+    label: Google Gemini
+    signup_url: https://aistudio.google.com/apikey
     key: GEMINI_API_KEY
     dsh_route: google
     notes: "Catalog route `google`."
 
   - id: openai-official
+    label: OpenAI
+    signup_url: https://platform.openai.com/api-keys
     key: OPENAI_API_KEY
     dsh_route: openai
     notes: "Written as the catalog route `openai`."
 
   - id: anthropic-official
+    label: Anthropic
+    signup_url: https://console.anthropic.com/settings/keys
     key: ANTHROPIC_API_KEY
     dsh_route: anthropic
     notes: "Written as the catalog route `anthropic`."
+
+# Keys agents read that are not dsh routes (Studio "Model access" form).
+shared_keys:
+  - key: OPENROUTER_API_KEY
+    label: OpenRouter
+    signup_url: https://openrouter.ai/keys
+    notes: "One key for marimo AI and most agent CLIs (opencode, kilo, cline, codex, pi…)."
 
 agents:
   # Install/setup these for a full AstroAI laptop/session toolkit.
