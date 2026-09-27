@@ -2,7 +2,7 @@
 id: dsh
 name: DeepSeek Harness
 homepage: https://github.com/deepseek-ai/deepseek-harness
-summary: DeepSeek Harness CLI (dsh) + review-bench preset
+summary: Engine behind the AstroAI Studio assistant (DeepSeek Harness CLI, dsh) + review-bench preset
 binary: dsh
 tags: [agent, cli]
 install:

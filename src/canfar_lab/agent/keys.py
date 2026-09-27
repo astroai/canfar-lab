@@ -77,7 +77,8 @@ def catalog() -> list[dict[str, Any]]:
             }
         )
     known = {row["key"] for row in rows}
-    for key in sorted(set(used_by) - known):
+    secrets = {k for k in used_by if k.endswith(("_KEY", "_TOKEN"))}
+    for key in sorted(secrets - known):
         rows.append(
             {
                 "key": key,

@@ -982,6 +982,14 @@ def agent_env_cmd(
         ui.print_hint("Persist with: canfar agent setup (writes .env 0600 + provider refs)")
 
 
+def _keys_failed(opts: Any, exc: LabError) -> typer.Exit:
+    if opts.json:
+        ui.print_json({"ok": False, "error": exc.message, "hint": exc.hint})
+    else:
+        ui.print_error(str(exc))
+    return typer.Exit(1)
+
+
 keys_app = typer.Typer(
     help=(
         "Model API keys shared by agent CLIs, marimo, and the Studio assistant.\n\n"
@@ -1003,7 +1011,10 @@ def keys_list_cmd(ctx: typer.Context) -> None:
     from canfar_lab.agent import keys as agent_keys
 
     opts = get_opts(ctx)
-    rows = agent_keys.status()
+    try:
+        rows = agent_keys.status()
+    except LabError as exc:
+        raise _keys_failed(opts, exc) from exc
     if opts.json:
         ui.print_json({"keys": rows})
         return
@@ -1033,7 +1044,10 @@ def keys_set_cmd(
 
     opts = get_opts(ctx)
     value = typer.prompt(name, hide_input=True) if sys.stdin.isatty() else sys.stdin.readline()
-    result = agent_keys.set_key(None, name, value)
+    try:
+        result = agent_keys.set_key(None, name, value)
+    except LabError as exc:
+        raise _keys_failed(opts, exc) from exc
     if opts.json:
         ui.print_json(result)
         return
@@ -1053,7 +1067,10 @@ def keys_unset_cmd(
     from canfar_lab.agent import keys as agent_keys
 
     opts = get_opts(ctx)
-    result = agent_keys.unset_key(None, name)
+    try:
+        result = agent_keys.unset_key(None, name)
+    except LabError as exc:
+        raise _keys_failed(opts, exc) from exc
     if opts.json:
         ui.print_json(result)
         return

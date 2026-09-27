@@ -218,3 +218,23 @@ def test_studio_workdir_reads_state_file(tmp_path: Path, monkeypatch: pytest.Mon
     monkeypatch.delenv("ASTROAI_STUDIO_CWD", raising=False)
     monkeypatch.setenv("ASTROAI_STUDIO_STATE", str(tmp_path))
     assert studio_mod.studio_workdir() == work.resolve()
+
+
+def test_catalog_lists_only_secret_names() -> None:
+    names = {row["key"] for row in keys.catalog()}
+    assert "GOOSE_PROVIDER" not in names
+    assert all(n.endswith(("_KEY", "_TOKEN")) for n in names)
+
+
+def test_cli_set_invalid_value_is_a_clean_error(home: Path) -> None:
+    result = runner.invoke(
+        app, ["agent", "keys", "set", "GEMINI_API_KEY"], input="has space $(x)\n"
+    )
+    assert result.exit_code == 1
+    assert "does not look like an API key" in result.output
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+    result = runner.invoke(
+        app, ["--json", "agent", "keys", "set", "GEMINI_API_KEY"], input="bad value\n"
+    )
+    assert result.exit_code == 1
+    assert json.loads(result.stdout)["ok"] is False
