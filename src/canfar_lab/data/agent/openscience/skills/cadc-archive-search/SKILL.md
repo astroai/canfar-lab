@@ -1,6 +1,7 @@
 ---
 name: cadc-archive-search
 description: Find and download observations from the CADC archive (CFHT MegaCam/WIRCam/ESPaDOnS, JCMT SCUBA-2/HARP, Gemini, HST, JWST, VLASS, …) on CANFAR. Use when the user asks what data exists for a target or field, wants archive images or spectra, or needs files downloaded for analysis.
+summary: "Find and download CADC observations (CFHT, JCMT, Gemini, HST, JWST, VLASS)."
 category: astronomy
 metadata:
   maintainer: canfar-lab

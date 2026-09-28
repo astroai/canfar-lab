@@ -54,10 +54,27 @@ started by Skaha). Treat these facts as ground truth over general habits.
   `em_min`/`em_max` are metres).
 - Report what was actually run and what was assumed.
 
+## Astronomy help in this workspace
+
+- Delegate observational or data-heavy astronomy work to the `astronomy` specialist
+  (archives, catalogues, FITS/WCS, photometry, spectra, cubes, time series, Ray scaling);
+  its skill library is the `astronomy` category (e.g. `gaia-astrometry`,
+  `catalog-crossmatch`, `vo-cutouts-datalink`, `canfar-ray-scaling`).
+- Slash commands: `/find-data <target>`, `/save-results [destination]`,
+  `/scale-out <task>`, `/astro-check [focus]`.
+- Team skills: a project opened under `/arc/projects/<project>` picks up skills in its
+  `.openscience/skills/<name>/SKILL.md` once the project is trusted; personal skills go
+  in `~/.agents/skills/`.
+- Settings persist in `~/.config/openscience/openscience.json` on `/arc/home` (the
+  CANFAR entries are merged back each session; the user's own choices win).
+
 ## Keys and tools
 
 - Model API keys are managed in the AstroAI hub (the **AstroAI** chip, `/astroai-agents/`);
-  never print key values.
+  never print key values. A self-hosted OpenAI-compatible model server (e.g. vLLM in
+  another CANFAR session) appears as the `canfar` provider when `ASTROAI_LLM_BASE_URL`
+  and `ASTROAI_LLM_MODELS` (comma-separated) are set in `~/.astroai/lab/.env`, with an
+  optional `ASTROAI_LLM_API_KEY`; it takes effect in the next session.
 - Commands run with the user's own permissions (full access is the CANFAR default:
   the OS sandbox would block archive network access and `/arc` reads). Never delete
   or overwrite files under `/arc` without asking.

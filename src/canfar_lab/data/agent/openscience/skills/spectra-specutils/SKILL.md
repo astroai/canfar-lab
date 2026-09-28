@@ -1,6 +1,7 @@
 ---
 name: spectra-specutils
 description: Load, inspect and analyse 1D astronomical spectra with specutils — units, continuum normalisation, line fitting, equivalent widths and radial velocities. Use for ESPaDOnS/GMOS/SDSS/JWST spectra, emission or absorption line measurements, or redshift estimates.
+summary: "1D spectra with specutils: continuum, lines, equivalent widths, velocities."
 category: astronomy
 metadata:
   maintainer: canfar-lab

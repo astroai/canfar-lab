@@ -10,7 +10,7 @@ binary: openscience
 tags: [agent, cli, open, science]
 install:
   method: npm
-  source: "@synsci/openscience@2.0.140"
+  source: "@synsci/openscience@2.0.143"
 config:
   path: "~/.config/openscience/openscience.json"
   format: json

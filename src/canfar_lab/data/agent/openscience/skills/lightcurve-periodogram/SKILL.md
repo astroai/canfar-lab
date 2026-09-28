@@ -1,6 +1,7 @@
 ---
 name: lightcurve-periodogram
 description: Time-series analysis of astronomical light curves — Lomb-Scargle and box least squares periodograms, phase folding, and period uncertainties. Use for variable stars, rotation periods, eclipsing binaries, exoplanet transits (TESS, Kepler, ZTF, Gaia epoch photometry).
+summary: "Lomb-Scargle and BLS periods, phase folding and period errors for light curves."
 category: astronomy
 metadata:
   maintainer: canfar-lab

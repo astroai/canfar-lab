@@ -1,6 +1,7 @@
 ---
 name: fits-wcs-cutouts
 description: Open FITS images, inspect headers and WCS, convert between pixel and sky coordinates, and make cutouts that keep a valid WCS. Use for any FITS image task (CFHT MegaCam, HST, JWST, VLASS, …), postage stamps, or overlaying positions on images.
+summary: "Open FITS images, use the WCS, and make cutouts that keep a valid WCS."
 category: astronomy
 metadata:
   maintainer: canfar-lab

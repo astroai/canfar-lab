@@ -1,6 +1,7 @@
 ---
 name: obscore-tap
 description: Query astronomical catalogues and archives with ADQL over IVOA TAP (Gaia, SIMBAD, VizieR, NED, MAST, CADC). Use for catalogue cross-matches, cone searches, sample selection (e.g. stars within 100 pc), or any "look up in a catalogue" request.
+summary: "ADQL over TAP for Gaia, SIMBAD, VizieR, NED, MAST and CADC catalogues."
 category: astronomy
 metadata:
   maintainer: canfar-lab

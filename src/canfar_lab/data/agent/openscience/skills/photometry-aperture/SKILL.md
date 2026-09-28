@@ -1,6 +1,7 @@
 ---
 name: photometry-aperture
 description: Aperture photometry on astronomical images with photutils — source detection, background subtraction, aperture/annulus sums, zero points and magnitudes with uncertainties. Use when the user wants fluxes, magnitudes, light curves from images, or a source catalogue from an image.
+summary: "Source detection, background and aperture photometry with photutils."
 category: astronomy
 metadata:
   maintainer: canfar-lab
