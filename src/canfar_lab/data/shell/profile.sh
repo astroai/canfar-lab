@@ -46,14 +46,39 @@ fi
 unset _canfar_lab_cli
 
 # Model API keys saved from Studio / `astroai agent keys set` (0600, NAME=value).
-_astroai_dotenv="${HOME}/.astroai/lab/.env"
-if [[ -r "${_astroai_dotenv}" ]]; then
+# Interactive shells re-read the file once it changes, so a key saved (or
+# removed) in the Studio hub reaches terminals already open — before the next
+# command runs, not one command late. Writers replace the file atomically:
+# the inode changes on every save.
+_astroai_keys_file="${HOME}/.astroai/lab/.env"
+_astroai_keys_stamp=""
+_astroai_keys_names=""
+_astroai_keys_load() {
+    local stamp name
+    stamp="$(stat -c '%i %y' "${_astroai_keys_file}" 2>/dev/null)" || stamp=""
+    [[ "${stamp}" == "${_astroai_keys_stamp}" ]] && return 0
+    _astroai_keys_stamp="${stamp}"
+    for name in ${_astroai_keys_names}; do unset "${name}"; done
+    _astroai_keys_names=""
+    [[ -r "${_astroai_keys_file}" ]] || return 0
+    _astroai_keys_names="$(sed -n 's/^\([A-Za-z_][A-Za-z0-9_]*\)=.*/\1/p' "${_astroai_keys_file}")"
     set -a
     # shellcheck disable=SC1090
-    source "${_astroai_dotenv}"
+    source "${_astroai_keys_file}"
     set +a
+}
+_astroai_keys_load
+if [[ $- == *i* ]]; then
+    # DEBUG fires before every simple command: at most one stat per 2 s.
+    _astroai_keys_at="${EPOCHSECONDS:-0}"
+    _astroai_keys_preexec() {
+        _astroai_keys_at="${EPOCHSECONDS:-0}"
+        _astroai_keys_load
+    }
+    [[ -n "$(trap -p DEBUG)" ]] ||
+        trap '(( ${EPOCHSECONDS:-0} - _astroai_keys_at < 2 )) || _astroai_keys_preexec' DEBUG
+    PROMPT_COMMAND="_astroai_keys_load${PROMPT_COMMAND:+; ${PROMPT_COMMAND}}"
 fi
-unset _astroai_dotenv
 
 _CANFAR_LAB_SHELL_DIR="${CANFAR_LAB_SHELL_DIR:-/etc/astroai-lab}"
 if [[ -f "${_CANFAR_LAB_SHELL_DIR}/hooks.sh" ]]; then
