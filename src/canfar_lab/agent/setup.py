@@ -500,6 +500,10 @@ def run_bundle(
             force=force,
             dry_run=dry_run,
         )
+    elif name == "openscience":
+        from canfar_lab.agent.openscience import ensure_openscience_config
+
+        ensure_openscience_config(root, home, force=force, dry_run=dry_run)
     elif name == "goose":
         install_goose_config(root, home, force=force, dry_run=dry_run)
         install_file(
@@ -658,6 +662,7 @@ def ensure_agent_dirs(home: Path, *, dry_run: bool) -> None:
         home / ".cursor" / "skills",
         home / ".config" / "goose",
         home / ".config" / "opencode",
+        home / ".config" / "openscience",
         home / ".config" / "kilo",
         home / ".codex",
         home / ".copilot",

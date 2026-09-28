@@ -15,6 +15,9 @@
     "goose": {
       "description": "Goose MCP extensions (~/.config/goose/config.yaml)"
     },
+    "openscience": {
+      "description": "OpenScience astroai MCP, CANFAR primer, astronomy skills (~/.config/openscience/)"
+    },
     "kilo": {
       "description": "Kilo CLI starter config (~/.config/kilo/kilo.jsonc)"
     },
@@ -60,7 +63,7 @@
     },
     "all": {
       "description": "Default install — all agent backends + GitHub skills + marimo AI",
-      "includes": ["cursor", "claude", "opencode", "goose", "codex", "copilot", "cli", "kilo", "marimo"]
+      "includes": ["cursor", "claude", "opencode", "openscience", "goose", "codex", "copilot", "cli", "kilo", "marimo"]
     }
   },
   "mcp_notes": {
