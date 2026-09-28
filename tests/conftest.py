@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -42,11 +43,19 @@ def mock_canfar_skills_upstream(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def clean_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> Iterator[None]:
+    saved = dict(os.environ)
+    # Code under test symlinks agent runtime dirs under $HOME and exports
+    # session variables (XDG_*, SCRATCH, ...) into os.environ. A test that
+    # forgets to isolate HOME must not relocate the host's ~/.cursor or
+    # ~/.claude into a pytest temp dir that is later deleted.
+    monkeypatch.setenv("HOME", str(tmp_path_factory.mktemp("home")))
     # Clear any host environment variables that might pollute tests
     keys_to_remove = []
     for key in os.environ:
-        if key.startswith("CANFAR_LAB_") or key in (
+        if key.startswith(("CANFAR_LAB_", "XDG_")) or key in (
             "UV_CACHE_DIR",
             "PIP_CACHE_DIR",
             "PIXI_CACHE_DIR",
@@ -56,7 +65,6 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
             "SRCDIR",
             "SCRATCH",
             "PROJECT",
-            "XDG_CACHE_HOME",
         ):
             keys_to_remove.append(key)
 
@@ -70,3 +78,6 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     # call; clear it so a previous test's monkeypatched WORK/SCRATCH cannot
     # leak into later tests through the cached object.
     get_settings.cache_clear()
+    yield
+    os.environ.clear()
+    os.environ.update(saved)
