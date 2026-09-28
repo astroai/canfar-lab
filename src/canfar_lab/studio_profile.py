@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -76,6 +77,21 @@ ASTROAI_EXTRA_BUNDLES: tuple[str, ...] = (OPENCODE_SESSION_BUNDLE, BRAND_BUNDLE)
 
 #: Required layer order for every bundle the Studio profile names.
 BUNDLE_ORDER: tuple[str, ...] = WEB_TEMPLATE_BUNDLES + TEAM_BUNDLES + ASTROAI_EXTRA_BUNDLES
+
+#: Plugins an image bakes in: a pnpm project (hoisted) whose ``node_modules``
+#: holds each plugin with its dependencies, so a ``--no-install`` boot resolves
+#: them without a fetch. Every dependency that declares a dsh bundle is enabled.
+BAKED_PLUGINS_ENV = "ASTROAI_STUDIO_BAKED_PLUGINS"
+BAKED_PLUGINS_DIR = Path("/opt/astroai/dsh-plugins")
+
+#: The community plugin market (Settings → Plugin Market).
+MARKET_BUNDLE = "dshmarket"
+
+#: The row shape the market and dsh's own Plugins page append to a profile's
+#: patch layer to switch a plugin off or on.
+PLUGIN_SWITCH_RE = re.compile(
+    r"^- id: ['\"]?([A-Za-z0-9_.-]+)['\"]?\n  disabled: (true|false)[ \t]*(?:\n|\Z)", re.MULTILINE
+)
 
 #: Bundles that ship inside the dsh installation itself. They resolve from the
 #: running `dsh`, never from the profile's `node_modules`, so they must never be
@@ -250,6 +266,7 @@ def desired_bundles(
     *,
     with_team: bool,
     required: Iterable[str] = WEB_TEMPLATE_BUNDLES,
+    baked: Iterable[str] = (),
 ) -> list[str]:
     """Normalize a profile's bundle list to the required prefix, then extras.
 
@@ -261,9 +278,15 @@ def desired_bundles(
     built on) and the Team layers are always present and always first; bundles a
     user added themselves keep their relative order after them, and are never
     dropped. Studio is a web-based profile, so a manifest that lost ``web-app``
-    is repaired rather than honoured.
+    is repaired rather than honoured. Image-baked plugins follow the AstroAI
+    extras.
     """
-    wanted = [*required, *(TEAM_BUNDLES if with_team else ()), *ASTROAI_EXTRA_BUNDLES]
+    wanted = [
+        *required,
+        *(TEAM_BUNDLES if with_team else ()),
+        *ASTROAI_EXTRA_BUNDLES,
+        *(name for name in baked if name not in ASTROAI_EXTRA_BUNDLES),
+    ]
     extras = [
         name
         for name in existing
@@ -318,6 +341,89 @@ def ensure_vendored_plugin(
     return f"installed {name} ({_VENDORED_PURPOSE.get(name, 'vendored')})"
 
 
+def vendored_dependencies() -> dict[str, str]:
+    """``file:`` pins for the vendored extras.
+
+    pnpm removes whatever in ``node_modules`` the manifest does not declare, so
+    without these the next ``dsh plugin add`` (or a market install) deletes the
+    copies :func:`ensure_vendored_plugin` made and the profile no longer boots.
+    """
+    return {
+        name: f"file:{vendored_plugin(name)}"
+        for name in ASTROAI_EXTRA_BUNDLES
+        if (vendored_plugin(name) / "package.json").is_file()
+    }
+
+
+def baked_plugins_root(env: dict[str, str] | None = None) -> Path | None:
+    """The image's baked plugin project, when there is one."""
+    environ = env if env is not None else os.environ
+    raw = environ.get(BAKED_PLUGINS_ENV, "").strip()
+    root = Path(raw).expanduser() if raw else BAKED_PLUGINS_DIR
+    return root if (root / PROFILE_MANIFEST_FILENAME).is_file() else None
+
+
+def baked_bundles(root: Path | None) -> dict[str, str]:
+    """Bundle name → version spec for each baked dependency that is a dsh bundle."""
+    if root is None:
+        return {}
+    dependencies = read_manifest(root / PROFILE_MANIFEST_FILENAME).get("dependencies")
+    if not isinstance(dependencies, dict):
+        return {}
+    found: dict[str, str] = {}
+    for name, spec in dependencies.items():
+        package = read_manifest(root / "node_modules" / name / PROFILE_MANIFEST_FILENAME)
+        bundle = (package.get("dsh") or {}).get("bundle")
+        if isinstance(bundle, dict) and bundle.get("patch"):
+            found[str(name)] = str(spec)
+    return found
+
+
+def _package_dirs(node_modules: Path) -> list[Path]:
+    """Top-level package directories, with scoped packages one level down."""
+    found: list[Path] = []
+    if not node_modules.is_dir():
+        return found
+    for entry in sorted(node_modules.iterdir()):
+        if entry.name.startswith(".") or not entry.is_dir():
+            continue
+        if entry.name.startswith("@"):
+            found.extend(child for child in sorted(entry.iterdir()) if child.is_dir())
+        else:
+            found.append(entry)
+    return found
+
+
+def ensure_baked_plugins(
+    profile_dir: Path,
+    root: Path | None,
+    bundles: Iterable[str],
+    *,
+    dry_run: bool = False,
+) -> str | None:
+    """Copy the baked plugins, and the packages they need, into the profile.
+
+    Only what the profile lacks is copied: a plugin the person updated or a
+    dependency pnpm already manages is theirs. Needs no pnpm or network, so it
+    runs under ``--no-install`` like :func:`ensure_vendored_plugin`.
+    """
+    if root is None:
+        return None
+    source = root / "node_modules"
+    dest_root = profile_dir / "node_modules"
+    missing = [name for name in bundles if not (dest_root / name).is_dir()]
+    if not missing:
+        return None
+    if dry_run:
+        return "would install baked plugins: " + ", ".join(missing)
+    for package in _package_dirs(source):
+        dest = dest_root / package.relative_to(source)
+        if not dest.exists():
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copytree(package, dest, symlinks=True)
+    return "installed baked plugins: " + ", ".join(missing)
+
+
 def bundle_installed(directory: Path, name: str) -> bool:
     """Whether a bundle resolves for a profile.
 
@@ -334,8 +440,8 @@ def bundle_installed(directory: Path, name: str) -> bool:
 def out_of_tree_bundles(bundles: Iterable[str]) -> list[str]:
     """Bundles the profile has to install itself (everything but the in-box set).
 
-    AstroAI extras are vendored and copied by :func:`ensure_vendored_plugin`,
-    so they never go through pnpm.
+    AstroAI extras are vendored and copied by :func:`ensure_vendored_plugin`;
+    pnpm only sees them as ``file:`` dependencies when it installs something else.
     """
     return [
         name for name in bundles if name not in IN_BOX_BUNDLES and name not in ASTROAI_EXTRA_BUNDLES
@@ -374,6 +480,8 @@ class StudioPlan:
     commands: tuple[tuple[str, ...], ...]
     notes: tuple[str, ...] = ()
     fresh_profile: bool = False
+    baked_root: Path | None = None
+    baked: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -389,6 +497,7 @@ class StudioPlan:
             "commands": [list(c) for c in self.commands],
             "notes": list(self.notes),
             "fresh_profile": self.fresh_profile,
+            "baked": list(self.baked),
         }
 
 
@@ -481,6 +590,8 @@ def studio_layer_yaml(
     state: StateRoot,
     command: tuple[str, ...],
     with_team: bool = True,
+    market: bool = False,
+    switches: Iterable[tuple[str, bool]] = (),
 ) -> str:
     """The profile's own ``cordis.patch.yml``.
 
@@ -488,6 +599,7 @@ def studio_layer_yaml(
     merge), so every field kept from the bundle layer is restated here. Each
     row below targets a row that exists in ``dsh-base`` or ``dsh-web-app`` at
     dsh 0.1.5-rc.2; the doctor re-checks that with ``--dump-config``.
+    ``switches`` are plugin on/off rows carried over from the previous file.
     """
     timeout_ms = PROFILE_BASH_TIMEOUT_SEC[profile] * 1000
     keep = managed_bench_preset_root(home)
@@ -499,7 +611,8 @@ def studio_layer_yaml(
         "#",
         "# Generated by `astroai studio --prepare`; hand edits are kept only until",
         "# the next --prepare regenerates this file. Edit it, then move the change",
-        "# into canfar_lab/studio_profile.py so it survives.",
+        "# into canfar_lab/studio_profile.py so it survives. Plugin on/off rows",
+        "# (`- id: X` + `disabled: true|false`) are the exception: they are kept.",
         "#",
         "# Applied after the profile's bundle layers, in order:",
         f"#   {layer_path} → this file → the repo's .dsh/cordis.patch.yml (--patch)",
@@ -552,7 +665,40 @@ def studio_layer_yaml(
         mcp_row_yaml(command),
         "",
     ]
+    if market and profile == "canfar":
+        lines += [
+            "# ── plugin market ──────────────────────────────────────────────────────",
+            "# The session supervisor restarts dsh; a second, detached copy started by",
+            "# the market's Restart button would hold the port and be killed with the",
+            "# session. Changes that need a restart apply at the next session start.",
+            "- id: dsh-market",
+            "  name: dshmarket",
+            "  config:",
+            "    allowRestart: false",
+            "",
+        ]
+    switches = list(switches)
+    if switches:
+        lines += [
+            "# ── plugin switches ────────────────────────────────────────────────────",
+            "# Written by the plugin market (enable/disable); kept across --prepare.",
+        ]
+        for row_id, disabled in switches:
+            lines += [f"- id: {row_id}", f"  disabled: {'true' if disabled else 'false'}"]
+        lines.append("")
     return "\n".join(lines)
+
+
+def plugin_switches(text: str | None) -> list[tuple[str, bool]]:
+    """The ``- id: X`` / ``disabled:`` rows in a patch file, last one per id winning."""
+    if not text:
+        return []
+    found: dict[str, bool] = {}
+    for match in PLUGIN_SWITCH_RE.finditer(text.replace("\r\n", "\n")):
+        row_id = match.group(1)
+        found.pop(row_id, None)
+        found[row_id] = match.group(2) == "true"
+    return list(found.items())
 
 
 def bundle_basename(name: str) -> str:
@@ -565,6 +711,8 @@ def manifest_document(
     *,
     profile_name: str = STUDIO_PROFILE_NAME,
     base: dict[str, Any] | None = None,
+    pins: dict[str, str] | None = None,
+    defaults: dict[str, str] | None = None,
 ) -> dict:
     """The profile manifest: our bundle list over whatever dsh and pnpm wrote.
 
@@ -572,13 +720,19 @@ def manifest_document(
     ``dsh.profile.bundles`` itself, so this **merges** rather than replaces —
     regenerating the manifest from scratch would silently drop the dependency
     pins that keep a bundle resolvable. On a fresh profile it produces exactly
-    what dsh's own ``initializeProfileFromDefault`` writes.
+    what dsh's own ``initializeProfileFromDefault`` writes. ``pins`` always win
+    (the vendored ``file:`` paths move with the install); ``defaults`` only
+    fill a gap, so a plugin the person updated keeps their version.
     """
     doc: dict[str, Any] = dict(base or {})
     doc.setdefault("name", f"dsh-profile-{profile_name}")
     doc.setdefault("private", True)
-    if not isinstance(doc.get("dependencies"), dict):
-        doc["dependencies"] = {}
+    dependencies = doc.get("dependencies")
+    dependencies = dict(dependencies) if isinstance(dependencies, dict) else {}
+    for name, spec in (defaults or {}).items():
+        dependencies.setdefault(name, spec)
+    dependencies.update(pins or {})
+    doc["dependencies"] = dependencies
     section = doc.get("dsh")
     section = dict(section) if isinstance(section, dict) else {}
     profile = section.get("profile")
@@ -649,12 +803,21 @@ def plan_studio_profile(
     directory = profile_dir(home)
     existing = read_bundles(directory)
     fresh = not existing
-    bundles = desired_bundles(existing, with_team=with_team)
+    baked_root = baked_plugins_root(env)
+    baked = baked_bundles(baked_root)
+    bundles = desired_bundles(existing, with_team=with_team, baked=baked)
 
     state = resolve_state_root(home, profile=profile, scratch=scratch, env=env)
     command = mcp_serve_command(astroai_bin=astroai_bin, home=home)
+    previous = _read_text(directory / PROFILE_PATCH_FILENAME)
     layer = studio_layer_yaml(
-        home, profile=profile, state=state, command=command, with_team=with_team
+        home,
+        profile=profile,
+        state=state,
+        command=command,
+        with_team=with_team,
+        market=MARKET_BUNDLE in bundles,
+        switches=plugin_switches(previous) if previous and LAYER_MARK in previous else (),
     )
 
     notes: list[str] = []
@@ -665,7 +828,8 @@ def plan_studio_profile(
             "Team layers are off (--no-team): the roster, durable mailbox and "
             "shared task board stay unavailable; the Studio Team preset still works."
         )
-    uninstalled = uninstalled_bundles(directory, bundles)
+    # Baked plugins are copied by apply, never fetched.
+    uninstalled = [name for name in uninstalled_bundles(directory, bundles) if name not in baked]
 
     files = (
         directory / PROFILE_MANIFEST_FILENAME,
@@ -684,7 +848,10 @@ def plan_studio_profile(
         with_team=with_team,
         bundles=tuple(bundles),
         manifest=manifest_document(
-            bundles, base=read_manifest(directory / PROFILE_MANIFEST_FILENAME)
+            bundles,
+            base=read_manifest(directory / PROFILE_MANIFEST_FILENAME),
+            pins=vendored_dependencies(),
+            defaults=baked,
         ),
         layer_yaml=layer,
         workspace_yaml=workspace_document(),
@@ -693,6 +860,8 @@ def plan_studio_profile(
         commands=tuple(commands),
         notes=tuple(notes),
         fresh_profile=fresh,
+        baked_root=baked_root,
+        baked=tuple(baked),
     )
 
 
@@ -726,6 +895,9 @@ def apply_studio_profile(
         action = ensure_vendored_plugin(plan.dir, name, dry_run=dry_run)
         if action:
             actions.append(action)
+    action = ensure_baked_plugins(plan.dir, plan.baked_root, plan.baked, dry_run=dry_run)
+    if action:
+        actions.append(action)
 
     # `pnpm-workspace.yaml` is create-only: a user may have added an
     # `allowBuilds` entry there to permit a git-hosted plugin's build, and

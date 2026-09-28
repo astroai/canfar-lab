@@ -33,6 +33,7 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.delenv("DSH_HOME", raising=False)
     monkeypatch.delenv("SCRATCH", raising=False)
     monkeypatch.delenv("CANFAR_LAB_DATA", raising=False)
+    monkeypatch.setenv(sp.BAKED_PLUGINS_ENV, str(tmp_path / "no-baked-plugins"))
     return home
 
 
@@ -576,3 +577,145 @@ def test_brand_plugin_is_vendored_and_replaces_official_row(tmp_path: Path) -> N
     patch = yaml.safe_load((dest / "cordis.patch.yml").read_text(encoding="utf-8"))
     assert {"id": "ui-brand-official", "disabled": True} in patch
     assert sp.BRAND_BUNDLE in sp.ASTROAI_EXTRA_BUNDLES
+
+
+# ── plugins installed later (market, dsh plugin add) ────────────────────────
+
+
+def test_vendored_extras_are_declared_so_pnpm_keeps_them(home: Path) -> None:
+    """pnpm prunes undeclared node_modules entries on every `dsh plugin add`."""
+    directory = sp.profile_dir(home)
+    directory.mkdir(parents=True)
+    (directory / "package.json").write_text(
+        json.dumps({"dependencies": {sp.BRAND_BUNDLE: "file:/old/install/dsh-astroai-brand"}}),
+        encoding="utf-8",
+    )
+    dependencies = sp.plan_studio_profile(home, profile="canfar").manifest["dependencies"]
+    for name in sp.ASTROAI_EXTRA_BUNDLES:
+        spec = dependencies[name]
+        assert spec.startswith("file:")
+        # A moved install repoints the pin rather than leaving a dangling path.
+        assert Path(spec.removeprefix("file:")) == sp.vendored_plugin(name)
+        assert (sp.vendored_plugin(name) / "package.json").is_file()
+
+
+def _baked_root(tmp_path: Path) -> Path:
+    """A hoisted pnpm project like the image's /opt/astroai/dsh-plugins."""
+    root = tmp_path / "baked"
+    modules = root / "node_modules"
+    packages = {
+        "dshmarket": {"dsh": {"bundle": {"patch": "./cordis.patch.yml"}}},
+        "js-yaml": {},
+        "@deepseek-ai/cordis": {},
+        "undici": {},
+    }
+    for name, extra in packages.items():
+        (modules / name).mkdir(parents=True)
+        (modules / name / "package.json").write_text(
+            json.dumps({"name": name, **extra}), encoding="utf-8"
+        )
+    (modules / ".bin").mkdir()
+    (modules / ".modules.yaml").write_text("hoistedDependencies: {}\n", encoding="utf-8")
+    (root / "package.json").write_text(
+        json.dumps({"dependencies": {"dshmarket": "1.66.5", "undici": "^7.29.0"}}),
+        encoding="utf-8",
+    )
+    return root
+
+
+def test_baked_plugins_are_enabled_and_copied_without_a_fetch(
+    home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = _baked_root(tmp_path)
+    monkeypatch.setenv(sp.BAKED_PLUGINS_ENV, str(root))
+    plan = sp.plan_studio_profile(home, profile="canfar", scratch=tmp_path)
+    # Only dependencies that declare a dsh bundle become bundles.
+    assert plan.baked == (sp.MARKET_BUNDLE,)
+    assert plan.bundles[-1] == sp.MARKET_BUNDLE
+    assert plan.manifest["dependencies"][sp.MARKET_BUNDLE] == "1.66.5"
+    assert "undici" not in plan.manifest["dependencies"]
+    assert not any(sp.MARKET_BUNDLE in command for command in plan.commands)
+
+    fake_install(plan.dir)
+    result = sp.apply_studio_profile(plan, install_bundles=False)
+    assert result["degraded"] is False
+    assert sp.MARKET_BUNDLE in result["bundles"]
+    modules = plan.dir / "node_modules"
+    for name in (sp.MARKET_BUNDLE, "js-yaml", "undici", "@deepseek-ai/cordis"):
+        assert (modules / name / "package.json").is_file(), name
+    assert not (modules / ".bin").exists()
+    assert not (modules / ".modules.yaml").exists()
+
+
+def test_a_plugin_the_user_updated_keeps_their_copy_and_version(
+    home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(sp.BAKED_PLUGINS_ENV, str(_baked_root(tmp_path)))
+    directory = sp.profile_dir(home)
+    mine = directory / "node_modules" / sp.MARKET_BUNDLE
+    mine.mkdir(parents=True)
+    (mine / "package.json").write_text('{"version": "1.70.0"}', encoding="utf-8")
+    (directory / "package.json").write_text(
+        json.dumps({"dependencies": {sp.MARKET_BUNDLE: "1.70.0"}}), encoding="utf-8"
+    )
+    plan = sp.plan_studio_profile(home, profile="canfar", scratch=tmp_path)
+    assert plan.manifest["dependencies"][sp.MARKET_BUNDLE] == "1.70.0"
+    fake_install(plan.dir)
+    sp.apply_studio_profile(plan, install_bundles=False)
+    assert json.loads((mine / "package.json").read_text(encoding="utf-8")) == {"version": "1.70.0"}
+
+
+def _market_row(layer: str) -> dict | None:
+    return next((row for row in load_patch(layer) if row.get("id") == "dsh-market"), None)
+
+
+def test_market_restart_is_off_only_under_the_canfar_supervisor(
+    home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert _market_row(sp.plan_studio_profile(home, profile="canfar").layer_yaml) is None
+    monkeypatch.setenv(sp.BAKED_PLUGINS_ENV, str(_baked_root(tmp_path)))
+    row = _market_row(sp.plan_studio_profile(home, profile="canfar", scratch=tmp_path).layer_yaml)
+    # The loader hands a plugin only `config`, and the row name must match the
+    # market's own `name: 'dshmarket'` or the patch is skipped.
+    assert row == {"id": "dsh-market", "name": "dshmarket", "config": {"allowRestart": False}}
+    assert _market_row(sp.plan_studio_profile(home, profile="laptop").layer_yaml) is None
+
+
+def test_plugin_switches_survive_prepare(home: Path) -> None:
+    plan = sp.plan_studio_profile(home, profile="laptop")
+    fake_install(plan.dir)
+    sp.apply_studio_profile(plan, install_bundles=False)
+    layer_path = plan.dir / "cordis.patch.yml"
+    # What the market appends when a plugin is switched off, on, and off again.
+    with layer_path.open("a", encoding="utf-8") as fh:
+        fh.write("- id: web-search\n  disabled: true\n")
+        fh.write("- id: 'ui-theme'\n  disabled: false\n")
+        fh.write("- id: web-search\n  disabled: false\n")
+        fh.write("- id: dsh-goal\n  disabled: true")
+
+    second = sp.apply_studio_profile(
+        sp.plan_studio_profile(home, profile="laptop"), install_bundles=False
+    )
+    assert any(action.startswith("wrote") for action in second["actions"])
+    rows = load_patch(layer_path.read_text(encoding="utf-8"))
+    switches = [row for row in rows if set(row) == {"id", "disabled"}]
+    assert switches == [
+        {"id": "ui-theme", "disabled": False},
+        {"id": "web-search", "disabled": False},
+        {"id": "dsh-goal", "disabled": True},
+    ]
+
+    third = sp.apply_studio_profile(
+        sp.plan_studio_profile(home, profile="laptop"), install_bundles=False
+    )
+    assert not any(action.startswith("wrote") for action in third["actions"])
+
+
+def test_switches_in_a_foreign_layer_are_not_adopted(home: Path) -> None:
+    directory = sp.profile_dir(home)
+    directory.mkdir(parents=True)
+    (directory / "cordis.patch.yml").write_text(
+        "- id: web-search\n  disabled: true\n", encoding="utf-8"
+    )
+    layer = sp.plan_studio_profile(home, profile="laptop").layer_yaml
+    assert "web-search" not in layer
