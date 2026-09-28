@@ -264,6 +264,7 @@ def seed_dsh_workspace(home: Path, path: Path | None) -> str | None:
     if path is None:
         return None
     store = sp.dsh_home(home) / "storages" / "workspace.json"
+    doc: dict[str, Any]
     if store.is_file():
         try:
             doc = json.loads(store.read_text(encoding="utf-8"))

@@ -203,7 +203,8 @@ def _write_credential_ref(home: Path, name: str, value: str | None) -> bool:
     path = credentials_path(home)
     with _file_lock(path):
         doc = _read_credentials(path)
-        refs = doc.get("refs") if isinstance(doc.get("refs"), dict) else {}
+        raw = doc.get("refs")
+        refs: dict[str, Any] = raw if isinstance(raw, dict) else {}
         if refs.get(name) == value or (value is None and name not in refs):
             return False
         if value is None:

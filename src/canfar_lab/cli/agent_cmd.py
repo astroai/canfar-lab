@@ -1227,9 +1227,9 @@ def _install_one_agent(tool: str, *, dry_run: bool, setup: bool = True) -> None:
     # (TOOLS-backed agents like claude/cursor used to skip this).
     if dry_run or agent is None or not setup:
         return
-    setup = setup_registry_agent(tool, dry_run=False)
-    if setup["errors"]:
-        detail = "; ".join(setup["errors"])
+    result = setup_registry_agent(tool, dry_run=False)
+    if result["errors"]:
+        detail = "; ".join(result["errors"])
         raise LabError(
             f"Installed {tool}, but setup failed: {detail}",
             hint=f"Retry: canfar agent setup {tool}",
