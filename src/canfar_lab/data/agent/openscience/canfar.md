@@ -1,4 +1,4 @@
-# Working on CANFAR (AstroAI Studio)
+# Working on CANFAR (AstroAI)
 
 You are running inside a CANFAR Science Platform session (a Kubernetes pod
 started by Skaha). Treat these facts as ground truth over general habits.
@@ -10,7 +10,7 @@ started by Skaha). Treat these facts as ground truth over general habits.
 | `/arc/home/$USER` (`$HOME`) | yes, quota-limited, shared by all your sessions | code, configs, small results |
 | `/arc/projects/<project>` | yes, shared with the project group | team data and final products |
 | `$SCRATCH` (`/scratch`) | **no**: deleted when the session ends | downloads, caches, large intermediates |
-| `$SRCDIR` (usually `/scratch/src`) | **no** | the Studio working folder |
+| `$SRCDIR` (usually `/scratch/src`) | **no** | default working folder in AstroAI sessions |
 
 - Download archive data to `$SCRATCH`, not to `/arc/home` (quota).
 - Before the user leaves, copy results worth keeping to `/arc/projects/<project>` or
@@ -56,7 +56,8 @@ started by Skaha). Treat these facts as ground truth over general habits.
 
 ## Keys and tools
 
-- Model API keys are managed in the Studio hub (Agents page); never print key values.
+- Model API keys are managed in the AstroAI hub (the **AstroAI** chip, `/astroai-agents/`);
+  never print key values.
 - Commands run with the user's own permissions (full access is the CANFAR default:
   the OS sandbox would block archive network access and `/arc` reads). Never delete
   or overwrite files under `/arc` without asking.
