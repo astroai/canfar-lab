@@ -1,10 +1,12 @@
-"""Minimal MCP (Model Context Protocol) server over stdio for Ray cluster ops.
+"""Minimal MCP (Model Context Protocol) server over stdio for Ray cluster ops
+and astronomy data.
 
 Exposes cluster lifecycle, jobs, this session's own resources, and a
 markdown job report so agents can start workers, run programs, and report
 on them with the same functions as the CLI. Cluster tools need the
 canfar client. Job tools need Ray (a ray-manager image, or Ray in this
-venv).
+venv). Astronomy data tools (name resolution, TAP, CADC, VOSpace, ADS,
+arXiv) live in :mod:`canfar_workload.astro_data`.
 
 Transport: MCP stdio — newline-delimited JSON-RPC 2.0 messages on stdin/stdout.
 Deliberately zero-dependency (stdlib ``json`` only) to keep lean images lean;
@@ -19,6 +21,7 @@ import sys
 from typing import Any
 
 from canfar_workload import __version__
+from canfar_workload.astro_data import TOOLS as ASTRO_DATA_TOOLS
 from canfar_workload.cli import (
     cluster_start_payload,
     cluster_status_payload,
@@ -496,6 +499,7 @@ TOOLS: list[dict[str, Any]] = [
         "handler": _tool_jobs_report,
     },
 ]
+TOOLS += ASTRO_DATA_TOOLS
 
 _TOOL_BY_NAME = {t["name"]: t for t in TOOLS}
 

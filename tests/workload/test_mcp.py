@@ -54,7 +54,7 @@ def test_tools_list_exposes_cluster_and_job_tools() -> None:
     resp = handle_message(_rpc("tools/list"))
     names = [t["name"] for t in resp["result"]["tools"]]
     assert names[:4] == ["cluster_start", "cluster_status", "cluster_stop", "dashboard_url"]
-    assert names[4:] == [
+    assert names[4:12] == [
         "job_run",
         "job_submit",
         "job_status",
@@ -63,6 +63,17 @@ def test_tools_list_exposes_cluster_and_job_tools() -> None:
         "job_list",
         "session_resources",
         "jobs_report",
+    ]
+    assert names[12:] == [
+        "resolve_target",
+        "tap_services",
+        "tap_query",
+        "cadc_search",
+        "cadc_download",
+        "vospace_list",
+        "vospace_copy",
+        "ads_search",
+        "arxiv_search",
     ]
     for tool in resp["result"]["tools"]:
         assert "inputSchema" in tool
