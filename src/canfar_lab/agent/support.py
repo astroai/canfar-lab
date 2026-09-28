@@ -38,6 +38,7 @@ class Router:
     models: tuple[str, ...] = ()
     label: str = ""
     signup_url: str = ""
+    native: bool = False
 
     @property
     def provider_id(self) -> str:
@@ -191,6 +192,7 @@ def load_support() -> SupportCatalog:
                 models=_parse_model_ids(entry.get("models")),
                 label=str(entry.get("label") or ""),
                 signup_url=str(entry.get("signup_url") or ""),
+                native=bool(entry.get("native")),
             )
         )
     shared = tuple(

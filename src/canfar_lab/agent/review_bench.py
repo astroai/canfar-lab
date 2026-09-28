@@ -417,18 +417,28 @@ def ensure_provider_entry(
     providers = doc.setdefault("llm-pi-ai", {}).setdefault("providers", {})
     if not isinstance(providers, dict):
         providers = doc["llm-pi-ai"]["providers"] = {}
+    if router.native:
+        # Served by a dsh adapter of its own; an llm-pi-ai twin collides with it.
+        if router.provider_id in providers:
+            del providers[router.provider_id]
+            _write_settings(settings, doc)
+        return router.provider_id
     wanted = router.provider_entry(model_ids=model_ids)
     if not wanted.get("models") and router.hand_declared:
         return None
     if providers.get(router.provider_id) != wanted:
         providers[router.provider_id] = wanted
-        settings.parent.mkdir(parents=True, exist_ok=True)
-        backup = settings.with_suffix(settings.suffix + ".pre-astroai.bak")
-        if settings.is_file():
-            with contextlib.suppress(OSError):
-                shutil.copy2(settings, backup)
-        settings.write_text(yaml.safe_dump(doc, sort_keys=True), encoding="utf-8")
+        _write_settings(settings, doc)
     return router.provider_id
+
+
+def _write_settings(settings: Path, doc: dict) -> None:
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    backup = settings.with_suffix(settings.suffix + ".pre-astroai.bak")
+    if settings.is_file():
+        with contextlib.suppress(OSError):
+            shutil.copy2(settings, backup)
+    settings.write_text(yaml.safe_dump(doc, sort_keys=True), encoding="utf-8")
 
 
 def ensure_dsh_settings(

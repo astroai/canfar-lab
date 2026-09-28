@@ -1273,8 +1273,8 @@ def doctor(
         )
     )
 
-    routes = _settings_routes(home)
     available_keys = _available_keys(home)
+    routes = sorted({*_settings_routes(home), *_native_routes(available_keys)})
     checks.append(
         Check(
             name="providers",
@@ -1384,6 +1384,17 @@ def _unserviceable_routes() -> list[str]:
         return sorted(unserviceable_keys())
     except Exception:  # noqa: BLE001 — the doctor must never fail on a probe
         return []
+
+
+def _native_routes(available_keys: list[str]) -> list[str]:
+    """Keyed routes served by a dsh adapter of their own (not in settings.yaml)."""
+    try:
+        from canfar_lab.agent.support import load_support
+
+        routers = load_support().routers
+    except Exception:  # noqa: BLE001 — the doctor must never fail on a probe
+        return []
+    return [r.provider_id for r in routers if r.native and r.key in available_keys]
 
 
 def _settings_routes(home: Path) -> list[str]:

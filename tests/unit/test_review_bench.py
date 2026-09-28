@@ -248,5 +248,29 @@ def test_no_keys_still_seeds_provider_refs(tmp_path: Path, monkeypatch: pytest.M
     providers = doc["llm-pi-ai"]["providers"]
     assert providers["opencode-go"]["apiKeyEnv"] == "OPENCODE_API_KEY"
     assert providers["opencode-go"]["baseURL"] == "https://opencode.ai/zen/go/v1"
-    assert providers["deepseek-official"] == {"apiKeyEnv": "DEEPSEEK_API_KEY"}
+    assert "deepseek-official" not in providers  # dsh's own adapter serves it
     assert os.environ.get("OPENCODE_API_KEY") is None  # never leak into process env
+
+
+def test_native_deepseek_route_is_removed_from_llm_pi_ai(tmp_path: Path) -> None:
+    """A deepseek-official twin under llm-pi-ai collides with dsh's llm-deepseek
+    adapter, and dsh then registers none of the llm-pi-ai routes."""
+    settings = tmp_path / ".dsh" / "settings.yaml"
+    settings.parent.mkdir(parents=True)
+    doc = {
+        "llm-pi-ai": {
+            "providers": {
+                "deepseek-official": {"apiKeyEnv": "DEEPSEEK_API_KEY"},
+                "my-gateway": {"apiKeyEnv": "X_KEY", "api": "openai-completions"},
+            }
+        },
+        "agent-default-model": {"provider": "deepseek-official", "model": "deepseek-flash"},
+    }
+    settings.write_text(yaml.safe_dump(doc), encoding="utf-8")
+    ensured = rb.ensure_dsh_settings(tmp_path, dry_run=False)
+    assert "deepseek-official" in ensured
+    after = yaml.safe_load(settings.read_text(encoding="utf-8"))
+    assert "deepseek-official" not in after["llm-pi-ai"]["providers"]
+    assert after["llm-pi-ai"]["providers"]["my-gateway"]["apiKeyEnv"] == "X_KEY"
+    assert after["agent-default-model"] == doc["agent-default-model"]
+    assert settings.with_suffix(".yaml.pre-astroai.bak").is_file()

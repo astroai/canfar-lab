@@ -37,6 +37,10 @@ routers:
     signup_url: https://platform.deepseek.com/api_keys
     key: DEEPSEEK_API_KEY
     dsh_route: deepseek-official
+    # dsh's own llm-deepseek adapter owns this route. Declaring it under
+    # llm-pi-ai as well is a route collision that makes dsh drop every
+    # llm-pi-ai route (only DeepSeek models left in the picker).
+    native: true
     notes: "Served by dsh's own DeepSeek adapter."
 
   - id: google

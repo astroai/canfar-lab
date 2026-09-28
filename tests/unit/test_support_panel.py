@@ -92,7 +92,7 @@ def test_ensure_settings_never_writes_model(
 
     doc = yaml.safe_load((tmp_path / ".dsh" / "settings.yaml").read_text(encoding="utf-8"))
     assert "agent-default-model" not in doc
-    assert doc["llm-pi-ai"]["providers"]["deepseek-official"] == {"apiKeyEnv": "DEEPSEEK_API_KEY"}
+    assert "deepseek-official" not in doc["llm-pi-ai"]["providers"]  # llm-deepseek owns it
 
 
 def test_resolve_key_health_is_read_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

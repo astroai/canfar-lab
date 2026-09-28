@@ -433,6 +433,16 @@ def test_doctor_reports_profile_state(home: Path, monkeypatch: pytest.MonkeyPatc
     assert report["fatal"] is False
 
 
+def test_doctor_counts_a_native_deepseek_route(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
+    monkeypatch.setattr(sp, "dsh_version", lambda *_: "0.1.5-rc.2")
+    monkeypatch.setattr(sp, "_available_keys", lambda _home: ["DEEPSEEK_API_KEY"])
+    report = sp.doctor(home, profile="laptop", probe_handshake=False, with_team=False)
+    providers = next(check for check in report["checks"] if check["name"] == "providers")
+    assert providers["ok"] is True
+    assert providers["detail"] == "deepseek-official"
+
+
 def test_doctor_flags_a_broken_composition(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
     monkeypatch.setattr(sp, "dsh_version", lambda *_: "0.1.5-rc.2")
