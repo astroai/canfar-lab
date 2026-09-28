@@ -1,6 +1,7 @@
 # OpenScience (synthetic-sciences/openscience) — registry entry.
-# AstroAI Studio bakes a CANFAR build into /opt/openscience (web workspace under
-# the Studio proxy); other images install the npm release for `openscience run`.
+# The AstroAI openscience session image bakes a CANFAR build into /opt/openscience
+# (web workspace behind the session proxy); other images install the npm release
+# for `openscience run`.
 id: openscience
 name: OpenScience
 homepage: https://github.com/synthetic-sciences/openscience
@@ -13,11 +14,20 @@ install:
 config:
   path: "~/.config/openscience/openscience.json"
   format: json
+  # Each of these alone unlocks models in OpenScience.
+  provider_keys:
+    - OPENROUTER_API_KEY
+    - OPENCODE_API_KEY
+    - DEEPSEEK_API_KEY
+    - GEMINI_API_KEY
+    - OPENAI_API_KEY
+    - ANTHROPIC_API_KEY
 verify:
   - "openscience --version"
   - "test -f ~/.config/openscience/openscience.json"
 plugins: [skill, mcp, config]
 notes: >-
-  Studio: OpenScience tab in the dock. Terminal: `openscience run "…"`. Uses the
-  model keys from the Studio hub; `canfar-lab agent setup` adds the astroai MCP
-  (Ray compute + CADC/VO data tools), a CANFAR primer and astronomy skills.
+  Launch the openscience session for the web workspace; elsewhere run
+  `openscience run "…"` in a terminal. Uses the model keys saved in the AstroAI
+  hub; `canfar-lab agent setup openscience` adds the astroai MCP (Ray compute +
+  CADC/VO data tools), a CANFAR primer and astronomy skills.

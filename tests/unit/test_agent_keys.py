@@ -53,6 +53,19 @@ def test_catalog_lists_openrouter_and_dsh_routes() -> None:
     assert all(row["label"] for row in rows.values())
 
 
+def test_openscience_is_listed_for_every_key_it_reads() -> None:
+    rows = {row["key"]: row for row in keys.catalog()}
+    for name in (
+        "OPENROUTER_API_KEY",
+        "OPENCODE_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "GEMINI_API_KEY",
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+    ):
+        assert rows[name]["used_by"].count("OpenScience") == 1, name
+
+
 def test_set_dsh_key_writes_both_stores_private_and_keeps_records(home: Path) -> None:
     creds = home / ".dsh" / ".credentials.yaml"
     creds.parent.mkdir()

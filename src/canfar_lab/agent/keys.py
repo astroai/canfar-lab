@@ -48,10 +48,12 @@ def catalog() -> list[dict[str, Any]]:
     used_by: dict[str, list[str]] = {}
     labels: dict[str, str] = {}
     for agent in load_registry():
-        key = (agent.get("config") or {}).get("provider_key")
-        if key:
-            used_by.setdefault(str(key), []).append(str(agent.get("name") or agent["id"]))
-            labels.setdefault(str(key), str(agent.get("name") or agent["id"]))
+        config = agent.get("config") or {}
+        name = str(agent.get("name") or agent["id"])
+        agent_keys = [config.get("provider_key"), *(config.get("provider_keys") or [])]
+        for key in dict.fromkeys(str(k) for k in agent_keys if k):
+            used_by.setdefault(key, []).append(name)
+            labels.setdefault(key, name)
 
     rows: list[dict[str, Any]] = []
     for shared in support.shared_keys:
