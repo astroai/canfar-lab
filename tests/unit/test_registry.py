@@ -661,6 +661,57 @@ def test_cli_agent_install_partial_failure_shows_summary(
     assert "not-an-agent" in result.output
 
 
+def test_cli_install_and_remove_update_the_remembered_agents(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from canfar_lab.agent.setup_state import remembered_agents
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr("canfar_lab.cli.agent_cmd._install_one_agent", lambda *a, **k: None)
+    monkeypatch.setattr("canfar_lab.agent.install.uninstall_tool", lambda *a, **k: [])
+    monkeypatch.setattr("canfar_lab.agent.registry.remove_registry_agent", lambda *a, **k: [])
+    assert runner.invoke(app, ["--json", "agent", "install", "kilo", "codex"]).exit_code == 0
+    assert remembered_agents(tmp_path) == ["kilo", "codex"]
+    assert runner.invoke(app, ["--json", "agent", "remove", "kilo"]).exit_code == 0
+    assert remembered_agents(tmp_path) == ["codex"]
+    assert runner.invoke(app, ["--json", "--dry-run", "agent", "remove", "codex"]).exit_code == 0
+    assert remembered_agents(tmp_path) == ["codex"]
+
+
+def test_cli_restore_reinstalls_only_missing_agents_without_touching_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from canfar_lab.agent.install import BINARY_SOURCE_MANAGED, BINARY_SOURCE_MISSING
+    from canfar_lab.agent.setup_state import remember_agent
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    for tool in ("kilo", "codex", "retired-agent"):
+        remember_agent(tmp_path, tool, installed=True)
+    present = {"codex"}
+    monkeypatch.setattr(
+        "canfar_lab.agent.install.classify_binary",
+        lambda binary, **_: {
+            "source": BINARY_SOURCE_MANAGED if binary in present else BINARY_SOURCE_MISSING
+        },
+    )
+    calls: list[tuple[str, bool]] = []
+    monkeypatch.setattr(
+        "canfar_lab.cli.agent_cmd._install_one_agent",
+        lambda tool, *, dry_run, setup=True: calls.append((tool, setup)),
+    )
+    result = runner.invoke(app, ["--json", "agent", "install", "--restore"])
+    assert result.exit_code == 0, result.output
+    assert calls == [("kilo", False)]  # codex is present; unknown ids are skipped
+    assert json.loads(result.stdout)["tool"] == "kilo"
+
+
+def test_cli_restore_with_nothing_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    result = runner.invoke(app, ["--json", "agent", "install", "--restore"])
+    assert result.exit_code == 0
+    assert json.loads(result.stdout) == {"ok": True, "tools": [], "results": [], "errors": []}
+
+
 def test_verify_setup_includes_registry_for_installed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

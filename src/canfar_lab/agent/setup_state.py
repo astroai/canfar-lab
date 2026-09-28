@@ -40,6 +40,32 @@ def log_path(home: Path | None = None) -> Path:
     return lab_state_dir(home) / "agent-setup.log"
 
 
+def installed_record_path(home: Path | None = None) -> Path:
+    """Agents the user installed; binaries live on $SCRATCH, this record on home."""
+    return lab_state_dir(home) / "installed-agents.json"
+
+
+def remembered_agents(home: Path | None = None) -> list[str]:
+    try:
+        data = json.loads(installed_record_path(home).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    ids = data.get("agents") if isinstance(data, dict) else None
+    return [a for a in ids if isinstance(a, str)] if isinstance(ids, list) else []
+
+
+def remember_agent(home: Path | None, agent_id: str, *, installed: bool) -> None:
+    ids = remembered_agents(home)
+    if installed == (agent_id in ids):
+        return
+    ids = [*ids, agent_id] if installed else [a for a in ids if a != agent_id]
+    from canfar_lab.utils.json_utils import atomic_write_text
+
+    path = installed_record_path(home)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(path, json.dumps({"agents": ids}, indent=1) + "\n")
+
+
 def lock_path(home: Path | None = None) -> Path:
     return lab_state_dir(home) / "agent-setup.lock"
 

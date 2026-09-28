@@ -1208,7 +1208,7 @@ def agent_verify_cmd(
         ui.print_ok("Agent setup OK")
 
 
-def _install_one_agent(tool: str, *, dry_run: bool) -> None:
+def _install_one_agent(tool: str, *, dry_run: bool, setup: bool = True) -> None:
     from canfar_lab.agent.registry import (
         get_registry_agent,
         install_registry_agent,
@@ -1225,7 +1225,7 @@ def _install_one_agent(tool: str, *, dry_run: bool) -> None:
 
     # Always seed config after a real install when the tool is registered
     # (TOOLS-backed agents like claude/cursor used to skip this).
-    if dry_run or agent is None:
+    if dry_run or agent is None or not setup:
         return
     setup = setup_registry_agent(tool, dry_run=False)
     if setup["errors"]:
@@ -1234,6 +1234,22 @@ def _install_one_agent(tool: str, *, dry_run: bool) -> None:
             f"Installed {tool}, but setup failed: {detail}",
             hint=f"Retry: canfar agent setup {tool}",
         )
+
+
+def _agents_to_restore() -> list[str]:
+    """Remembered agents whose CLI is not on this session's $SCRATCH."""
+    from canfar_lab.agent.install import BINARY_SOURCE_LEGACY, BINARY_SOURCE_MISSING
+    from canfar_lab.agent.registry import get_registry_agent
+    from canfar_lab.agent.setup_state import remembered_agents
+
+    missing = []
+    for tool in remembered_agents():
+        if get_registry_agent(tool) is None and tool not in agent_install.TOOLS:
+            continue
+        source = agent_install.classify_binary(agent_install.tool_binary(tool))["source"]
+        if source in (BINARY_SOURCE_MISSING, BINARY_SOURCE_LEGACY):
+            missing.append(tool)
+    return missing
 
 
 def _post_install_hint(tool: str) -> None:
@@ -1266,15 +1282,32 @@ def agent_install_cmd(
         list[str] | None,
         typer.Argument(help="Agent name(s) (see `agent list`).", autocompletion=_tool_completer),
     ] = None,
+    restore: Annotated[
+        bool,
+        typer.Option(
+            "--restore",
+            help="Reinstall agents installed in earlier sessions whose CLI is gone "
+            "(a new session starts with an empty $SCRATCH; configs stay on home).",
+        ),
+    ] = False,
 ) -> None:
     """Install AI coding CLI(s) to $SCRATCH/.local/bin (fast local disk).
 
     Examples:
       canfar agent install kilo
       canfar agent install agy omp pi freebuff
+      canfar agent install --restore
     """
     opts = get_opts(ctx)
     names = list(tools or [])
+    if restore:
+        names = [*names, *(n for n in _agents_to_restore() if n not in names)]
+        if not names:
+            if opts.json:
+                ui.print_json({"ok": True, "tools": [], "results": [], "errors": []})
+            elif not opts.quiet:
+                ui.print_ok("Nothing to restore: every remembered agent is installed.")
+            return
     if not names:
         if opts.json:
             ui.print_json(
@@ -1297,7 +1330,11 @@ def agent_install_cmd(
                     "Hermes bootstraps uv, Python, Node, and clones the agent repo — "
                     "often 5–15 minutes on CANFAR. Installer output streams below."
                 )
-            _install_one_agent(tool, dry_run=opts.dry_run)
+            _install_one_agent(tool, dry_run=opts.dry_run, setup=not restore)
+            if not opts.dry_run:
+                from canfar_lab.agent.setup_state import remember_agent
+
+                remember_agent(None, tool, installed=True)
         except LabError as exc:
             results.append(
                 {
@@ -1392,6 +1429,10 @@ def agent_remove_cmd(
             results = remove_registry_agent(
                 tool, purge=purge, clean_home=clean_home, dry_run=opts.dry_run
             )
+        if not opts.dry_run:
+            from canfar_lab.agent.setup_state import remember_agent
+
+            remember_agent(None, tool, installed=False)
     except LabError as exc:
         if opts.json:
             ui.print_json(
