@@ -14,7 +14,7 @@ metadata:
 ```sql
 SELECT TOP 2000 g.source_id, g.ra, g.dec, g.parallax, g.parallax_error,
        g.parallax_over_error, g.pmra, g.pmdec, g.ruwe, g.phot_g_mean_mag, g.bp_rp,
-       g.radial_velocity, g.nu_eff_used_in_astrometry, g.pseudocolour, g.ecl_lat,
+       g.phot_bp_rp_excess_factor, g.radial_velocity, g.nu_eff_used_in_astrometry, g.pseudocolour, g.ecl_lat,
        g.astrometric_params_solved, d.r_med_geo, d.r_lo_geo, d.r_hi_geo
 FROM gaiadr3.gaia_source AS g
 JOIN external.gaiaedr3_distance AS d USING (source_id)
@@ -34,12 +34,13 @@ magnitudes Vega, `r_*_geo` in **pc**.
 - `astrometric_params_solved`: 31 = 5-parameter, 95 = 6-parameter, 3 = position only
   (no parallax or proper motion).
 - Photometry near bright neighbours or in crowded fields: check
-  `phot_bp_rp_excess_factor` before trusting `bp_rp`.
+  `phot_bp_rp_excess_factor` (or its colour-corrected form C*, Riello et al. 2021)
+  before trusting `bp_rp`.
 
 ## Parallax zero-point
 
-DR3 parallaxes are too small by roughly 0.01–0.05 mas depending on magnitude, colour and
-ecliptic latitude (Lindegren et al. 2021). Correct them for 5/6-parameter solutions
+DR3 parallaxes are too small by typically 0.02–0.06 mas depending on magnitude, colour
+and ecliptic latitude (Lindegren et al. 2021). Correct them for 5/6-parameter solutions
 (`gaiadr3-zeropoint` package):
 
 ```python
@@ -48,12 +49,16 @@ import astropy.units as u
 from zero_point import zpt
 zpt.load_tables()
 z = zpt.get_zpt(t["phot_g_mean_mag"], t["nu_eff_used_in_astrometry"], t["pseudocolour"],
-                t["ecl_lat"], t["astrometric_params_solved"], _warnings=False)  # mas, negative
+                t["ecl_lat"], t["astrometric_params_solved"])  # mas, usually negative
 plx_corr = (np.asarray(t["parallax"]) - z) * u.mas   # corrected parallaxes grow
 ```
 
-The correction is calibrated for G ≈ 6–21; outside that, say so. It matters most for
-distant stars (at a 0.1 mas parallax it is a 10–50 % effect).
+The correction is calibrated for 6 < G < 21, 1.1 < ν_eff < 1.9 (5-parameter solutions)
+and 1.24 < pseudocolour < 1.72 (6-parameter solutions). Outside that range the package
+clamps to the edge value and warns; with `_warnings=False` it returns NaN instead, which
+propagates silently into `Distance` and `SkyCoord` — so keep warnings on, flag those
+sources and say so. The correction matters most for distant stars (at a 0.1 mas
+parallax it is a 20–60 % effect).
 
 ## Distances
 
@@ -77,6 +82,9 @@ c = SkyCoord(ra=t["ra"], dec=t["dec"], distance=Distance(parallax=plx_corr),
              pm_ra_cosdec=t["pmra"], pm_dec=t["pmdec"], obstime=Time(2016.0, format="jyear"))
 c_2000 = c.apply_space_motion(new_obstime=Time(2000.0, format="jyear"))
 ```
+
+`Distance(parallax=…)` raises on negative parallaxes: if the `parallax_over_error` cut is
+loosened, use `distance=t["r_med_geo"] * u.pc` instead.
 
 Check: Barnard's star moves ~10.4″/yr, about 166″ between J2000 and J2016.
 

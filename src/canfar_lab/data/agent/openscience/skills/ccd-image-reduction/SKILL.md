@@ -70,7 +70,8 @@ sci.write("reduced/sci_001.fits", overwrite=True)
 
 ## Checks
 
-- Master bias: mean near the overscan-corrected zero, noise ≈ readnoise/√N.
+- Master bias: mean near the overscan-corrected zero, noise ≈ 1.25 · (readnoise/gain)/√N
+  ADU for a median combine (readnoise/√N for a mean).
 - Master flat: normalised to ~1, no stars (use a dithered twilight/dome set with
   sigma-clipping), dust donuts expected.
 - Reduced science: flat sky across the chip (compare corner medians); sky level in e⁻

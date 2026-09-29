@@ -48,11 +48,13 @@ m0.write("mom0.fits")
 ```python
 from radio_beam import Beam
 beam = cube.beam                                  # from BMAJ/BMIN/BPA
-k_per_jy = beam.jtok(rest_freq)                   # K per Jy/beam (Rayleigh–Jeans)
+k_per_jy = beam.jtok(345.79599 * u.GHz)           # K per Jy/beam (Rayleigh–Jeans), at the line
 kcube = cube.to(u.K)                              # Jy/beam → K using the beam
 ```
 
 - Check: a 14″ beam at 345.8 GHz gives 0.0521 K per Jy/beam.
+- CASA/ALMA/VLA cubes often carry one beam per channel (`cube.beams`), where `cube.beam`
+  fails: convolve to `cube.beams.common_beam()` with `convolve_to` first.
 - Smooth cubes to a common beam before comparing lines or ratioing maps:
   `cube.convolve_to(Beam(20 * u.arcsec))`; regrid with `reproject` or
   `cube.spectral_interpolate` for the velocity axis.

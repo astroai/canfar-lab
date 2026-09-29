@@ -9,12 +9,13 @@ metadata:
 
 # Server-side cutouts (DataLink + SODA)
 
-A full CFHT MegaCam exposure is hundreds of MB (36 CCDs); a 1′ cutout is ~1 MB. Cut on
+A full CFHT MegaCam exposure is hundreds of MB (40 CCDs); a 1′ cutout is ~1 MB. Cut on
 the server.
 
 ## From ObsCore to a cutout
 
 ```python
+import os
 import astropy.units as u
 import pyvo
 
@@ -30,14 +31,17 @@ res = tap.run_sync("""
 row = res[0]
 dl = row.getdatalink()                    # semantics: #this, #cutout, #preview, #thumbnail
 cut = dl.get_first_proc().processed(circle=(10.6847 * u.deg, 41.2688 * u.deg, 1 * u.arcmin))
-with open(f"{scratch}/{row['obs_id']}_cut.fits", "wb") as f:
+with open(f"{os.environ['SCRATCH']}/{row['obs_id']}_cut.fits", "wb") as f:
     f.write(cut.read())
 ```
 
 - `access_format` `…content=datalink` means `access_url` is a DataLink document, not the
   file itself.
-- `processed()` also takes `range=` (energy/wavelength bounds, e.g. for cubes),
-  `polygon=` and `band=`; pass Quantities.
+- `processed()` also takes `band=` (two wavelength or frequency Quantities, e.g. a
+  spectral sub-range of a cube), `range=` (an RA/Dec box: lon_min, lon_max, lat_min,
+  lat_max) and `polygon=`; pass Quantities.
+- A record without a SODA service descriptor makes `processed()` fall back silently to
+  the full file: check the size before looping over many rows.
 - Multi-extension images return one HDU per detector the region touches (e.g. `ccd24`,
   `ccd25`): loop over image HDUs, each with its own WCS.
 - CADC ObsCore has no `energy_bandpassname`; select filters by `em_min`/`em_max`

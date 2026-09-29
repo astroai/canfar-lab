@@ -69,6 +69,7 @@ Shift one list by an offset much larger than the radius (e.g. 1′ in declinatio
 rematch; the number of matches is the chance-match count:
 
 ```python
+radius = 2 * u.arcsec                                   # the radius used for the real match
 c1_shift = c1.spherical_offsets_by(0 * u.arcmin, 1 * u.arcmin)
 _, d2s, _ = c1_shift.match_to_catalog_sky(c2)
 n_false = (d2s < radius).sum()

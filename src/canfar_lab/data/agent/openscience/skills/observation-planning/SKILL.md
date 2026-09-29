@@ -29,14 +29,17 @@ Resolve names with `astroai_resolve_target` and build the `SkyCoord` from its RA
 ## One night
 
 ```python
-t = Time("2026-11-15 00:00")                   # UTC
+t = Time("2026-11-15 22:00")   # UTC = local noon at CFHT; the next dusk opens the night of Nov 15
 dusk = obs.twilight_evening_astronomical(t, which="next")
 dawn = obs.twilight_morning_astronomical(dusk, which="next")
-transit = obs.target_meridian_transit_time(dusk, target, which="nearest")
+transit = obs.target_meridian_transit_time(dusk, target, which="next")
 altaz = obs.altaz(transit, target)             # altaz.alt, altaz.secz (airmass)
 ```
 
 Times are UTC `Time` objects; convert for the user with `.to_datetime(obs.timezone)`.
+Start from local noon so "the night of <date>" means that date's local evening, and
+check `dusk < transit < dawn` — otherwise the target transits in daylight and its best
+altitude that night is at dusk or dawn.
 
 ## Constraints and observability
 
@@ -47,7 +50,7 @@ from astroplan import (AltitudeConstraint, AirmassConstraint, AtNightConstraint,
 constraints = [AltitudeConstraint(30 * u.deg, 90 * u.deg), AirmassConstraint(2.0),
                AtNightConstraint.twilight_astronomical(),
                MoonSeparationConstraint(min=30 * u.deg)]
-table = observability_table(constraints, obs, targets, time_range=[dusk, dawn])
+table = observability_table(constraints, obs, [target], time_range=[dusk, dawn])
 ```
 
 For a semester, loop over nights (or use `months_observable`) and report the dates and

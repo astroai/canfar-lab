@@ -21,12 +21,13 @@ metadata:
 
 ```python
 import numpy as np
-from astropy.stats import sigma_clipped_stats
+from astropy.stats import sigma_clip
 
 m_inst = -2.5 * np.log10(counts / exptime)              # counts: background-subtracted
 d = m_ref - m_inst                                      # matched, unsaturated stars
-_, zp, zp_std = sigma_clipped_stats(d, sigma=3)
-zp_err = zp_std / np.sqrt(np.sum(np.isfinite(d)))
+c = sigma_clip(d, sigma=3)                              # masked: clipped and non-finite
+zp = np.ma.median(c)
+zp_err = 1.25 * c.std() / np.sqrt(c.count())            # 1.25: error of a median
 # with a colour term: d = zp + k * colour_ref  → fit a line (np.polyfit or astropy.modeling)
 ```
 

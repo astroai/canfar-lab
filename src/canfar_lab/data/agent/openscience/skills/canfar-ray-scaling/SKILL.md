@@ -21,8 +21,8 @@ metadata:
 ## Data must live where workers can read it
 
 - Workers are separate CANFAR sessions: they do **not** see this session's `$SCRATCH`.
-- Put inputs, scripts and outputs under `/arc/projects/<project>/…` or `$HOME`
-  (both mounted everywhere), or have each task fetch its own input (CADC/VOSpace/URL)
+- Put inputs, scripts and outputs under `/arc/projects/<project>/…` (`$HOME` only for
+  small outputs: it is quota-limited; both are mounted everywhere), or have each task fetch its own input (CADC/VOSpace/URL)
   to its own scratch and write only the result back to `/arc`.
 - `inputs` / `outputs` on `astroai_job_run` / `astroai_job_submit` record provenance on the
   job; they do not copy files.
@@ -37,13 +37,12 @@ metadata:
 3. Driver script pattern (`/arc/projects/<project>/runs/<run>/driver.py`):
 
    ```python
-   import os, pathlib, ray
+   import pathlib, ray
 
    ray.init()  # address comes from the job environment
 
    @ray.remote(num_cpus=1, memory=2 * 1024**3, max_retries=2)
    def process(path: str, out_dir: str) -> str:
-       os.environ.setdefault("OMP_NUM_THREADS", "1")   # one core per task
        out = pathlib.Path(out_dir) / (pathlib.Path(path).stem + ".csv")
        tmp = out.with_suffix(".tmp")
        ...  # analysis; write tmp
@@ -55,8 +54,9 @@ metadata:
    print(len(outs), "done")
    ```
 
-   Match `num_cpus`/`memory` to what one task really uses, and `OMP_NUM_THREADS` to
-   `num_cpus`, or tasks oversubscribe cores.
+   Match `num_cpus`/`memory` to what one task really uses. Ray sets `OMP_NUM_THREADS`
+   to `num_cpus` for each worker; setting it inside a task has no effect once numpy or
+   BLAS is loaded, so override it in the job environment if needed.
 4. `astroai_job_submit` (`cmd: "python driver.py"`, `cwd` on `/arc`, a readable `run_id`)
    for long runs, or `astroai_job_run` for short ones that you wait on.
 5. Follow with `astroai_job_status` / `astroai_job_logs`; summarise with
