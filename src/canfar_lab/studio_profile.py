@@ -418,7 +418,7 @@ def ensure_baked_plugins(
         return "would install baked plugins: " + ", ".join(missing)
     for package in _package_dirs(source):
         dest = dest_root / package.relative_to(source)
-        if not dest.exists():
+        if not os.path.lexists(dest):
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(package, dest, symlinks=True)
     return "installed baked plugins: " + ", ".join(missing)
