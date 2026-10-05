@@ -1,4 +1,4 @@
-# Installable via: astroai agent install qoder
+# Installable via: canfar lab agent install qoder
 id: qoder
 name: Qoder CLI
 homepage: https://qoder.ai

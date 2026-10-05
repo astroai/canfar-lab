@@ -1,4 +1,4 @@
-# Installable via: astroai agent install pi
+# Installable via: canfar lab agent install pi
 id: pi
 name: Pi Coding Agent
 homepage: https://github.com/earendil-works/pi

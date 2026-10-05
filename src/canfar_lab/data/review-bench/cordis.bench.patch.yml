@@ -1,6 +1,6 @@
 # dsh patch overlay — register the managed review-bench preset root.
 #
-# Installed by `astroai agent setup` to ~/.dsh/profiles/web/cordis.patch.yml.
+# Installed by `canfar lab agent setup` to ~/.dsh/profiles/web/cordis.patch.yml.
 # Legacy equivalent: ~/dsh/install.sh copies ~/dsh/cordis.bench.patch.yml
 # (which points at ~/dsh/presets) to the same target.
 # A patch row replaces the targeted row's WHOLE config (there is no deep merge), so the

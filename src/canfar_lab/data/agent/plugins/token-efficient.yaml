@@ -10,4 +10,4 @@ agents:
 - cursor
 install:
   type: bundled
-  note: Installed by astroai agent setup (cursor rules)
+  note: Installed by canfar lab agent setup (cursor rules)

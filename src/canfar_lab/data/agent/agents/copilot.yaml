@@ -1,4 +1,4 @@
-# Installable via: astroai agent install copilot
+# Installable via: canfar lab agent install copilot
 id: copilot
 name: GitHub Copilot CLI
 homepage: https://docs.github.com/en/copilot/github-copilot-in-the-cli

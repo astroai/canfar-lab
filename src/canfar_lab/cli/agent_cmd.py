@@ -348,12 +348,20 @@ from canfar_lab.cli.agent_format import (  # noqa: E402
     _print_interact,
 )
 from canfar_lab.cli.agent_install import (  # noqa: E402
-    _install_one_agent,  # noqa: F401  re-export; setup calls this via agent_cmd
     agent_install_cmd,
     agent_remove_cmd,
     agent_verify_cmd,
     agent_wipe_cmd,
 )
+
+
+def _install_one_agent(*args, **kwargs):  # noqa: E402
+    """Call the live installer so a patch of either module is visible."""
+    from canfar_lab.cli import agent_install as agent_install_mod
+
+    return agent_install_mod._install_one_agent(*args, **kwargs)
+
+
 from canfar_lab.cli.agent_keys import keys_app  # noqa: E402
 from canfar_lab.cli.agent_plugins import plugins_app  # noqa: E402
 from canfar_lab.cli.agent_setup import agent_setup_cmd, agent_update_cmd  # noqa: E402

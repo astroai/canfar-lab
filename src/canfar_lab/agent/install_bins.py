@@ -9,7 +9,6 @@ from pathlib import Path
 
 from canfar_lab.core.paths import npm_prefix_dir, user_bin_dir
 from canfar_lab.errors import LabError
-from canfar_lab.shell.session_env import resolve_session_env
 
 TOOLS = {
     "node": "Node.js + npm (baked into base image; pixi fallback)",
@@ -93,9 +92,16 @@ def _path_under(path: Path, root: Path) -> bool:
         return False
 
 
+def _resolve_session_env(*, ensure: bool = False):
+    """Use ``install.resolve_session_env`` so a test patch on that facade applies."""
+    from canfar_lab.agent import install as install_mod
+
+    return install_mod.resolve_session_env(ensure=ensure)
+
+
 def managed_bin_roots() -> list[Path]:
-    """Dirs where astroai owns agent CLIs (scratch / session, never $HOME)."""
-    session = resolve_session_env(ensure=False)
+    """Dirs where canfar-lab owns agent CLIs (scratch / session, never $HOME)."""
+    session = _resolve_session_env(ensure=False)
     # Include `_bin_dir()` / `_npm_prefix()` so test monkeypatches and the
     # live session resolver always agree on "managed".
     roots = [
@@ -344,7 +350,7 @@ def tool_on_path(name: str) -> bool:
     info = classify_binary(binary)
     if info["source"] != BINARY_SOURCE_MISSING:
         return True
-    session = resolve_session_env(ensure=False)
+    session = _resolve_session_env(ensure=False)
     candidates = [
         session.canfar_lab_bin_dir / binary,
         session.canfar_lab_npm_prefix / "bin" / binary,

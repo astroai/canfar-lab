@@ -1,4 +1,4 @@
-# Installable via: astroai agent install droid
+# Installable via: canfar lab agent install droid
 id: droid
 name: Factory Droid
 homepage: https://factory.ai

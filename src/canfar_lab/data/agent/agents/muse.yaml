@@ -1,5 +1,5 @@
 # Muse Code (Meta) — registry entry.
-# Installable via: astroai agent install muse
+# Installable via: canfar lab agent install muse
 id: muse
 name: Muse Code
 homepage: https://dev.meta.ai/docs/muse-code

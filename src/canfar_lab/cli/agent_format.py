@@ -102,7 +102,7 @@ def _print_status_table(
     if failed:
         ui.print_warn(f"  Last failure: {failed}")
     ui.print_hint("")
-    ui.print_hint("  Try:  agent install kilo && agent setup kilo && agent verify")
+    ui.print_hint("  Try:  canfar lab agent install kilo && canfar lab agent setup kilo")
     ui.print_hint("  Skills:  npx skills add astroai/canfar-skills")
     ui.print_hint("  More:  agent list --description   ·   agent plugins list")
     ui.print_hint("  Also:  agent list --supported   ·   agent setup --recommended")
@@ -173,7 +173,7 @@ def _print_plugins(
                 # summaries wrap instead of sitting under a 30-char id column.
                 ui.print_hint(f"               {summary}")
     ui.print_hint("")
-    ui.print_hint("  Try:  agent plugins install ray-manager-mcp")
+    ui.print_hint("  Try:  canfar lab agent plugins install ray-manager-mcp")
     ui.print_hint("  Skills:  npx skills add astroai/canfar-skills")
     ui.print_hint("  More:  agent plugins list --description   ·   agent list")
     ui.print_hint("  On: applied to an agent   Def: included in agent setup")

@@ -1,4 +1,4 @@
-# Installable via: astroai agent install freebuff
+# Installable via: canfar lab agent install freebuff
 id: freebuff
 name: Freebuff
 homepage: https://www.npmjs.com/package/freebuff

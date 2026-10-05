@@ -15,28 +15,28 @@ description: >-
 One CLI. Installed on AstroAI session images.
 
 ```bash
-astroai --help
+canfar lab --help
 ```
 
 Usual path: one autoscaling manager, then a job with `--cpus`.
 
 ```bash
-astroai cluster start
-astroai run train.py --cpus 2   # discovers the Running manager automatically
+canfar lab cluster start
+canfar lab run train.py --cpus 2   # discovers the Running manager automatically
 ```
 
 `cluster start` writes `~/.config/canfar/lab/ray-manager.env`, creates the
 manager if needed, and lets Ray add `ray-as-*` workers when the job needs
 CPUs. Same as AstroAI hub **Start batch compute**.
 
-Do not call `ray job submit`. The job command is `astroai run`.
+Do not call `ray job submit`. The job command is `canfar lab run`.
 
 ## Start the cluster
 
 ```bash
-astroai cluster start
-astroai cluster start --max-workers 8 --cores 2 --ram 8
-astroai cluster start --min-workers 1 --gpus 1 --timeout 1800
+canfar lab cluster start
+canfar lab cluster start --max-workers 8 --cores 2 --ram 8
+canfar lab cluster start --min-workers 1 --gpus 1 --timeout 1800
 ```
 
 Prints `export CANFAR_RAY_JOBS_ADDRESS=…` (optional override). Discovery is
@@ -52,10 +52,10 @@ re-run `cluster start` so the new manager sources the env file.
 ## Run a job
 
 ```bash
-astroai run train.py --cpus 2
-astroai jobs submit --cmd 'python -m mosaic.stack --in /arc/projects/g/in' --wait
-astroai jobs list
-astroai jobs logs <run-id>
+canfar lab run train.py --cpus 2
+canfar lab jobs submit --cmd 'python -m mosaic.stack --in /arc/projects/g/in' --wait
+canfar lab jobs list
+canfar lab jobs logs <run-id>
 ```
 
 `--input` / `--output` URIs are stored on the Ray job. They are not copied.
@@ -64,16 +64,16 @@ Put data on `/arc`. `/scratch` dies with the session.
 ## Check, stop, dashboard
 
 ```bash
-astroai cluster status
-astroai cluster stop       # destroys workers AND the manager
-astroai cluster dashboard           # Ray Dashboard URL (jobs, nodes, logs)
-astroai cluster dashboard iframe    # notebook / marimo
+canfar lab cluster status
+canfar lab cluster stop       # destroys workers AND the manager
+canfar lab cluster dashboard           # Ray Dashboard URL (jobs, nodes, logs)
+canfar lab cluster dashboard iframe    # notebook / marimo
 ```
 
 `joined: N / M` is the health number. `auth: ok` means CANFAR credentials
 are present.
 
-`astroai status` is session CPU/disk/quota, not the cluster. Use
+`canfar lab status` is session CPU/disk/quota, not the cluster. Use
 `cluster status` for the cluster.
 
 ## Rules for agents
@@ -82,7 +82,7 @@ are present.
    workers yourself.
 2. Prefer `--json` when you will parse. Plain text when showing the user.
 3. `start` is safe to call again. It does not create a second manager.
-4. After `start`, jobs are `astroai run` (or `astroai jobs submit --cmd`).
+4. After `start`, jobs are `canfar lab run` (or `canfar lab jobs submit --cmd`).
 5. Workers cost money. Idle autoscaled workers stop on their own. Offer
    `cluster stop` when the user is done.
 6. `start` already waits. If join is slow, give the user

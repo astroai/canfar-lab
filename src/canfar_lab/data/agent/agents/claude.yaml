@@ -1,4 +1,4 @@
-# Installable via: astroai agent install claude
+# Installable via: canfar lab agent install claude
 id: claude
 name: Claude Code
 homepage: https://docs.anthropic.com/en/docs/claude-code

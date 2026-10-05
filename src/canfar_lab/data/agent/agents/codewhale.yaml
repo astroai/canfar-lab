@@ -1,4 +1,4 @@
-# Installable via: astroai agent install codewhale
+# Installable via: canfar lab agent install codewhale
 id: codewhale
 name: CodeWhale
 homepage: https://github.com/Hmbown/CodeWhale

@@ -1,4 +1,4 @@
-# Installable via: astroai agent install agy
+# Installable via: canfar lab agent install agy
 id: agy
 name: Antigravity CLI
 homepage: https://antigravity.google

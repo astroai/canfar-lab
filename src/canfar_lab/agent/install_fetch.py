@@ -15,12 +15,12 @@ from canfar_lab.agent.install_bins import (
     BINARY_SOURCE_MISSING,
     _bin_dir,
     _path_under,
+    _resolve_session_env,
     _unlink_landing,
     classify_binary,
     clear_legacy_scratch_binary,
 )
 from canfar_lab.errors import LabError
-from canfar_lab.shell.session_env import resolve_session_env
 
 
 def _facade(name: str, local):
@@ -49,7 +49,7 @@ def _ensure_bin_dir() -> None:
 
 
 def _session_environ(extra: dict[str, str] | None = None) -> dict[str, str]:
-    merged = {**os.environ, **resolve_session_env(ensure=False).exports()}
+    merged = {**os.environ, **_resolve_session_env(ensure=False).exports()}
     if extra:
         merged.update(extra)
     return merged
@@ -418,7 +418,7 @@ def _copy_installer_siblings(src: Path) -> None:
 def _verify_cmd(cmd: str, *, extra_paths: list[Path] | None = None) -> None:
     if classify_binary(cmd)["source"] != BINARY_SOURCE_MISSING:
         return
-    session = resolve_session_env(ensure=False)
+    session = _resolve_session_env(ensure=False)
     candidates = [
         session.canfar_lab_bin_dir / cmd,
         session.canfar_lab_npm_prefix / "bin" / cmd,

@@ -1,4 +1,4 @@
-# Installable via: astroai agent install junie
+# Installable via: canfar lab agent install junie
 id: junie
 name: Junie
 homepage: https://junie.jetbrains.com/

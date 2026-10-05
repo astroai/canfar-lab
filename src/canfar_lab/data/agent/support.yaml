@@ -23,7 +23,7 @@ routers:
     # OpenCode Go gateway (not zen/v1 pay-as-you-go). Wrong host → INVALID_REQUEST
     # "Model is unavailable" even when the model id is right.
     base_url: https://opencode.ai/zen/go/v1
-    # Offline fallback only. `astroai studio --prepare` replaces this with
+    # Offline fallback only. `canfar lab studio --prepare` replaces this with
     # GET {base_url}/models whenever the endpoint is reachable.
     models:
       - deepseek-v4.1-flash

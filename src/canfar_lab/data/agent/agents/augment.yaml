@@ -1,4 +1,4 @@
-# Installable via: astroai agent install augment
+# Installable via: canfar lab agent install augment
 # Upstream CLI binary is `auggie` (Augment Code).
 id: augment
 name: Augment

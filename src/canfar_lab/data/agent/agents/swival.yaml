@@ -1,4 +1,4 @@
-# Installable via: astroai agent install swival
+# Installable via: canfar lab agent install swival
 id: swival
 name: Swival
 homepage: https://pypi.org/project/swival/

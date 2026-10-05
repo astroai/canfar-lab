@@ -1,4 +1,4 @@
-# Installable via: astroai agent install dsh
+# Installable via: canfar lab agent install dsh
 id: dsh
 name: DeepSeek Harness
 homepage: https://github.com/deepseek-ai/deepseek-harness
@@ -17,7 +17,7 @@ verify:
   - dsh --version
 plugins: [skill, mcp, config]
 notes: >-
-  Studio Team / review-bench via `astroai agent setup` into
+  Studio Team / review-bench via `canfar lab agent setup` into
   ~/.astroai/lab/review-bench and ~/.dsh/profiles/web/cordis.patch.yml.
-  Coding UI: `astroai studio` (own profile `astroai`, see docs/studio.md) or
-  image astroai/studio. Headless Team: `astroai panel run`.
+  Coding UI: `canfar lab studio` (own profile `astroai`, see docs/studio.md) or
+  image astroai/studio. Headless Team: `canfar lab panel run`.
