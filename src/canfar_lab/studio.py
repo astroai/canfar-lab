@@ -34,7 +34,7 @@ StudioProfile = Literal["laptop", "canfar"]
 #: Pinned harness version. Keep in sync with canfar-containers
 #: `dockerfiles/studio/Dockerfile` (ARG DSH_VERSION) and
 #: `src/canfar_lab/data/agent/agents/dsh.yaml`.
-DSH_VERSION = "0.1.5-rc.2"
+DSH_VERSION = "0.2.1-alpha.1"
 DSH_NPM = f"@deepseek-ai/dsh@{DSH_VERSION}"
 
 DEFAULT_PORT = 3080
@@ -216,6 +216,11 @@ def acknowledge_welcome_notice(home: Path, version: str | None) -> str | None:
     import yaml
 
     if not version:
+        return None
+    if sp.settings_yaml_imported(home):
+        patch = sp.studio_patch_path(home)
+        if sp.merge_patch_field(patch, "ui-settings-general", "welcomeNoticeVersion", version):
+            return f"dsh welcome notice acknowledged ({version})"
         return None
     settings = sp.dsh_home(home) / "settings.yaml"
     doc: dict[str, Any] = {}

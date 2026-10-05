@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from canfar_lab.errors import LabError
 from canfar_lab.studio_bundles import (
     baked_bundles,
@@ -39,7 +41,7 @@ from canfar_lab.studio_paths import (
     TEAM_BUNDLES,
     StateRoot,
     StudioProfile,
-    managed_bench_preset_root,
+    dsh_home,
     profile_dir,
     resolve_state_root,
 )
@@ -177,7 +179,6 @@ def mcp_row_yaml(command: tuple[str, ...]) -> str:
 
 
 def studio_layer_yaml(
-    home: Path,
     *,
     profile: StudioProfile,
     state: StateRoot,
@@ -185,17 +186,17 @@ def studio_layer_yaml(
     with_team: bool = True,
     market: bool = False,
     switches: Iterable[tuple[str, bool]] = (),
+    carried: str = "",
 ) -> str:
     """The profile's own ``cordis.patch.yml``.
 
     A patch row replaces the targeted row's **whole** config (there is no deep
     merge), so every field kept from the bundle layer is restated here. Each
     row below targets a row that exists in ``dsh-base`` or ``dsh-web-app`` at
-    dsh 0.1.5-rc.2; the doctor re-checks that with ``--dump-config``.
+    dsh 0.2.1; the doctor re-checks that with ``--dump-config``.
     ``switches`` are plugin on/off rows carried over from the previous file.
     """
     timeout_ms = PROFILE_BASH_TIMEOUT_SEC[profile] * 1000
-    keep = managed_bench_preset_root(home)
     layer_path = " → ".join(
         bundle_basename(name) for name in desired_bundles([], with_team=with_team)
     )
@@ -216,17 +217,13 @@ def studio_layer_yaml(
         lines.append(f"# WARNING: {state.note}")
     lines += [
         "",
-        "# ── agent preset roster ────────────────────────────────────────────────",
-        "# The row is inserted by dsh-web-app; the shipped standard/minimal/cordis/ptc",
-        "# presets stay (includeShippedRoot) and `$DSH_HOME/.agent-presets` still wins",
-        "# for user-authored copies (includeUserRoot). Studio Team lives under the",
-        "# managed review-bench preset root (ensure_review_bench installs it).",
-        "- id: agent-presets",
+        "# ── agent preset registry ──────────────────────────────────────────────",
+        "# dsh 0.2 replaced directory roots with declarative `@deepseek-ai/dsh-agent-preset`",
+        "# rows. A patch replaces the whole config, so `default` is restated and",
+        "# `roots` is not: the registry rejects that field and fails the profile.",
+        "- id: agent-preset-registry",
         "  config:",
         "    default: standard",
-        "    roots:",
-        f"      - path: {_yaml_scalar(str(keep))}",
-        "        trust: system",
         "",
         "# ── session storage ────────────────────────────────────────────────────",
         "# Session logs and the full-text index are append-heavy and unbounded, so",
@@ -279,7 +276,10 @@ def studio_layer_yaml(
         for row_id, disabled in switches:
             lines += [f"- id: {row_id}", f"  disabled: {'true' if disabled else 'false'}"]
         lines.append("")
-    return "\n".join(lines)
+    body = "\n".join(lines)
+    if carried.strip():
+        body = body.rstrip() + "\n\n" + carried.strip() + "\n"
+    return body
 
 
 def plugin_switches(text: str | None) -> list[tuple[str, bool]]:
@@ -292,6 +292,174 @@ def plugin_switches(text: str | None) -> list[tuple[str, bool]]:
         found.pop(row_id, None)
         found[row_id] = match.group(2) == "true"
     return list(found.items())
+
+
+# dsh 0.1.7+ persists Models and the welcome acknowledgement in the active
+# profile patch. A leftover settings.yaml is imported once and renamed.
+# --prepare rewrites this file, so those rows are copied forward.
+PRESERVED_CONFIG_IDS = ("llm-pi-ai", "ui-settings-general")
+
+
+def _split_patch(text: str) -> tuple[str, list[str]]:
+    lines = text.replace("\r\n", "\n").splitlines(keepends=True)
+    preamble: list[str] = []
+    blocks: list[list[str]] = []
+    current: list[str] | None = None
+    for line in lines:
+        if line.startswith("- "):
+            if current is not None:
+                blocks.append(current)
+            current = [line]
+        elif current is None:
+            preamble.append(line)
+        else:
+            current.append(line)
+    if current is not None:
+        blocks.append(current)
+    return "".join(preamble), ["".join(block) for block in blocks]
+
+
+def _block_id(block: str) -> str | None:
+    first = block.splitlines()[0] if block else ""
+    if not first.startswith("- id:"):
+        return None
+    return first.split(":", 1)[1].strip().strip("'\"")
+
+
+def _load_block(block: str) -> dict[str, Any] | None:
+    try:
+        loaded = yaml.safe_load(block)
+    except yaml.YAMLError:
+        return None
+    if isinstance(loaded, list) and loaded and isinstance(loaded[0], dict):
+        return loaded[0]
+    if isinstance(loaded, dict):
+        return loaded
+    return None
+
+
+def _render_row(row_id: str, config: dict[str, Any]) -> str:
+    text = yaml.safe_dump([{"id": row_id, "config": config}], sort_keys=False)
+    if not text.endswith("\n"):
+        text += "\n"
+    return text
+
+
+def preserved_config_rows(text: str | None) -> str:
+    """Profile-patch rows dsh owns, copied across a Studio regenerate."""
+    if not text or LAYER_MARK not in text:
+        return ""
+    _, blocks = _split_patch(text)
+    kept = [block.strip("\n") for block in blocks if _block_id(block) in PRESERVED_CONFIG_IDS]
+    if not kept:
+        return ""
+    header = (
+        "# ── settings carried across --prepare ────────────────────────────────\n"
+        "# dsh 0.1.7+ stores Models and the welcome acknowledgement in this file.\n"
+        "# Regenerating the layer keeps these rows.\n"
+    )
+    return header + "\n\n".join(kept) + "\n"
+
+
+def settings_yaml_imported(home: Path) -> bool:
+    """True once dsh has renamed ``settings.yaml`` to ``settings.yaml.imported``."""
+    return (dsh_home(home) / "settings.yaml.imported").is_file()
+
+
+def studio_patch_path(home: Path) -> Path:
+    return profile_dir(home) / PROFILE_PATCH_FILENAME
+
+
+def merge_llm_provider(path: Path, provider_id: str, entry: dict[str, Any] | None) -> bool:
+    """Merge one ``llm-pi-ai`` provider into a Studio patch. ``None`` deletes it.
+
+    A patch without the Studio banner is user-owned and is left alone. Returns
+    False when nothing changed or the existing row cannot be parsed.
+    """
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding="utf-8")
+    if LAYER_MARK not in text:
+        return False
+    preamble, blocks = _split_patch(text)
+    index = next((i for i, block in enumerate(blocks) if _block_id(block) == "llm-pi-ai"), None)
+    config: dict[str, Any] = {}
+    if index is not None:
+        row = _load_block(blocks[index])
+        if row is None:
+            return False
+        raw = row.get("config")
+        config = dict(raw) if isinstance(raw, dict) else {}
+    providers = config.get("providers")
+    providers = dict(providers) if isinstance(providers, dict) else {}
+    if entry is None:
+        if provider_id not in providers:
+            return False
+        del providers[provider_id]
+    elif providers.get(provider_id) == entry:
+        return False
+    else:
+        providers[provider_id] = entry
+    config["providers"] = providers
+    rendered = _render_row("llm-pi-ai", config)
+    if index is None:
+        blocks.append(rendered)
+    else:
+        blocks[index] = rendered
+    new = preamble + "".join(block if block.endswith("\n") else block + "\n" for block in blocks)
+    if new == text:
+        return False
+    path.write_text(new, encoding="utf-8")
+    return True
+
+
+def merge_patch_field(path: Path, row_id: str, field: str, value: str) -> bool:
+    """Set one config field on a Studio-owned patch row."""
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding="utf-8")
+    if LAYER_MARK not in text:
+        return False
+    preamble, blocks = _split_patch(text)
+    index = next((i for i, block in enumerate(blocks) if _block_id(block) == row_id), None)
+    config: dict[str, Any] = {}
+    if index is not None:
+        row = _load_block(blocks[index])
+        if row is None:
+            return False
+        raw = row.get("config")
+        config = dict(raw) if isinstance(raw, dict) else {}
+    if config.get(field) == value:
+        return False
+    config[field] = value
+    rendered = _render_row(row_id, config)
+    if index is None:
+        blocks.append(rendered)
+    else:
+        blocks[index] = rendered
+    new = preamble + "".join(block if block.endswith("\n") else block + "\n" for block in blocks)
+    if new == text:
+        return False
+    path.write_text(new, encoding="utf-8")
+    return True
+
+
+def llm_provider_ids_in_patch(home: Path) -> list[str]:
+    text = _read_text(studio_patch_path(home))
+    if not text:
+        return []
+    _, blocks = _split_patch(text)
+    for block in blocks:
+        if _block_id(block) != "llm-pi-ai":
+            continue
+        row = _load_block(block)
+        if not row:
+            return []
+        providers = (row.get("config") or {}).get("providers") or {}
+        if isinstance(providers, dict):
+            return sorted(str(name) for name in providers)
+        return []
+    return []
 
 
 def bundle_basename(name: str) -> str:
@@ -403,14 +571,15 @@ def plan_studio_profile(
     state = resolve_state_root(home, profile=profile, scratch=scratch, env=env)
     command = mcp_serve_command(astroai_bin=astroai_bin, home=home)
     previous = _read_text(directory / PROFILE_PATCH_FILENAME)
+    ours = bool(previous and LAYER_MARK in previous)
     layer = studio_layer_yaml(
-        home,
         profile=profile,
         state=state,
         command=command,
         with_team=with_team,
         market=MARKET_BUNDLE in bundles,
-        switches=plugin_switches(previous) if previous and LAYER_MARK in previous else (),
+        switches=plugin_switches(previous) if ours else (),
+        carried=preserved_config_rows(previous) if ours else "",
     )
 
     notes: list[str] = []
@@ -419,7 +588,7 @@ def plan_studio_profile(
     if not with_team:
         notes.append(
             "Team layers are off (--no-team): the roster, durable mailbox and "
-            "shared task board stay unavailable; the Studio Team preset still works."
+            "shared task board stay unavailable."
         )
     # Baked plugins are copied by apply, never fetched.
     uninstalled = [name for name in uninstalled_bundles(directory, bundles) if name not in baked]

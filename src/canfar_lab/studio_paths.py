@@ -21,13 +21,13 @@ WEB_TEMPLATE_BUNDLES: tuple[str, ...] = (
     "@deepseek-ai/dsh-web-app",
 )
 
-#: Experimental Agent Teams layers. Order matters: the Host layer supplies the
-#: Team domain and its tools, the Web layer adds the roster/task-board UI on top
-#: of it, and both must follow ``dsh-web-app``.
-TEAM_BUNDLES: tuple[str, ...] = (
-    "@deepseek-ai/dsh-experimental-agent-team-profile",
-    "@deepseek-ai/dsh-experimental-agent-team-web-profile",
-)
+#: Experimental Agent Teams layer. As of dsh 0.2 the profile bundle depends on
+#: the roster UI itself; the old ``*-web-profile`` package stopped at 0.1.6.
+TEAM_BUNDLES: tuple[str, ...] = ("@deepseek-ai/dsh-experimental-agent-team-profile",)
+
+#: Bundles removed from the Studio order. Kept out of regenerated manifests so
+#: an upgrade does not keep installing a package this dsh no longer publishes.
+RETIRED_BUNDLES: tuple[str, ...] = ("@deepseek-ai/dsh-experimental-agent-team-web-profile",)
 
 #: Injects ``x-opencode-session`` for OpenCode Go (avoids 400 MissingSessionID).
 #: Vendored under ``data/studio/plugins/`` so CANFAR ``--no-install`` boots still
@@ -119,7 +119,7 @@ PROFILE_MANIFEST_FILENAME = "package.json"
 PROFILE_WORKSPACE_FILENAME = "pnpm-workspace.yaml"
 
 # Pin stays in sync with studio.DSH_VERSION / agents/dsh.yaml.
-DSH_INSTALL_HINT = "npm install -g @deepseek-ai/dsh@0.1.5-rc.2"
+DSH_INSTALL_HINT = "npm install -g @deepseek-ai/dsh@0.2.1-alpha.1"
 
 
 # ---------------------------------------------------------------------------

@@ -19,6 +19,7 @@ from canfar_lab.studio_bundles import (
 from canfar_lab.studio_layer import (
     _read_text,
     bundle_basename,
+    llm_provider_ids_in_patch,
     mcp_serve_command,
     read_bundles,
 )
@@ -299,7 +300,7 @@ def doctor(
             Check(
                 name="profile-layer-order",
                 ok=bundles == ordered,
-                detail="bundle order matches base → web-app → team host → team web"
+                detail="bundle order matches base → web-app → team → astroai extras"
                 if bundles == ordered
                 else f"expected {[bundle_basename(b) for b in ordered]}",
                 hint="`canfar lab studio --prepare` rewrites dsh.profile.bundles in order",
@@ -556,16 +557,18 @@ def _native_routes(available_keys: list[str]) -> list[str]:
 
 
 def _settings_routes(home: Path) -> list[str]:
-    """``llm-pi-ai`` route ids in ``$DSH_HOME/settings.yaml`` (best effort)."""
+    """``llm-pi-ai`` route ids in settings.yaml or the Studio profile patch."""
     import yaml
 
+    found = set(llm_provider_ids_in_patch(home))
     path = dsh_home(home) / "settings.yaml"
     text = _read_text(path)
-    if text is None:
-        return []
-    try:
-        doc = yaml.safe_load(text) or {}
-    except yaml.YAMLError:
-        return []
-    providers = (doc.get("llm-pi-ai") or {}).get("providers") or {}
-    return sorted(str(name) for name in providers) if isinstance(providers, dict) else []
+    if text is not None:
+        try:
+            doc = yaml.safe_load(text) or {}
+        except yaml.YAMLError:
+            doc = {}
+        providers = (doc.get("llm-pi-ai") or {}).get("providers") or {}
+        if isinstance(providers, dict):
+            found.update(str(name) for name in providers)
+    return sorted(found)

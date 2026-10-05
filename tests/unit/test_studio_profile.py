@@ -147,7 +147,8 @@ def test_layer_targets_the_rows_it_claims_and_parses(home: Path) -> None:
     doc = load_patch(plan.layer_yaml)
     assert isinstance(doc, list)
     rows = {row.get("id"): row for row in doc if isinstance(row, dict) and "id" in row}
-    assert rows["agent-presets"]["config"]["default"] == "standard"
+    assert rows["agent-preset-registry"]["config"]["default"] == "standard"
+    assert "roots" not in rows["agent-preset-registry"]["config"]
     assert rows["bash-sandbox"]["config"]["timeoutMs"] == 600_000
     assert rows["session-query-sqlite"]["config"]["openAt"] == "first-search"
     assert rows["session-persistence-jsonl"]["config"]["root"].endswith("/sessions")
@@ -164,14 +165,13 @@ def test_layer_targets_the_rows_it_claims_and_parses(home: Path) -> None:
     assert mcp["config"]["env"]["HOME"] == "process.env.HOME"
 
 
-def test_preset_roots_use_the_managed_bench(home: Path) -> None:
+def test_registry_row_does_not_use_retired_preset_roots(home: Path) -> None:
+    """dsh 0.2 rejects ``roots``; a directory preset root fails profile load."""
     plan = sp.plan_studio_profile(home, profile="laptop")
     doc = load_patch(plan.layer_yaml)
-    roots = next(row for row in doc if row.get("id") == "agent-presets")["config"]["roots"]
-    assert [r["path"] for r in roots] == [
-        str(sp.managed_bench_dir(home) / "presets"),
-    ]
-    assert all(r["trust"] == "system" for r in roots)
+    config = next(row for row in doc if row.get("id") == "agent-preset-registry")["config"]
+    assert config == {"default": "standard"}
+    assert "agent-presets" not in plan.layer_yaml
 
 
 def test_canfar_layer_routes_state_to_scratch(home: Path, tmp_path: Path) -> None:
@@ -230,12 +230,30 @@ def test_mcp_row_reads_env_at_boot_not_at_generate_time(home: Path) -> None:
     assert "!!js process.cwd()" in row
 
 
-def test_agent_presets_row_restates_the_fields_it_keeps(home: Path) -> None:
-    """A patch replaces the row's whole config, so required fields must be restated."""
+def test_agent_preset_registry_restates_default(home: Path) -> None:
+    """A patch replaces the row's whole config, so ``default`` must be restated."""
     plan = sp.plan_studio_profile(home, profile="laptop")
     doc = load_patch(plan.layer_yaml)
-    config = next(row for row in doc if row.get("id") == "agent-presets")["config"]
-    assert "default" in config and "roots" in config
+    config = next(row for row in doc if row.get("id") == "agent-preset-registry")["config"]
+    assert config["default"] == "standard"
+
+
+def test_prepare_keeps_dsh_settings_rows(home: Path) -> None:
+    directory = sp.profile_dir(home)
+    directory.mkdir(parents=True)
+    (directory / sp.PROFILE_PATCH_FILENAME).write_text(
+        f"{sp.LAYER_MARK}\n"
+        "- id: llm-pi-ai\n"
+        "  config:\n"
+        "    providers:\n"
+        "      openai:\n"
+        "        apiKeyEnv: OPENAI_API_KEY\n",
+        encoding="utf-8",
+    )
+    plan = sp.plan_studio_profile(home, profile="laptop")
+    doc = load_patch(plan.layer_yaml)
+    providers = next(row for row in doc if row.get("id") == "llm-pi-ai")["config"]["providers"]
+    assert providers["openai"]["apiKeyEnv"] == "OPENAI_API_KEY"
 
 
 # ── apply ───────────────────────────────────────────────────────────────────
@@ -415,7 +433,7 @@ def test_doctor_reports_a_missing_dsh_as_fatal(home: Path, monkeypatch: pytest.M
 
 def test_doctor_reports_profile_state(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.1.5-rc.2")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-alpha.1")
     monkeypatch.setattr("canfar_lab.studio_doctor.dump_config", lambda *a, **k: (0, "tree", ""))
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),
@@ -436,7 +454,7 @@ def test_doctor_reports_profile_state(home: Path, monkeypatch: pytest.MonkeyPatc
 
 def test_doctor_counts_a_native_deepseek_route(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.1.5-rc.2")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-alpha.1")
     monkeypatch.setattr(
         "canfar_lab.studio_doctor._available_keys", lambda _home: ["DEEPSEEK_API_KEY"]
     )
@@ -448,7 +466,7 @@ def test_doctor_counts_a_native_deepseek_route(home: Path, monkeypatch: pytest.M
 
 def test_doctor_flags_a_broken_composition(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.1.5-rc.2")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-alpha.1")
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),
         install_bundles=False,
@@ -529,7 +547,7 @@ def test_doctor_probes_the_baked_row_not_the_path(
     home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.1.5-rc.2")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-alpha.1")
     monkeypatch.setattr("canfar_lab.studio_doctor.dump_config", lambda *a, **k: (0, "tree", ""))
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),

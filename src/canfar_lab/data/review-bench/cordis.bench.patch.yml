@@ -1,21 +1,12 @@
-# dsh patch overlay — register the managed review-bench preset root.
+# dsh 0.2 removed directory preset roots. The registry row only accepts
+# `default`; a `roots` path or a patch against the old `agent-presets` id
+# fails profile load. This overlay restates the shipped default and does not
+# mount the review-bench composition. The bench tree is still installed under
+# ~/.astroai/lab/review-bench for its skills.
 #
-# Installed by `canfar lab agent setup` to ~/.dsh/profiles/web/cordis.patch.yml.
-# Legacy equivalent: ~/dsh/install.sh copies ~/dsh/cordis.bench.patch.yml
-# (which points at ~/dsh/presets) to the same target.
-# A patch row replaces the targeted row's WHOLE config (there is no deep merge), so the
-# `default` value is restated here rather than inherited. `includeShippedRoot` and
-# `includeUserRoot` stay at their defaults: the shipped standard/minimal/cordis/ptc
-# presets and any preset you author under ~/.dsh/.agent-presets keep working, and a
-# duplicate id in this root still loses to the shipped one.
-#
-# The row targeted here is inserted by the web-app bundle, so a profile that does not
-# mount it (headless, sdk, acp) is untouched — which is why this does not live in the
-# home-level $DSH_HOME/cordis.patch.yml. In dsh 0.1.5-rc.2 agent presets exist only in
-# the web profile; headless one-shots run the host-plane composition.
-- id: agent-presets
+# A patch row replaces the targeted row's whole config, so `default` is
+# restated. The row is inserted by dsh-web-app; profiles that do not mount it
+# ignore this file.
+- id: agent-preset-registry
   config:
     default: standard
-    roots:
-      - path: ~/.astroai/lab/review-bench/presets
-        trust: system

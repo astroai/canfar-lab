@@ -7,7 +7,7 @@ binary: dsh
 tags: [agent, cli]
 install:
   method: npm
-  source: "@deepseek-ai/dsh@0.1.5-rc.2"
+  source: "@deepseek-ai/dsh@0.2.1-alpha.1"
 config:
   path: "~/.dsh/settings.yaml"
   format: yaml

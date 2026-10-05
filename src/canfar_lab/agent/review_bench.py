@@ -27,7 +27,7 @@ from canfar_lab.agent.bundle_path import review_bench_root as _vendored_root
 from canfar_lab.agent.support import load_support
 from canfar_lab.errors import LabError
 
-DSH_VERSION = "0.1.5-rc.2"
+DSH_VERSION = "0.2.1-alpha.1"
 
 
 class PanelRouteHealth(TypedDict):
@@ -403,6 +403,25 @@ def ensure_provider_entry(
             return None
 
     if dry_run:
+        return router.provider_id
+
+    from canfar_lab.studio_layer import (
+        merge_llm_provider,
+        settings_yaml_imported,
+        studio_patch_path,
+    )
+
+    if settings_yaml_imported(home):
+        # Live store is the profile patch. Recreating settings.yaml would make
+        # the next dsh start import it again and replace the user's providers.
+        patch = studio_patch_path(home)
+        if router.native:
+            merge_llm_provider(patch, router.provider_id, None)
+            return router.provider_id
+        wanted = router.provider_entry(model_ids=model_ids)
+        if not wanted.get("models") and router.hand_declared:
+            return None
+        merge_llm_provider(patch, router.provider_id, wanted)
         return router.provider_id
 
     settings = home / ".dsh" / "settings.yaml"

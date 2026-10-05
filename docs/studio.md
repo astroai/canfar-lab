@@ -25,9 +25,8 @@ composition is ours to define:
 | Layer | What it brings |
 |---|---|
 | `dsh-base` + `dsh-web-app` | the shipped browser composition: chat, sessions, models, approvals, sandbox, KaTeX markdown |
-| `dsh-experimental-agent-team-profile` | the Agent Teams domain: roster, durable mailbox, shared task board *(opt-in upstream; no shipped profile enables it)* |
-| `dsh-experimental-agent-team-web-profile` | the roster, task board and teammate navigation in the browser |
-| the profile's own `cordis.patch.yml` | AstroAI storage routing, the managed preset root, the bash timeout, the `canfar lab mcp serve` row |
+| `dsh-experimental-agent-team-profile` | Agent Teams: roster, mailbox, task board, and the browser UI (folded into this bundle in dsh 0.2; the old web-profile package stopped at 0.1.6) |
+| the profile's own `cordis.patch.yml` | AstroAI storage routing, the preset registry default, the bash timeout, the `canfar lab mcp serve` row |
 
 Everything else comes from upstream and is deliberately not re-implemented:
 
@@ -36,8 +35,9 @@ Everything else comes from upstream and is deliberately not re-implemented:
   GFM so incomplete TeX never flashes a KaTeX error.
 - **Models and providers** — **Settings → Models** adds a built-in or custom
   provider, discovers its models, and stores the key in
-  `$DSH_HOME/.credentials.yaml` while every other knob lives in
-  `$DSH_HOME/settings.yaml`. Changes apply on the next request, no restart.
+  `$DSH_HOME/.credentials.yaml`. From dsh 0.1.7 the other knobs live in the
+  active profile patch (`cordis.patch.yml`); a leftover `settings.yaml` is
+  imported once and renamed. Changes apply on the next request, no restart.
 - **Workflows** — dsh already ships the Workflow capability (a model-written
   orchestration script that starts subagents) and a Chat node that renders the
   run. Studio enables nothing extra for it.
@@ -228,7 +228,7 @@ check is fatal, so it doubles as a container smoke test.
 
 | Symptom | Cause |
 |---|---|
-| `No dsh executable found` | install it: `npm install -g @deepseek-ai/dsh@0.1.5-rc.2`. Never `npx -y @deepseek-ai/dsh …` — npm ≥ 10 swallows the launcher flags Studio depends on |
+| `No dsh executable found` | install it: `npm install -g @deepseek-ai/dsh@0.2.1-alpha.1`. Never `npx -y @deepseek-ai/dsh …` — npm ≥ 10 swallows the launcher flags Studio depends on |
 | `TEAM LAYERS UNAVAILABLE: no pnpm` | `dsh plugin` forwards to pnpm: `corepack enable pnpm`, then re-run `--prepare` |
 | Team layers off after a failed install | the manifest is rewritten without them so the profile still boots: fix the cause and re-run `--prepare` |
 | `--dump-config` fails | a declared bundle is not installed, or a patch row targets a row this dsh version no longer ships |

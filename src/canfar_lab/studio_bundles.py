@@ -15,6 +15,7 @@ from canfar_lab.studio_paths import (
     IN_BOX_BUNDLES,
     OPENCODE_SESSION_BUNDLE,
     PROFILE_MANIFEST_FILENAME,
+    RETIRED_BUNDLES,
     TEAM_BUNDLES,
     WEB_TEMPLATE_BUNDLES,
 )
@@ -52,6 +53,7 @@ def desired_bundles(
         if name not in wanted
         and (with_team or name not in TEAM_BUNDLES)
         and name not in ASTROAI_EXTRA_BUNDLES
+        and name not in RETIRED_BUNDLES
     ]
     return wanted + extras
 
