@@ -41,7 +41,6 @@ app.add_typer(agent_app, name="agent")
 app.add_typer(studio_app, name="studio")
 open_cmd.register(app)
 app.add_typer(panel_app, name="panel")
-app.add_typer(panel_app, name="review")
 app.add_typer(sync_app, name="sync")
 register_workload(app, jobs_as="jobs")
 

@@ -427,14 +427,12 @@ def test_cli_config_pi_seeds_settings(tmp_path: Path, monkeypatch: pytest.Monkey
 
 def test_cli_install_cline_runs_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Regression: install printed `agent config cline` but never wrote notes."""
-    from canfar_lab.cli import agent_cmd as agent_cmd_mod
-
     home = tmp_path / "home"
     bin_dir = tmp_path / "bin"
     home.mkdir()
     bin_dir.mkdir()
     monkeypatch.setenv("HOME", str(home))
-    monkeypatch.setattr(agent_cmd_mod, "user_bin_dir", lambda: bin_dir)
+    monkeypatch.setattr("canfar_lab.cli.agent_install.user_bin_dir", lambda: bin_dir)
     monkeypatch.setattr("canfar_lab.agent.install.refuse_if_home_owned", lambda *a, **k: None)
     monkeypatch.setattr(
         "canfar_lab.agent.registry._install_npm",

@@ -1,6 +1,6 @@
-# astroai usage
+# canfar lab usage
 
-**`astroai`** is the in-session CLI on AstroAI images
+**`canfar lab`** (standalone `canfar-lab`) is the in-session CLI on AstroAI images
 ([CANFAR Science Platform](https://www.opencadc.org/canfar/)).
 
 It does project environments (`init` / `save` / `resume`), the Ray cluster
@@ -19,7 +19,7 @@ It does project environments (`init` / `save` / `resume`), the Ray cluster
 | [cli.md](cli.md) | Flags and every command |
 | [config.md](config.md) | Optional `~/.astroai/lab/config.yaml` |
 
-In a session: `astroai help` · `less /opt/astroai/USAGE.md` (image user guide).
+In a session: `canfar lab help` · `less /opt/astroai/USAGE.md` (image user guide).
 
 Platform: [opencadc.github.io/canfar](https://opencadc.github.io/canfar/)
 
@@ -34,7 +34,7 @@ flowchart TB
     CF["canfar login / create / ps"]
   end
   subgraph session [AstroAI session]
-    AL[astroai]
+    AL["canfar lab"]
     PM[pixi / uv]
     NB[Jupyter / marimo]
     CADC[vcp / cadcget / …]
@@ -51,25 +51,25 @@ flowchart TB
 | Where | What you do | Tools |
 |-------|-------------|--------|
 | **Laptop / browser** | Log in, start and stop sessions | Science Portal, or `canfar login` / `create` / `ps` |
-| **Inside a session** | Code, notebooks, training, agents | `astroai`, Jupyter, pixi/uv, CADC clients |
+| **Inside a session** | Code, notebooks, training, agents | `canfar lab`, Jupyter, pixi/uv, CADC clients |
 
 ### Notebook-first
 
 1. [Science Portal](https://www.canfar.net/science-portal) → **notebook** or **marimo**.
-2. Jupyter: `/opt/astroai/notebooks/starter.ipynb` (kernel: `astroai kernel ensure`).
+2. Jupyter: `/opt/astroai/notebooks/starter.ipynb` (kernel: `canfar lab kernel ensure`).
 3. Marimo: `$WORK/notebooks/starter.py`.
-4. `astroai status` for paths and quotas.
-5. Keep results with `canfar data` or `vcp`. There is no `astroai` VOSpace wrapper.
+4. `canfar lab status` for paths and quotas.
+5. Keep results with `canfar data` or `vcp`. There is no `canfar lab` VOSpace wrapper.
 
 ---
 
 ## Install
 
-Images ship `astroai` on PATH (`/opt/astroai/venv/cadc`).
+Images ship `canfar-lab` on PATH (`/opt/astroai/venv/cadc`).
 
 ```bash
 uv tool install git+https://github.com/astroai/canfar-lab.git
-uv sync --all-extras && uv run astroai --help
+uv sync --all-extras && uv run canfar-lab --help
 ./scripts/ci.sh
 ```
 
@@ -83,21 +83,21 @@ restarts but **dies with the session**. Never put project code in
 `/arc/home` or `$HOME/.local`.
 
 Workers and new pods **do not** see another pod's `/scratch`. Pick an
-explicit propagation mode before `astroai run` / headless jobs:
+explicit propagation mode before `canfar lab run` / headless jobs:
 
 | Mode | What moves | When to use | How |
 |------|------------|-------------|-----|
-| **1. GitHub push → pull** | Source only (deps via pixi/uv on install) | Default for WIP on your fork | Push to `origin` (sfabbro fork). On the job/session: `astroai clone <fork/repo> --update` (ff-only to latest origin tip) or `--ref <branch\|sha>` to pin. Print SHA is the receipt. |
-| **2. `astroai save` / `resume`** | **Lockfiles (+ optional `.pixi`/`.venv` with `--full`)** — **not** your `.py` tree | Warm envs across sessions | `astroai save mylab [--full]`; next session `astroai resume mylab` then still need mode 1 (or shared `/arc`) for source. |
+| **1. GitHub push → pull** | Source only (deps via pixi/uv on install) | Default for WIP on your fork | Push to `origin` (sfabbro fork). On the job/session: `canfar lab clone <fork/repo> --update` (ff-only to latest origin tip) or `--ref <branch\|sha>` to pin. Print SHA is the receipt. |
+| **2. `canfar lab save` / `resume`** | **Lockfiles (+ optional `.pixi`/`.venv` with `--full`)** — **not** your `.py` tree | Warm envs across sessions | `canfar lab save mylab [--full]`; next session `canfar lab resume mylab` then still need mode 1 (or shared `/arc`) for source. |
 | **3. VOSpace tarball** | Source **and** usually need deps inside or a matching save | Share a frozen tree without git, or headless cold start | Pack under `vos:$USER/astroai/<name>.tar.zst` (or `arc:`), unpack into `$WORK` on the worker. You own the layout; CLI does not auto-pack yet. |
-| **4. Save + VOSpace (2+3)** | Env snapshot + code tarball | Reproducible headless: same env + same source blob | `astroai save mylab --full` to home/project; upload code tarball to `vos:$USER/astroai/`; job restores both into `$WORK`. |
+| **4. Save + VOSpace (2+3)** | Env snapshot + code tarball | Reproducible headless: same env + same source blob | `canfar lab save mylab --full` to home/project; upload code tarball to `vos:$USER/astroai/`; job restores both into `$WORK`. |
 
-**Same-session Ray jobs:** `astroai run train.py` packages the script's
+**Same-session Ray jobs:** `canfar lab run train.py` packages the script's
 directory as Ray `working_dir` (local tree). Still push/save before the
 session ends if you need the work later.
 
 **Secure "latest fork" (mode 1):** always `git push origin` from the
-interactive session, then on the consumer `astroai clone … --update`
+interactive session, then on the consumer `canfar lab clone … --update`
 (refuses dirty trees unless `--force`). Prefer `--ref <sha>` for pinned
 science runs.
 
@@ -105,34 +105,34 @@ science runs.
 # Interactive session
 cd "$WORK/torchsky"          # → /scratch/src/torchsky on CANFAR
 git push -u origin HEAD
-astroai save torchsky        # env only
+canfar lab save torchsky        # env only
 
 # New session / headless prelude
-astroai clone sfabbro/torchsky --update          # latest origin tip + SHA printed
-# or: astroai clone sfabbro/torchsky --ref abc1234
+canfar lab clone sfabbro/torchsky --update          # latest origin tip + SHA printed
+# or: canfar lab clone sfabbro/torchsky --ref abc1234
 pixi run python train.py
 ```
 
 ## First project
 
 ```bash
-astroai init mylab
+canfar lab init mylab
 cd "$WORK/mylab"
 pixi add numpy
 pixi run python -c "import numpy; print(numpy.__version__)"
-astroai save mylab
+canfar lab save mylab
 ```
 
 Clone (needs `gh auth login` once):
 
 ```bash
-astroai clone owner/repo
-astroai clone owner/a owner/b
-astroai clone --from-env mylab owner/repo
-astroai clone owner/repo --update              # refresh existing checkout
-astroai clone owner/repo --ref topic
-astroai clone owner/repo --dir ~/src           # persist on /arc/home
-astroai clone owner/repo --dir /arc/projects/mygroup
+canfar lab clone owner/repo
+canfar lab clone owner/a owner/b
+canfar lab clone --from-env mylab owner/repo
+canfar lab clone owner/repo --update              # refresh existing checkout
+canfar lab clone owner/repo --ref topic
+canfar lab clone owner/repo --dir ~/src           # persist on /arc/home
+canfar lab clone owner/repo --dir /arc/projects/mygroup
 ```
 
 `save` writes lockfiles to `~/.astroai/lab/saves/` on `/arc/home`. The next
@@ -151,9 +151,9 @@ propagation above).
 | Projects | `/arc/projects/<group>` | Persistent | Shared data and team saves |
 
 ```bash
-astroai status
-astroai status --all
-astroai clean --yes          # ~/.cache on home (not scratch caches)
+canfar lab status
+canfar lab status --all
+canfar lab clean --yes          # ~/.cache on home (not scratch caches)
 canfar data …
 vcp ./local.fits vos:…
 ```
@@ -166,24 +166,24 @@ Usual path: one autoscaling manager, then a job with `--cpus`. Same as
 AstroAI hub **Start batch compute**.
 
 ```bash
-astroai cluster start                # autoscaling head; Ray adds workers on demand
-astroai run train.py --cpus 2        # discovers the manager; --cpus spins a worker
-astroai cluster status
+canfar lab cluster start                # autoscaling head; Ray adds workers on demand
+canfar lab run train.py --cpus 2        # discovers the manager; --cpus spins a worker
+canfar lab cluster status
 ```
 
 Optional: `export CANFAR_RAY_JOBS_ADDRESS=…` overrides discovery (printed by
 `cluster start`; unnecessary in other sessions when a manager is Running).
 Inside the manager session the default is localhost.
 Size the ceiling with `--min-workers` / `--max-workers` / `--cores` / `--ram`
-/ `--gpus`. `astroai status` is this session's quota, not the cluster.
+/ `--gpus`. `canfar lab status` is this session's quota, not the cluster.
 
 ```bash
-astroai cluster stop                 # destroys workers AND the manager
-astroai cluster dashboard            # Ray Dashboard URL
-astroai jobs list
+canfar lab cluster stop                 # destroys workers AND the manager
+canfar lab cluster dashboard            # Ray Dashboard URL
+canfar lab jobs list
 ```
 
-Do not use `ray job submit`. The job command is `astroai run`.
+Do not use `ray job submit`. The job command is `canfar lab run`.
 Manager memory **≥8 GiB**. Shared data on `/arc`; `/scratch` is per-pod.
 More: [containers RAY.md](https://github.com/astroai/canfar-containers/blob/main/docs/RAY.md).
 
@@ -195,13 +195,13 @@ More: [containers RAY.md](https://github.com/astroai/canfar-containers/blob/main
 canfar login
 canfar create --name demo terminal
 canfar ps
-canfar open <session-id>
+canfar lab open <session-id>
 canfar delete <session-id>
 cadcget …
 vls vos:…
 ```
 
-`astroai status` includes `canfar auth show` and `canfar ps` when `canfar` is on PATH.
+`canfar lab status` includes `canfar auth show` and `canfar ps` when `canfar` is on PATH.
 
 ---
 
@@ -209,18 +209,18 @@ vls vos:…
 
 | Goal | Command |
 |------|---------|
-| Banner | `astroai` |
-| New project | `astroai init NAME` |
-| Clone + install | `astroai clone REPO` |
-| Snapshot env | `astroai save [NAME]` |
-| Restore env | `astroai resume NAME` |
-| This session’s quota | `astroai status` |
-| Free home space | `astroai clean` |
-| Start Ray cluster | `astroai cluster start` |
-| Is the cluster up? | `astroai cluster status` |
-| Run a job | `astroai run SCRIPT --cpus N` |
-| Jupyter kernel | `astroai kernel ensure` |
-| Agents | `astroai agent setup` / `install` / `verify` |
+| Banner | `canfar lab` |
+| New project | `canfar lab init NAME` |
+| Clone + install | `canfar lab clone REPO` |
+| Snapshot env | `canfar lab save [NAME]` |
+| Restore env | `canfar lab resume NAME` |
+| This session’s quota | `canfar lab status` |
+| Free home space | `canfar lab clean` |
+| Start Ray cluster | `canfar lab cluster start` |
+| Is the cluster up? | `canfar lab cluster status` |
+| Run a job | `canfar lab run SCRIPT --cpus N` |
+| Jupyter kernel | `canfar lab kernel ensure` |
+| Agents | `canfar lab agent setup` / `install` / `verify` |
 
 Flags: [cli.md](cli.md).
 
@@ -232,9 +232,9 @@ agent runtimes live: [concurrency.md](concurrency.md).
 ## Shell completion
 
 ```bash
-astroai --install-completion bash   # or zsh, fish
-astroai help -c "agent l"<TAB>
-astroai agent install <TAB>
+canfar-lab --install-completion bash   # or zsh, fish
+canfar lab help -c "agent l"<TAB>
+canfar lab agent install <TAB>
 ```
 
 ---
@@ -247,15 +247,15 @@ Agent configs stay on `/arc` home; CLI binaries install to `$SCRATCH/.local/bin`
 runtime DBs also use `$SCRATCH`.
 
 ```bash
-astroai agent list
-astroai agent install kilo
+canfar lab agent list
+canfar lab agent install kilo
 # CLIs land on $SCRATCH/.local/bin (override: CANFAR_LAB_BIN_DIR)
-astroai agent setup hermes
-astroai agent setup --all
+canfar lab agent setup hermes
+canfar lab agent setup --all
 npx skills add astroai/canfar-skills
-astroai agent plugins install ray-manager-mcp
-astroai agent update
-astroai agent verify --fix
+canfar lab agent plugins install ray-manager-mcp
+canfar lab agent update
+canfar lab agent verify --fix
 ```
 
 Skill packs (SKILL.md) install via **`npx skills`**, not AstroAI plugins. Example:
@@ -279,12 +279,12 @@ hash -r
 
 | Symptom | What to run |
 |---------|-------------|
-| Paths / caches under `$HOME` | `astroai env export` in a login shell (`bash -l`) |
-| Env save failed | `astroai status` (quota) |
-| Cluster not up | `astroai cluster status`, then `cluster start` |
-| Kernel missing | `astroai kernel ensure` |
+| Paths / caches under `$HOME` | `canfar lab env export` in a login shell (`bash -l`) |
+| Env save failed | `canfar lab status` (quota) |
+| Cluster not up | `canfar lab cluster status`, then `cluster start` |
+| Kernel missing | `canfar lab kernel ensure` |
 | `canfar` unknown | You are not on an AstroAI image |
-| All help | `astroai help` |
+| All help | `canfar lab help` |
 
 ---
 

@@ -11,10 +11,10 @@ SRC="${SRC:-$HOME/src}"
 # Space-separated org directory names under $SRC
 ORGS="${ORGS:-sfabbro opencadc astroai}"
 
-# Fast path: delegate to canfar sync if available, or canfar-lab sync
+# Fast path: delegate to canfar lab sync if available, or canfar-lab sync
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-if command -v canfar >/dev/null 2>&1 && canfar sync --help >/dev/null 2>&1 && [[ "$#" -eq 0 ]]; then
-    exec canfar sync --root "$SRC"
+if command -v canfar >/dev/null 2>&1 && canfar lab sync --help >/dev/null 2>&1 && [[ "$#" -eq 0 ]]; then
+    exec canfar lab sync --root "$SRC"
 elif command -v canfar-lab >/dev/null 2>&1 && canfar-lab sync --help >/dev/null 2>&1 && [[ "$#" -eq 0 ]]; then
     exec canfar-lab sync --root "$SRC"
 elif [[ -f "$SCRIPT_DIR/scripts/workspace-sync.py" && "$#" -eq 0 ]]; then

@@ -87,7 +87,7 @@ def test_canfar_ray_skill_lives_in_canfar_skills() -> None:
     if not skill.is_file():
         pytest.skip("canfar-skills fixture missing astroai-ray skill")
     text = skill.read_text(encoding="utf-8")
-    assert "astroai run" in text
+    assert "canfar lab run" in text
     assert "Do not call `ray job submit`" in text
     assert "cluster start" in text
 

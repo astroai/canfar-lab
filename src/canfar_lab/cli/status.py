@@ -96,7 +96,7 @@ def register(app: typer.Typer) -> None:
             canfar lab status --all
             canfar lab status --json
             canfar lab status -v
-            astroai --json status
+            canfar lab --json status
         """
         opts = merge_opts(ctx, json_output=json_output)
         timer = _status_timer(verbose and not opts.quiet)

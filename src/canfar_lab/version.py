@@ -13,7 +13,7 @@ from importlib.metadata import PackageNotFoundError, distribution
 from typing import Any
 
 # Marketing / pyproject version. Bump when the CLI contract changes.
-PACKAGE_VERSION = "0.6.0"
+PACKAGE_VERSION = "0.7.0"
 __version__ = PACKAGE_VERSION
 
 

@@ -5,7 +5,7 @@ laptops get it without cloning ``~/dsh``. Single source of truth remains
 ``~/dsh``; ``data/review-bench/`` is a build-time copy
 (``scripts/sync-review-bench.sh``).
 
-Layout after ``canfar agent setup``::
+Layout after ``canfar lab agent setup``::
 
     ~/.astroai/lab/review-bench/      # presets/ + skills/ + bin/ + validate.mjs
     ~/.dsh/profiles/web/cordis.patch.yml   # web preset root (idempotent)
@@ -514,13 +514,3 @@ def is_opencode_go_headless_error(message: str) -> bool:
         or ("opencode" in low and "session" in low and ("required" in low or "missing" in low))
         or ("zen" in low and "session" in low)
     )
-
-
-def panel_role_pins(router_id: str) -> dict[str, str]:
-    """Deprecated: astroai no longer presets per-role models (returns {})."""
-    return {}
-
-
-def extract_preset_role_models(root: Path | None = None) -> dict[str, str]:
-    """Deprecated: presets must not pin models (returns {})."""
-    return {}

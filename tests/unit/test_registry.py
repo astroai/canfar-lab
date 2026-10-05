@@ -605,7 +605,7 @@ def test_cli_agent_install_needs_name(tmp_path: Path, monkeypatch: pytest.Monkey
     result = runner.invoke(app, ["--json", "agent", "install"])
     assert result.exit_code == 0
     data = json.loads(result.stdout)
-    assert data["help"] == "canfar agent install NAME [NAME…]"
+    assert data["help"] == "canfar lab agent install NAME [NAME…]"
     assert "list" in data["try"]
 
 
@@ -667,7 +667,7 @@ def test_cli_install_and_remove_update_the_remembered_agents(
     from canfar_lab.agent.setup_state import remembered_agents
 
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setattr("canfar_lab.cli.agent_cmd._install_one_agent", lambda *a, **k: None)
+    monkeypatch.setattr("canfar_lab.cli.agent_install._install_one_agent", lambda *a, **k: None)
     monkeypatch.setattr("canfar_lab.agent.install.uninstall_tool", lambda *a, **k: [])
     monkeypatch.setattr("canfar_lab.agent.registry.remove_registry_agent", lambda *a, **k: [])
     assert runner.invoke(app, ["--json", "agent", "install", "kilo", "codex"]).exit_code == 0
@@ -696,7 +696,7 @@ def test_cli_restore_reinstalls_only_missing_agents_without_touching_config(
     )
     calls: list[tuple[str, bool]] = []
     monkeypatch.setattr(
-        "canfar_lab.cli.agent_cmd._install_one_agent",
+        "canfar_lab.cli.agent_install._install_one_agent",
         lambda tool, *, dry_run, setup=True: calls.append((tool, setup)),
     )
     result = runner.invoke(app, ["--json", "agent", "install", "--restore"])
@@ -847,7 +847,9 @@ def test_setup_registry_agent_post_install_opt_in(
     home = tmp_path / "home"
     home.mkdir()
     ran: list[str] = []
-    monkeypatch.setattr("canfar_lab.agent.registry._run_post_install", lambda cmd: ran.append(cmd))
+    monkeypatch.setattr(
+        "canfar_lab.agent.registry_lifecycle._run_post_install", lambda cmd: ran.append(cmd)
+    )
     # default: not run
     setup_registry_agent("openclaw", home=home)
     assert ran == []

@@ -37,7 +37,7 @@ def _agent_and_config(
 
     agent = get_registry_agent(agent_id)
     if agent is None:
-        raise LabError(f"Unknown agent: {agent_id}", hint="canfar agent list")
+        raise LabError(f"Unknown agent: {agent_id}", hint="canfar lab agent list")
     config = agent.get("config") or {}
     path = config.get("path")
     if not path:
@@ -46,7 +46,7 @@ def _agent_and_config(
             f"Agent {agent_id} has no managed config file in the lab registry",
             hint=(
                 f"Configure via `{binary}` itself (see {agent.get('homepage', 'upstream docs')}). "
-                f"Optional: canfar agent setup {agent_id}"
+                f"Optional: canfar lab agent setup {agent_id}"
             ),
         )
     home = home or Path.home()
@@ -138,7 +138,7 @@ def read_agent_config(agent_id: str, *, home: Path | None = None) -> tuple[Path,
     if not path.is_file():
         raise LabError(
             f"{agent_id} config not found: {path}",
-            hint=f"canfar agent setup {agent_id}",
+            hint=f"canfar lab agent setup {agent_id}",
         )
     if fmt == "markdown":
         return path, {}
@@ -201,7 +201,7 @@ def edit_agent_config(
     if not path.is_file():
         raise LabError(
             f"{agent_id} config not found: {path}",
-            hint=f"canfar agent setup {agent_id}",
+            hint=f"canfar lab agent setup {agent_id}",
         )
     text = path.read_text(encoding="utf-8")
     # Validate first — never write through a broken file.

@@ -71,13 +71,25 @@ def _(mo):
     import json
     import os
     import pathlib
+    import shutil
     import subprocess
+
+    def _lab_argv(*args: str) -> list[str]:
+        for name in ("canfar-lab", "astroai"):
+            if shutil.which(name):
+                return [name, *args]
+        image = pathlib.Path("/opt/astroai/venv/cadc/bin")
+        for name in ("canfar-lab", "astroai"):
+            path = image / name
+            if path.is_file():
+                return [str(path), *args]
+        return ["canfar-lab", *args]
 
     notes: list[str] = []
 
     # Apply scratch-backed caches even if the session missed profile hooks.
     try:
-        out = subprocess.check_output(["astroai", "env", "export"], text=True)
+        out = subprocess.check_output(_lab_argv("env", "export"), text=True)
         for line in out.splitlines():
             if line.startswith("export ") and "=" in line:
                 body = line[len("export ") :]
@@ -96,13 +108,13 @@ def _(mo):
         f"- **home** (keep tiny): `{pathlib.Path.home()}`",
         f"- **XDG_CACHE_HOME**: `{os.environ.get('XDG_CACHE_HOME', '(unset)')}`",
         f"- **OpenRouter key**: "
-        f"{'set (`OPENROUTER_API_KEY` / `~/.astroai/lab/.env`)' if os.environ.get('OPENROUTER_API_KEY') or (pathlib.Path.home() / '.astroai' / 'lab' / '.env').is_file() else 'missing — once: `export OPENROUTER_API_KEY=…` then `canfar agent setup marimo`'}",
+        f"{'set (`OPENROUTER_API_KEY` / `~/.astroai/lab/.env`)' if os.environ.get('OPENROUTER_API_KEY') or (pathlib.Path.home() / '.astroai' / 'lab' / '.env').is_file() else 'missing — once: `export OPENROUTER_API_KEY=…` then `canfar lab agent setup marimo`'}",
     ]
 
     # Banner JSON shows session paths and save count.
     try:
         proc = subprocess.run(
-            ["astroai", "--json"],
+            _lab_argv("--json"),
             check=False,
             capture_output=True,
             text=True,
@@ -113,9 +125,9 @@ def _(mo):
             lines.append(f"- **saves**: {banner.get('saves_count', '?')}")
         else:
             err = (proc.stderr or "").strip() or f"exit {proc.returncode}"
-            lines.append(f"- **astroai**: no output (`{err}`)")
+            lines.append(f"- **canfar-lab**: no output (`{err}`)")
     except Exception as exc:  # noqa: BLE001
-        lines.append(f"- **astroai**: skipped (`{exc}`)")
+        lines.append(f"- **canfar-lab**: skipped (`{exc}`)")
 
     # Surface existing projects under the session work root.
     markers = ("pyproject.toml", "pixi.toml", "environment.yml", ".git")
@@ -338,7 +350,7 @@ def _(mo, vc, vos_dest, vos_fetch_btn, vos_list_btn, vos_uri):
 def _(mo):
     mo.md(
         r"""
-### astroai (terminal)
+### canfar lab (terminal)
 
 Read-only checks run in **Session status** above. Mutating work stays in the
 **built-in terminal** (Ctrl + backtick):
@@ -364,9 +376,9 @@ canfar-lab save
 ```bash
 # once per user — stores key in ~/.astroai/lab/.env for marimo + agents
 export OPENROUTER_API_KEY=sk-or-v1-…
-canfar agent setup             # seeds marimo AI + agent configs
-canfar agent install kilo      # or goose, claude, opencode, codex, qoder
-canfar agent update
+canfar lab agent setup             # seeds marimo AI + agent configs
+canfar lab agent install kilo      # or goose, claude, opencode, codex, qoder
+canfar lab agent update
 ```
 
 Full reference: `canfar-lab help` · [astroai docs](https://github.com/astroai/canfar-lab)
@@ -385,7 +397,7 @@ Toolbar **AI** (or Cmd/Ctrl+Shift+E to refactor the current cell). Uses
 **OpenRouter**, same key as `astroai` agents (`~/.astroai/lab/.env` →
 `OPENROUTER_API_KEY`). You should not need to paste the key again into marimo.
 
-1. Once: `export OPENROUTER_API_KEY=…` then `canfar agent setup` (or `… marimo`).
+1. Once: `export OPENROUTER_API_KEY=…` then `canfar lab agent setup` (or `… marimo`).
 2. Open the AI sidebar; chat, agent mode, or generate cells from a prompt.
 3. Pass in-memory values with `@variable_name`. Models: `~/.marimo.toml`.
 """

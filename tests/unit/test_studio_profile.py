@@ -415,8 +415,8 @@ def test_doctor_reports_a_missing_dsh_as_fatal(home: Path, monkeypatch: pytest.M
 
 def test_doctor_reports_profile_state(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr(sp, "dsh_version", lambda *_: "0.1.5-rc.2")
-    monkeypatch.setattr(sp, "dump_config", lambda *a, **k: (0, "tree", ""))
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.1.5-rc.2")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dump_config", lambda *a, **k: (0, "tree", ""))
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),
         install_bundles=False,
@@ -436,8 +436,10 @@ def test_doctor_reports_profile_state(home: Path, monkeypatch: pytest.MonkeyPatc
 
 def test_doctor_counts_a_native_deepseek_route(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr(sp, "dsh_version", lambda *_: "0.1.5-rc.2")
-    monkeypatch.setattr(sp, "_available_keys", lambda _home: ["DEEPSEEK_API_KEY"])
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.1.5-rc.2")
+    monkeypatch.setattr(
+        "canfar_lab.studio_doctor._available_keys", lambda _home: ["DEEPSEEK_API_KEY"]
+    )
     report = sp.doctor(home, profile="laptop", probe_handshake=False, with_team=False)
     providers = next(check for check in report["checks"] if check["name"] == "providers")
     assert providers["ok"] is True
@@ -446,14 +448,13 @@ def test_doctor_counts_a_native_deepseek_route(home: Path, monkeypatch: pytest.M
 
 def test_doctor_flags_a_broken_composition(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr(sp, "dsh_version", lambda *_: "0.1.5-rc.2")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.1.5-rc.2")
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),
         install_bundles=False,
     )
     monkeypatch.setattr(
-        sp,
-        "dump_config",
+        "canfar_lab.studio_doctor.dump_config",
         lambda *a, **k: (1, "", "Cannot find module '@deepseek-ai/dsh-base'\nNode.js v24"),
     )
     report = sp.doctor(home, profile="laptop", probe_handshake=False, with_team=False)
@@ -528,8 +529,8 @@ def test_doctor_probes_the_baked_row_not_the_path(
     home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr(sp, "dsh_version", lambda *_: "0.1.5-rc.2")
-    monkeypatch.setattr(sp, "dump_config", lambda *a, **k: (0, "tree", ""))
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.1.5-rc.2")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dump_config", lambda *a, **k: (0, "tree", ""))
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),
         install_bundles=False,
@@ -537,14 +538,17 @@ def test_doctor_probes_the_baked_row_not_the_path(
     baked = sp.baked_mcp_command(home / ".dsh" / "profiles" / "astroai" / "cordis.patch.yml")
     assert baked is not None
     # Only now does the PATH resolve differently from what was baked in.
-    monkeypatch.setattr(sp, "mcp_serve_command", lambda **_: ("/stale/astroai", "mcp", "serve"))
+    monkeypatch.setattr(
+        "canfar_lab.studio_doctor.mcp_serve_command",
+        lambda **_: ("/stale/astroai", "mcp", "serve"),
+    )
     probed: list[tuple[str, ...]] = []
 
     def fake_probe(command: tuple[str, ...], **_: object) -> sp.McpProbe:
         probed.append(command)
         return sp.McpProbe(ok=True, server="astroai 0.5.0", tools=sp.CANFAR_MCP_TOOLS)
 
-    monkeypatch.setattr(sp, "probe_mcp_report", fake_probe)
+    monkeypatch.setattr("canfar_lab.studio_doctor.probe_mcp_report", fake_probe)
     sp.doctor(home, profile="laptop", probe_handshake=True, with_team=False)
     assert probed
     assert probed[0] == baked

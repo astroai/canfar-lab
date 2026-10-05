@@ -1,6 +1,6 @@
 #!/bin/bash
 # Session reminders and exit hooks for AstroAI lab (interactive shells only).
-# Home quota belongs in `astroai status`, not every prompt.
+# Home quota belongs in `canfar lab status`, not every prompt.
 
 __canfar_lab_state_dir() {
     echo "${CANFAR_LAB_CONFIG_DIR:-${HOME}/.astroai/lab}"
@@ -48,10 +48,10 @@ __canfar_lab_scratch_reminder() {
     fi
 
     if [[ -n "${_summary}" ]]; then
-        printf '\n  \033[1;33m⏳ %dh %dm (%s)\033[0m\n  → git push and astroai save (${WORK} is ephemeral)\n\n' \
+        printf '\n  \033[1;33m⏳ %dh %dm (%s)\033[0m\n  → git push and canfar lab save (${WORK} is ephemeral)\n\n' \
             "${_hours}" "${_mins}" "${_summary}"
     else
-        printf '\n  \033[1;33m⏳ %dh %dm — git push and astroai save (${WORK} is ephemeral)\033[0m\n\n' \
+        printf '\n  \033[1;33m⏳ %dh %dm — git push and canfar lab save (${WORK} is ephemeral)\033[0m\n\n' \
             "${_hours}" "${_mins}"
     fi
 

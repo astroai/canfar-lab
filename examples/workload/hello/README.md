@@ -1,14 +1,14 @@
 # First job
 
-Check that `astroai run` can start a program on a live cluster.
+Check that `canfar lab run` can start a program on a live cluster.
 
 1. AstroAI hub: **Start batch compute** (or portal: `ray-manager`, ≥8 GiB)
 2. Then:
 
 ```bash
-astroai cluster start
+canfar lab cluster start
 # CANFAR_RAY_JOBS_ADDRESS is discovered automatically when a manager is Running
-astroai run job.py --cpus 1
+canfar lab run job.py --cpus 1
 ```
 
 You should see `hello from ray` in the log. `run` waits until the job

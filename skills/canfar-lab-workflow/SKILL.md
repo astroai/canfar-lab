@@ -7,23 +7,24 @@ description: >-
 ---
 # AstroAI session on CANFAR
 
-**Names:** `canfar` = platform sessions/auth; `astroai` = in-session CLI
-(env, Ray jobs, agents). AstroAI = product; CANFAR = host platform.
+**Names:** `canfar` = platform sessions/auth; `canfar lab` (standalone
+`canfar-lab`) = in-session CLI (env, Ray jobs, agents). AstroAI = product;
+CANFAR = host platform.
 
 Detect CANFAR: `$HOME` is under `/arc/home/`, or `/scratch` + `/arc` mounts exist.
-When in doubt, run `astroai status --json` / `df -h` / `canfar info`.
+When in doubt, run `canfar lab status --json` / `df -h` / `canfar info`.
 
 ```bash
-astroai agent setup              # once per user — MCP + Cursor rules
+canfar lab agent setup              # once per user — MCP + Cursor rules
 npx skills add astroai/canfar-skills   # CANFAR platform skills
-astroai agent install codex      # public GitHub release — no gh login needed
-astroai agent install kilo       # or: goose, cline, opencode, cursor, …
+canfar lab agent install codex      # public GitHub release — no gh login needed
+canfar lab agent install kilo       # or: goose, cline, opencode, cursor, …
 gh auth login                    # only for GitHub MCP / private repos / git push
 ```
 
-Discover: `astroai agent list` · plugins: `astroai agent plugins list`  
-Refresh after upgrading lab: `astroai agent update`  
-Broken configs: `astroai agent verify` · `astroai agent verify --fix`
+Discover: `canfar lab agent list` · plugins: `canfar lab agent plugins list`  
+Refresh after upgrading lab: `canfar lab agent update`  
+Broken configs: `canfar lab agent verify` · `canfar lab agent verify --fix`
 
 ## CANFAR ecosystem (agents must know)
 
@@ -44,7 +45,7 @@ Deeper skills (install via `npx skills add astroai/canfar-skills`): `canfar-stor
 ```bash
 df -h /scratch /arc/home/$USER /arc/projects/* 2>/dev/null
 du -sh /arc/home/$USER/* 2>/dev/null | sort -h | tail
-astroai status --json          # quotas, projects, auth
+canfar lab status --json          # quotas, projects, auth
 ```
 
 Scratch full ≠ home quota ≠ project quota — diagnose with `df`/`du` before guessing.
@@ -108,13 +109,13 @@ Always: `export PYTHONNOUSERSITE=1` and `unset PYTHONPATH` in headless runners.
 
 ## Getting code onto jobs
 
-`/scratch` is **per-pod**. Same-session `astroai run` ships the script cwd via
+`/scratch` is **per-pod**. Same-session `canfar lab run` ships the script cwd via
 Ray `working_dir`. Cross-session / headless needs an explicit mode:
 
 | Mode | Moves | Command / convention |
 |------|-------|----------------------|
-| **1. Git push/pull** | Source | Push fork → `astroai clone <name> --update` (`--ref` pin; `--force` hard-reset) |
-| **2. save/resume** | Lockfiles / optional full env | `astroai save` → `astroai resume` (deps, **not** uncommitted source) |
+| **1. Git push/pull** | Source | Push fork → `canfar lab clone <name> --update` (`--ref` pin; `--force` hard-reset) |
+| **2. save/resume** | Lockfiles / optional full env | `canfar lab save` → `canfar lab resume` (deps, **not** uncommitted source) |
 | **3. VOSpace tarball** | Source (+ deps if packed) | `vos:$USER/astroai/*.tgz` → unpack under `$WORK` |
 | **4. 2+3** | Env + source | resume locks, unpack source tarball into `$WORK` |
 
@@ -123,9 +124,9 @@ Mode 1 defaults: bare name prefers **your GitHub user**, then `astroai/`.
 record it in job logs.
 
 ```bash
-astroai clone torchsky --update
-astroai clone sfabbro/torchsky --ref topic
-astroai clone --from-env mylab sfabbro/torchsky
+canfar lab clone torchsky --update
+canfar lab clone sfabbro/torchsky --ref topic
+canfar lab clone --from-env mylab sfabbro/torchsky
 # Prefer org layout (Mac mirror): move flat clones into $WORK/astroai/<name>
 mkdir -p "${WORK}/astroai" && mv "${WORK}/torchsky" "${WORK}/astroai/torchsky" 2>/dev/null || true
 ```
@@ -149,19 +150,16 @@ sync-keys check           # audit $HOME keys and storage hygiene
 
 ```bash
 # Launch batch job staging code directly into /scratch/src on the worker pod:
-canfar-job run --repo torchsky --cpu 8 --memory 32 -- pixi run python train.py
-canfar-job run --repo uspm --branch topic --gpu 1 -- pixi run pytest
-canfar-job logs <session-id> -f
+canfar lab jobs submit --cmd 'pixi run python train.py' --wait
 ```
 
 ## Autoscaling Ray cluster (Laptop or Session)
 
 ```bash
-# Start cluster with automatic worker provisioning:
-canfar-cluster start --min-workers 0 --max-workers 8 --cores 2 --ram 8 --open
-canfar-cluster status
-canfar-cluster dashboard --open
-canfar-cluster stop
+canfar lab cluster start --min-workers 0 --max-workers 8 --cores 2 --ram 8
+canfar lab cluster status
+canfar lab cluster dashboard
+canfar lab cluster stop
 ```
 
 ## Daily workflow (inside a CANFAR session)
@@ -176,7 +174,7 @@ ws-dirty                          # ensure all work is committed and pushed
 ws-sync                           # sync latest tips
 ```
 
-Global flags work before or after the subcommand: `astroai status --json`.
+Global flags work before or after the subcommand: `canfar lab status --json`.
 
 ## Storage (AstroAI layout)
 
@@ -184,14 +182,14 @@ Global flags work before or after the subcommand: `astroai status --json`.
 |------|------|
 | `${WORK}` (`$SCRATCH/src`) | Code + project `.pixi`/`.venv` — session-ephemeral |
 | `${SCRATCH}` | Data, download caches, runtime installs |
-| `/opt/astroai/venv/cadc` | Platform CLIs (`canfar`, `cadcget`, `astroai`) — session-writable |
+| `/opt/astroai/venv/cadc` | Platform CLIs (`canfar`, `cadcget`, `canfar-lab`) — session-writable |
 | `/arc/projects/<team>/.local` | Shared team tools (persistent) |
 | `/arc` (`$HOME`) | **Small only** — MCP, gh auth, lockfile saves |
 
 ```bash
 upgrade-cadc-tools.sh list
 upgrade-cadc-tools.sh --upgrade astroai-lab
-astroai status --json
+canfar lab status --json
 ```
 
 Optional: `${WORK}/.astroai-lab/pythonpath` or `ASTROAI_LAB_PYTHONPATH`.
@@ -201,7 +199,7 @@ Optional: `${WORK}/.astroai-lab/pythonpath` or `ASTROAI_LAB_PYTHONPATH`.
 ```bash
 rg 'pattern' --type py
 fd name
-sg -p 'class $N' -l py          # astroai agent plugins install ast-grep-cli
+sg -p 'class $N' -l py          # canfar lab agent plugins install ast-grep-cli
 pixi run pytest -q
 peek README.md
 ```
@@ -209,10 +207,10 @@ peek README.md
 ## Help
 
 ```bash
-astroai help
-astroai cluster status
-astroai status --json
-astroai save --list --json
-astroai agent list
+canfar lab help
+canfar lab cluster status
+canfar lab status --json
+canfar lab save --list --json
+canfar lab agent list
 less /opt/astroai/USAGE.md
 ```

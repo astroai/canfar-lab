@@ -1,4 +1,4 @@
-"""Golden CLI contract for `astroai agent` (lean surface).
+"""Golden CLI contract for `canfar lab agent` (lean surface).
 
 Pins the exact registered verb surface so accidental growth fails loudly.
 """
@@ -83,8 +83,8 @@ def test_agent_bare_is_minimal() -> None:
     result = runner.invoke(app, ["agent"])
     assert result.exit_code == 0
     out = result.stdout + result.stderr
-    assert "canfar agent --help" in out
-    assert "canfar agent list" in out
+    assert "canfar lab agent --help" in out
+    assert "canfar lab agent list" in out
     assert "agent install kilo" not in out
     assert "list config" not in out
 
@@ -93,7 +93,7 @@ def test_agent_bare_json_points_at_help() -> None:
     result = runner.invoke(app, ["--json", "agent"])
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
-    assert payload["help"] == "canfar agent --help"
+    assert payload["help"] == "canfar lab agent --help"
     assert "list" in payload["try"]
 
 

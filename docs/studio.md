@@ -6,11 +6,11 @@ One command on a laptop, the contributed `astroai/studio` session image on
 CANFAR, the same composition either way.
 
 ```bash
-astroai studio                    # cwd, laptop profile
-astroai studio ~/src/astroai/torchsky --port 3080
-astroai studio --prepare          # provision everything, launch nothing
-astroai studio --doctor           # pre-flight every dependency, exit
-astroai studio --skills           # skills.sh / agentskills onboarding
+canfar lab studio                    # cwd, laptop profile
+canfar lab studio ~/src/astroai/torchsky --port 3080
+canfar lab studio --prepare          # provision everything, launch nothing
+canfar lab studio --doctor           # pre-flight every dependency, exit
+canfar lab studio --skills           # skills.sh / agentskills onboarding
 ```
 
 The CANFAR image and its Skaha proxy are documented in
@@ -27,7 +27,7 @@ composition is ours to define:
 | `dsh-base` + `dsh-web-app` | the shipped browser composition: chat, sessions, models, approvals, sandbox, KaTeX markdown |
 | `dsh-experimental-agent-team-profile` | the Agent Teams domain: roster, durable mailbox, shared task board *(opt-in upstream; no shipped profile enables it)* |
 | `dsh-experimental-agent-team-web-profile` | the roster, task board and teammate navigation in the browser |
-| the profile's own `cordis.patch.yml` | AstroAI storage routing, the managed preset root, the bash timeout, the `astroai mcp serve` row |
+| the profile's own `cordis.patch.yml` | AstroAI storage routing, the managed preset root, the bash timeout, the `canfar lab mcp serve` row |
 
 Everything else comes from upstream and is deliberately not re-implemented:
 
@@ -44,7 +44,7 @@ Everything else comes from upstream and is deliberately not re-implemented:
 
 ## Where things live
 
-`astroai studio --prepare` writes, idempotently:
+`canfar lab studio --prepare` writes, idempotently:
 
 ```
 $DSH_HOME/profiles/astroai/package.json        # manifest: dsh.profile.bundles IS the layer order
@@ -82,7 +82,7 @@ must outlive the session belongs under `/arc`:
 /scratch/...               # this session only: state, caches, working data
 ```
 
-Export a session you want to keep before shutting down; `astroai studio --doctor`
+Export a session you want to keep before shutting down; `canfar lab studio --doctor`
 reminds you with the resolved state path.
 
 ## Teams
@@ -129,7 +129,7 @@ dsh discovers skills from these roots, in precedence order:
 npx skills add astroai/canfar-skills    # 23 CANFAR platform skills
 ```
 
-`astroai studio --doctor` verifies discovery rather than trusting the install.
+`canfar lab studio --doctor` verifies discovery rather than trusting the install.
 
 ## Models and providers
 
@@ -141,7 +141,7 @@ installed catalog does not ship — currently OpenCode Go — as a hand-declared
 provider (protocol + Go endpoint). The models catalog is fetched live from
 ``GET {base_url}/models`` at ``--prepare`` time (yaml keeps a small offline
 fallback only). Provider/model *choice* stays yours in Settings → Models;
-astroai never writes `agent-default-model`.
+`canfar lab` never writes `agent-default-model`.
 
 Keys are **not** required before the session starts. Prepare only writes
 `apiKeyEnv` names (and the Go endpoint/models); the secret itself comes later
@@ -180,7 +180,7 @@ builds absolute `/api` URLs, which escape that prefix.
 
 ## Jobs and workloads
 
-The `astroai mcp serve` row gives a Studio session the same CANFAR tooling as the
+The `canfar lab mcp serve` row gives a Studio session the same CANFAR tooling as the
 CLI:
 
 | Tool | What it does |
@@ -196,10 +196,10 @@ board's `blockedBy` graph is the visible plan, and the submitted jobs are the
 execution. Check `session_resources` before promising throughput — an
 interactive session is capped, and heavy or GPU work belongs on the cluster.
 
-The row is written at `--prepare` time with the absolute path of the `astroai`
+The row is written at `--prepare` time with the absolute path of the `canfar-lab`
 that ran it, so it survives login nodes without the venv's `bin` on their
 `PATH`. That also means upgrading the CLI does not retarget an existing profile:
-re-run `astroai studio --prepare`, and confirm with `--doctor`, which handshakes
+re-run `canfar lab studio --prepare`, and confirm with `--doctor`, which handshakes
 the *baked* command in a **scrubbed environment** — no `PYTHONPATH`, exactly what
 the session gets — and fails the check if any CANFAR tool is missing. A row
 pointing at a CLI older than the one you installed shows up as `10 tool(s),
@@ -210,16 +210,16 @@ To run the row against a checkout whose CLI is ahead of the installed one
 `--prepare` runs keep it:
 
 ```bash
-astroai studio --prepare --mcp-bin ~/src/astroai/canfar-lab/.pixi/envs/default/bin/astroai
+canfar lab studio --prepare --mcp-bin ~/src/astroai/canfar-lab/.pixi/envs/default/bin/canfar-lab
 ```
 
 That writes `ASTROAI_STUDIO_MCP_BIN` to `~/.astroai/lab/.env`. Clearing the key
-restores the default (whatever `astroai` resolves to on `PATH`), which is what a
+restores the default (whatever `canfar-lab` resolves to on `PATH`), which is what a
 committed, upgraded CLI wants.
 
 ## Troubleshooting
 
-Run `astroai studio --doctor` first; it checks the harness binary, the profile
+Run `canfar lab studio --doctor` first; it checks the harness binary, the profile
 manifest and layer order, the composed tree (`dsh --profile astroai
 --dump-config`), the state root, the port, the MCP handshake and its tool
 inventory, skill discovery, the provider routes and the session's resource

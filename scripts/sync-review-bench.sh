@@ -48,7 +48,7 @@ preset.write_text(
     "  expert, devops, plot master, desloper, innovator, and devil's advocate —\n"
     "  blind round, cross-examination, evidence-gated verdicts. Coding agent is the\n"
     "  default Studio New session; pick this preset for Team review. Also:\n"
-    "  `astroai panel run` (headless).\n"
+    "  `canfar lab panel run` (headless).\n"
     "order: 10\n",
     encoding="utf-8",
 )

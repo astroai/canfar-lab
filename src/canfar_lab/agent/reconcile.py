@@ -1,6 +1,6 @@
 """Reconcile installed agent state with what this lab version ships.
 
-``canfar agent verify --fix`` runs this after the plain repairs.
+``canfar lab agent verify --fix`` runs this after the plain repairs.
 
 skills  Legacy cleanup only: skill trees that still carry an
         ``.astroai-managed`` marker (from when AstroAI installed skills)
@@ -214,7 +214,7 @@ def reconcile_all(
 def drift_issues(home: Path | None = None) -> list[str]:
     """Human-readable drift between installed state and this lab version.
 
-    Read-only (dry-run reconcilers). Used by ``canfar agent verify`` so
+    Read-only (dry-run reconcilers). Used by ``canfar lab agent verify`` so
     users see *what* ``verify --fix`` would reconcile before running it.
     """
     from canfar_lab.agent.agent_targets import AGENT_SKILL_DIRS

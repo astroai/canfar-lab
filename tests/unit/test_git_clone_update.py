@@ -1,4 +1,4 @@
-"""Tests for git helpers used by ``astroai clone --update``."""
+"""Tests for git helpers used by ``canfar lab clone --update``."""
 
 from __future__ import annotations
 

@@ -370,7 +370,7 @@ def install_plugin(
 
     plugin = get_plugin(plugin_id)
     if plugin is None:
-        raise LabError(f"Unknown plugin: {plugin_id}", hint="canfar agent plugins list")
+        raise LabError(f"Unknown plugin: {plugin_id}", hint="canfar lab agent plugins list")
     home = home or Path.home()
 
     def _run() -> list[PluginResult]:
@@ -506,7 +506,7 @@ def remove_plugin(
 
     plugin = get_plugin(plugin_id)
     if plugin is None:
-        raise LabError(f"Unknown plugin: {plugin_id}", hint="canfar agent plugins list")
+        raise LabError(f"Unknown plugin: {plugin_id}", hint="canfar lab agent plugins list")
     home = home or Path.home()
     with agent_setup_lock(home):
         return _remove_plugin_locked(plugin, agent=agent, home=home, dry_run=dry_run)
@@ -568,7 +568,7 @@ def configure_plugin(
     """
     plugin = get_plugin(plugin_id)
     if plugin is None:
-        raise LabError(f"Unknown plugin: {plugin_id}", hint="canfar agent plugins list")
+        raise LabError(f"Unknown plugin: {plugin_id}", hint="canfar lab agent plugins list")
     home = home or Path.home()
     selected = _selected_agents(plugin, agent)
     results: list[PluginResult] = []

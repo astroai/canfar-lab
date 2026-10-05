@@ -139,7 +139,7 @@ def test_cli_help_names_cluster_and_run() -> None:
     assert result.exit_code == 0
     out = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
     assert "cluster start" in out
-    assert "canfar run" in out
+    assert "canfar lab run" in out
 
 
 def test_cli_help_has_no_legacy_commands() -> None:

@@ -41,7 +41,7 @@ def config_show(
     Examples:
         canfar lab config show
         canfar lab config show --json
-        astroai --json config show
+        canfar lab --json config show
     """
     opts = merge_opts(ctx, json_output=json_output)
     settings = get_settings()

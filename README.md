@@ -1,10 +1,11 @@
-# astroai-lab
+# canfar-lab
 
-The **`astroai`** CLI you run *inside* an AstroAI session on the
-[CANFAR Science Platform](https://www.opencadc.org/canfar/).
+The **`canfar lab`** commands you run *inside* an AstroAI session on the
+[CANFAR Science Platform](https://www.opencadc.org/canfar/). The same tree is
+the standalone `canfar-lab` binary.
 
 Start and stop sessions with [`canfar`](https://github.com/opencadc/canfar)
-(or the Science Portal). Inside the session, `astroai` does three jobs:
+(or the Science Portal). Inside the session, `canfar lab` does three jobs:
 
 1. **Project env** — `init` / `clone` / `save` / `resume` (lockfiles on `/arc`)
 2. **Ray cluster** — `cluster start` / `status` / `run` / `jobs`
@@ -17,7 +18,7 @@ flowchart LR
     CanfarCLI["canfar login / create"]
   end
   subgraph session [AstroAI session]
-    Lab["astroai"]
+    Lab["canfar lab"]
     Tools["pixi / uv / Jupyter / CADC / Ray"]
   end
   Portal --> session
@@ -30,7 +31,7 @@ flowchart LR
 | **AstroAI** | Product: GitHub [`astroai`](https://github.com/astroai), Harbor `astroai` |
 | **CANFAR** | Host platform: portal, Skaha, `/arc`, auth |
 | **`canfar`** | Platform CLI — sessions and `canfar data` |
-| **`astroai`** | This package, inside a session |
+| **`canfar lab` / `canfar-lab`** | This package, inside a session |
 | **`images.canfar.net/astroai/*`** | Session images |
 
 Images: [canfar-containers](https://github.com/astroai/canfar-containers).
@@ -38,35 +39,35 @@ Images: [canfar-containers](https://github.com/astroai/canfar-containers).
 ## Inside a session
 
 ```bash
-astroai                         # status banner
-astroai init mylab              # or: clone owner/repo
-astroai save                    # lockfile snapshot to /arc
-astroai resume mylab
-astroai status                  # quotas, sessions (not the Ray cluster)
+canfar lab                      # status banner
+canfar lab init mylab           # or: clone owner/repo
+canfar lab save                    # lockfile snapshot to /arc
+canfar lab resume mylab
+canfar lab status                  # quotas, sessions (not the Ray cluster)
 
-astroai cluster start
-astroai cluster status
-astroai run train.py --cpus 2
+canfar lab cluster start
+canfar lab cluster status
+canfar lab run train.py --cpus 2
 
-astroai kernel ensure
-astroai agent setup
+canfar lab kernel ensure
+canfar lab agent setup
 ```
 
-`astroai status` is this session’s CPU/disk/quota. `astroai cluster status`
-is whether the Ray cluster is up. `astroai cluster stop` tears down workers
+`canfar lab status` is this session’s CPU/disk/quota. `canfar lab cluster status`
+is whether the Ray cluster is up. `canfar lab cluster stop` tears down workers
 and the manager.
 
-Help: `astroai help` · one command: `astroai help -c cluster` · cheat sheet:
+Help: `canfar lab help` · one command: `canfar lab help -c cluster` · cheat sheet:
 [docs/help.md](docs/help.md)
 
 ## Install
 
-Session images already put `astroai` on PATH.
+Session images put `canfar-lab` on PATH (`canfar lab` when the platform CLI is installed).
 
 ```bash
 pipx install git+https://github.com/astroai/canfar-lab.git
 # or: pip install "git+https://github.com/astroai/canfar-lab.git"
-pixi install && pixi run astroai --help   # checkout
+pixi install && pixi run canfar-lab --help   # checkout
 ```
 
 ## Docs

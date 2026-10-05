@@ -583,7 +583,7 @@ def write_manager_autoscaling_env(
     ]
     # Manager image ships stock canfar_workload; point PYTHONPATH at a
     # checked-out tree on /arc so create_node hard-cap / idle fixes load.
-    # CANFAR_LAB_PYTHONPATH is merged by `astroai env export` (profile boot).
+    # CANFAR_LAB_PYTHONPATH is merged by `canfar lab env export` (profile boot).
     workload_src = (os.environ.get("ASTROAI_WORKLOAD_SRC") or "").strip()
     if workload_src:
         src_path = f"{workload_src.rstrip('/')}/src"

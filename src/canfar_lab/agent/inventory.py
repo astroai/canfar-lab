@@ -152,7 +152,7 @@ def verify_setup(home: Path, *, probe_binaries: bool = False) -> list[str]:
         try:
             if "openrouter" not in marimo.read_text(encoding="utf-8"):
                 issues.append(
-                    "marimo.toml missing OpenRouter config — run: canfar agent setup marimo"
+                    "marimo.toml missing OpenRouter config — run: canfar lab agent setup marimo"
                 )
         except OSError:
             pass
@@ -170,8 +170,8 @@ def verify_setup(home: Path, *, probe_binaries: bool = False) -> list[str]:
         issues.append(
             "Agent CLIs under $HOME (/arc — slow NFS); prefer $SCRATCH: "
             + ", ".join(home_clis)
-            + ". Move with: canfar agent remove NAME --clean-home"
-            + " && canfar agent install NAME"
+            + ". Move with: canfar lab agent remove NAME --clean-home"
+            + " && canfar lab agent install NAME"
         )
 
     return issues

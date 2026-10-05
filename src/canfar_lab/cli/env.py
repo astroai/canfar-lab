@@ -24,7 +24,7 @@ def _ray_exports() -> dict[str, str]:
 
     Fast path only: env override or persisted ``connect-url``. Never calls
     ``canfar ps`` — that made every interactive shell wait ~10–15s on CANFAR.
-    Live discovery stays on ``canfar run`` / ``cluster`` / jobs.
+    Live discovery stays on ``canfar lab run`` / ``cluster`` / jobs.
     """
     # ponytail: profile must stay cheap; jobs discover live when needed
     try:
@@ -55,7 +55,7 @@ def env_export(
     Examples:
         eval "$(canfar lab env export)"
         canfar lab env export --json
-        astroai --json env export
+        canfar lab --json env export
     """
     opts = merge_opts(ctx, json_output=json_output)
     ray = _ray_exports()

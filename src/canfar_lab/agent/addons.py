@@ -103,7 +103,7 @@ def add_addon(
     if plugin is None:
         raise LabError(
             f"Unknown addon: {addon_id}",
-            hint="canfar agent plugins list",
+            hint="canfar lab agent plugins list",
         )
     return _apply_addon(plugin_as_addon(plugin), home=home, force=force, dry_run=dry_run)
 
@@ -130,7 +130,7 @@ def _apply_addon(
         return AddonResult(
             addon_id,
             "skipped",
-            install.get("note") or "bundled — run: canfar agent setup",
+            install.get("note") or "bundled — run: canfar lab agent setup",
         )
 
     if not force and addon_installed(item, home, agent=agent):

@@ -223,11 +223,6 @@ def install_tree(src_dir: Path, dst_dir: Path, *, force: bool, dry_run: bool) ->
     return count
 
 
-def install_skills_tree(src_dir: Path, dst_dir: Path, *, force: bool, dry_run: bool) -> int:
-    """Deprecated no-op: skills are installed via ``npx skills``, not AstroAI."""
-    return 0
-
-
 def merge_mcp_servers(src_json: Path, dst_json: Path, *, force: bool, dry_run: bool) -> None:
     """Merge mcpServers from src into dst; never replace the whole destination."""
     from canfar_lab.agent.agent_targets import merge_mcp_file
@@ -358,7 +353,7 @@ def _merge_marimo_openrouter(cfg: Path, *, force: bool, dry_run: bool) -> None:
             shutil.copy2(template, cfg)
         else:
             cfg.write_text(
-                "# Marimo AI assistant — canfar agent setup\n\n"
+                "# Marimo AI assistant — canfar lab agent setup\n\n"
                 "[package_management]\n"
                 'manager = "pixi"\n\n'
                 "[ai.openrouter]\n"
@@ -609,7 +604,7 @@ def run_bundle(
                         "fi\n"
                     )
         bashrc = home / ".bashrc"
-        marker = "# canfar agent setup"
+        marker = "# canfar lab agent setup"
         source_line = (
             '[[ -f "${HOME}/.astroai/lab/agent-env.sh" ]] '
             '&& source "${HOME}/.astroai/lab/agent-env.sh"'
@@ -627,7 +622,7 @@ def run_bundle(
         )
     elif name == "project":
         if project_dir is None:
-            raise LabError("Project directory required.", hint="canfar agent setup --project")
+            raise LabError("Project directory required.", hint="canfar lab agent setup --project")
         merge_mcp_servers(
             root / "project" / ".cursor" / "mcp.json",
             project_dir / ".cursor" / "mcp.json",
@@ -653,7 +648,7 @@ def run_bundle(
             dry_run=dry_run,
         )
     else:
-        raise LabError(f"Unknown setup name: {name}", hint="canfar agent setup --help")
+        raise LabError(f"Unknown setup name: {name}", hint="canfar lab agent setup --help")
 
 
 def ensure_agent_dirs(home: Path, *, dry_run: bool) -> None:

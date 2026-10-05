@@ -58,7 +58,7 @@ cd "$WORK/astroai/torchsky"
 git remote add upstream git@github.com:astroai/torchsky.git 2>/dev/null || true
 ```
 
-If `astroai clone` lands a flat `$WORK/<repo>`, move it:
+If `canfar lab clone` lands a flat `$WORK/<repo>`, move it:
 
 ```bash
 mkdir -p "$WORK/astroai"

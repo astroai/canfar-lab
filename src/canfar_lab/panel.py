@@ -1,4 +1,4 @@
-"""Headless review-bench panels (``astroai panel``).
+"""Headless review-bench panels (``canfar lab panel``).
 
 Same freeze → blind-parallel → audit protocol as ``~/dsh/panel.sh``, but
 resolved through the vendored bench (``data/review-bench``) and the shared
@@ -190,7 +190,7 @@ def run_panel(
     if not repo_path.is_dir():
         raise LabError(
             f"Repo not found: {repo_path}",
-            hint="Pass an existing checkout, e.g. astroai panel run /scratch/src/torchsky ...",
+            hint="Pass an existing checkout, e.g. canfar lab panel run /scratch/src/torchsky ...",
         )
     patch = repo_path / ".dsh" / "cordis.patch.yml"
     if not patch.is_file() and not dry_run:
@@ -205,7 +205,7 @@ def run_panel(
         raise LabError(
             "No dsh provider key found (checked env, ~/.astroai/lab/.env, opencode auth).",
             hint="Run `opencode auth login` or `export DEEPSEEK_API_KEY=...`, "
-            "then `canfar agent setup` to persist it.",
+            "then `canfar lab agent setup` to persist it.",
         )
     task = build_task(repo_path, claims, pid, home=home)
     if dry_run:
@@ -232,13 +232,13 @@ def run_panel(
         hint = (
             "In dsh Settings → Models, pick a non-OpenCode-Go provider "
             "(e.g. DeepSeek / Gemini), then re-run. "
-            "Or use `astroai studio` on a laptop (session UI)."
+            "Or use `canfar lab studio` on a laptop (session UI)."
         )
         if alt is None:
             hint = (
                 "Export DEEPSEEK_API_KEY or GEMINI_API_KEY, choose that "
                 "provider in dsh Settings → Models, then re-run — or use "
-                "`astroai studio` on a laptop."
+                "`canfar lab studio` on a laptop."
             )
         raise LabError(
             "OpenCode Go rejected headless (missing session). "

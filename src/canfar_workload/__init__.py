@@ -1,6 +1,6 @@
 """Run jobs on a CANFAR Ray cluster, or start and resize that cluster.
 
-Shipped with ``canfar-lab``. CLI: ``canfar run`` / ``canfar cluster``.
+Shipped with ``canfar-lab``. CLI: ``canfar lab run`` / ``canfar lab cluster``.
 Ray itself is provided by ray-manager / ray-worker images, not this package.
 """
 

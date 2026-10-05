@@ -282,13 +282,13 @@ Ports view, open `…/proxy/3080/`.
 
 ## astroai-lab integration (canonical entrypoint)
 
-This bench now ships inside `astroai-lab` (`astroai panel --help`): one install
+This bench now ships inside `astroai-lab` (`canfar lab panel --help`): one install
 (`uv pip install git+https://github.com/astroai/canfar-lab.git@main`) provisions
 the preset, skill, and credentials on laptop, any contributed session, marimo,
 or plain CLI. `~/dsh` remains the dev source; the pip package carries a
 build-time copy (`scripts/sync-review-bench.sh`).
 
 ```sh
-astroai agent setup
-astroai panel run /scratch/src/torchregress "C1: ...; C2: ..." my-slug
+canfar lab agent setup
+canfar lab panel run /scratch/src/torchregress "C1: ...; C2: ..." my-slug
 ```

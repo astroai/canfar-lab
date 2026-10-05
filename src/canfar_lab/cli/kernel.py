@@ -38,8 +38,8 @@ def kernel_ensure(
     """Create/refresh a scratch-safe notebook kernel (no pixi project needed).
 
     Examples:
-        astroai kernel ensure
-        astroai kernel ensure --name student
+        canfar lab kernel ensure
+        canfar lab kernel ensure --name student
     """
     from canfar_lab.core.kernel import ensure_scratch_safe_kernel
 
@@ -59,8 +59,8 @@ def kernel_register(
     """Register project as Jupyter kernel.
 
     Examples:
-        astroai kernel register
-        astroai kernel register $WORK/mylab --name mylab
+        canfar lab kernel register
+        canfar lab kernel register $WORK/mylab --name mylab
     """
     project = path or Path.cwd()
     try:
@@ -79,9 +79,9 @@ def kernel_list(
     """List registered kernels.
 
     Examples:
-        astroai kernel list
-        astroai kernel list --json
-        astroai --json kernel list
+        canfar lab kernel list
+        canfar lab kernel list --json
+        canfar lab --json kernel list
     """
     opts = merge_opts(ctx, json_output=json_output)
     rows = list_kernels()
@@ -99,7 +99,7 @@ def kernel_unregister(
     """Remove a registered kernel.
 
     Examples:
-        astroai kernel unregister mylab
+        canfar lab kernel unregister mylab
     """
     try:
         unregister_kernel(name)

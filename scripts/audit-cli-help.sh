@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-# Audit astroai help text vs accepted flags. Exit 1 on mismatches.
+# Audit canfar lab help text vs accepted flags. Exit 1 on mismatches.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 CLI=(pixi run canfar-lab)

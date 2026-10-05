@@ -21,7 +21,7 @@ Read repo-root `AGENTS.md` first. Then pick skills and verifiers:
 | weightmask | pixi-dev | — | `pixi run lint`; `pixi run test` |
 | canfar-skills | — | canfar-* (upstream install) | `python3 scripts/validate_skills.py` |
 | canfar, canfar-portal | — | — | project `AGENTS.md` |
-| canfar-lab (platform) | — | canfar-lab-workflow | `astroai status --json` / `canfar-lab doctor` |
+| canfar-lab (platform) | — | canfar-lab-workflow | `canfar lab status --json` / `canfar-lab doctor` |
 | CANFAR lab session | — | canfar-lab-workflow | pixi/uv under `${WORK}` |
 | masked-stellar-autoencoder | pixi-dev | — | `pixi run` tests; push `origin` only (not aydan upstream) |
 | science-platform/* | harness-coding | — | repo CI |
@@ -77,4 +77,4 @@ Workspace of clones: `/Users/fabbros/src/overleaf`. Secrets: `~/.config/overleaf
 - **memory** — cross-session notes at `~/.local/share/agent-home/memory.jsonl`
 - **overleaf** — `@mjyoo2/overleaf-mcp` via `OVERLEAF_PROJECTS_CONFIG`
 
-On CANFAR lab, run `astroai agent update` and `npx skills add astroai/canfar-skills`.
+On CANFAR lab, run `canfar lab agent update` and `npx skills add astroai/canfar-skills`.

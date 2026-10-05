@@ -46,8 +46,6 @@ def test_brand_logo_vendored() -> None:
 
 
 def test_no_model_pins_anywhere() -> None:
-    assert rb.panel_role_pins("opencode-go") == {}
-    assert rb.extract_preset_role_models() == {}
     text = (
         rb.vendored_review_bench_root() / "presets" / "review-bench" / "agent.cordis.yml"
     ).read_text(encoding="utf-8")
@@ -124,10 +122,6 @@ def test_panel_doctor_keys_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert payload["ok"] is True
     assert payload["keys_present"] == ["OPENCODE_API_KEY"]
     assert "note" in payload
-
-    models = runner.invoke(app, ["--json", "panel", "models"])
-    assert models.exit_code == 2, models.output
-    assert "deprecated" in models.output
 
 
 def test_panel_cli_routers_doctor(monkeypatch: pytest.MonkeyPatch) -> None:

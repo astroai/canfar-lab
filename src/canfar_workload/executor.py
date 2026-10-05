@@ -14,7 +14,7 @@ from .models import DataProductRef, ResourceRequest, RunSpec, RunStatus
 _DEFAULT_JOBS_ADDRESS = "http://127.0.0.1:8265"
 _ADDRESS_HINT = (
     "Cannot reach the Ray cluster. Start a ray-manager from the AstroAI hub "
-    "(Start batch compute) or via `canfar cluster start`, wait until it is "
+    "(Start batch compute) or via `canfar lab cluster start`, wait until it is "
     "Running, then retry. Address discovery is automatic "
     "(CANFAR_RAY_JOBS_ADDRESS / live manager / persisted connect URL); "
     "inside the manager session localhost:8265 is used. "
@@ -23,7 +23,7 @@ _ADDRESS_HINT = (
 _RAY_MISSING_HINT = (
     "Ray is not installed in this Python. Run inside a ray-manager / ray-worker "
     "image (or install Ray in this venv) to use the Jobs client. "
-    "Cluster lifecycle (`canfar cluster ...`) does not need Ray."
+    "Cluster lifecycle (`canfar lab cluster ...`) does not need Ray."
 )
 
 
@@ -54,7 +54,7 @@ def resolve_jobs_address(address: str | None = None) -> str:
 class RayExecutor:
     """Submit driver commands through the Ray Jobs API.
 
-    Does not start workers. Use ``canfar cluster start`` for that.
+    Does not start workers. Use ``canfar lab cluster start`` for that.
     With no ``address``, discovers the manager (env / live ``canfar ps`` /
     persisted connect URL), else localhost:8265 inside the manager session.
     """

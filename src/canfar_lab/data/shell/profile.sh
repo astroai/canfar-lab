@@ -25,8 +25,12 @@ astroai_boot_log() {
 
 astroai_boot_log "profile:start"
 
-if command -v astroai >/dev/null 2>&1; then
+if command -v canfar-lab >/dev/null 2>&1; then
+    _canfar_lab_cli="canfar-lab"
+elif command -v astroai >/dev/null 2>&1; then
     _canfar_lab_cli="astroai"
+elif [[ -x /opt/astroai/venv/cadc/bin/canfar-lab ]]; then
+    _canfar_lab_cli="/opt/astroai/venv/cadc/bin/canfar-lab"
 elif [[ -x /opt/astroai/venv/cadc/bin/astroai ]]; then
     _canfar_lab_cli="/opt/astroai/venv/cadc/bin/astroai"
 fi
@@ -37,15 +41,15 @@ if [[ -n "${_canfar_lab_cli:-}" ]]; then
     # --no-ensure: dirs already created by common-init / prior shells; skip NFS
     # mkdir storms. Ray address is env/persisted only (no canfar ps here).
     eval "$("${_canfar_lab_cli}" env export --no-ensure)" || {
-        echo "astroai env export failed — session paths may be incomplete" >&2
+        echo "canfar lab env export failed — session paths may be incomplete" >&2
     }
     astroai_boot_log "profile:env export done"
 else
-    echo "astroai: command not found — session paths may be incomplete" >&2
+    echo "canfar-lab: command not found — session paths may be incomplete" >&2
 fi
 unset _canfar_lab_cli
 
-# Model API keys saved from Studio / `astroai agent keys set` (0600, NAME=value).
+# Model API keys saved from Studio / `canfar lab agent keys set` (0600, NAME=value).
 # Interactive shells re-read the file once it changes, so a key saved (or
 # removed) in the Studio hub reaches terminals already open — before the next
 # command runs, not one command late. Writers replace the file atomically:

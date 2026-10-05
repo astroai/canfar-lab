@@ -34,7 +34,7 @@ Never `pip install --user` or write large caches under `$HOME/.local` on `/arc/h
 ## Checks
 
 ```bash
-astroai status
+canfar lab status
 echo "SCRATCH=$SCRATCH WORK=$WORK SRCDIR=$SRCDIR"
 test -n "${skaha_sessionid:-}" && echo "on Skaha session $skaha_sessionid"
 ```

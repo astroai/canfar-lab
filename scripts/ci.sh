@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full local CI for astroai — mirrors .github/workflows/ci.yml.
+# Full local CI for canfar-lab — mirrors .github/workflows/ci.yml.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

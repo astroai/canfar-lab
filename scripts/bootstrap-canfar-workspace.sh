@@ -143,10 +143,10 @@ fi
 chmod +x "$WORK/scripts/"*.py 2>/dev/null || true
 chmod +x "$WORK/update-repos.sh" 2>/dev/null || true
 
-# 5. Clone Repositories via canfar sync or workspace-sync.py
+# 5. Clone Repositories via canfar lab sync or workspace-sync.py
 if command -v canfar >/dev/null 2>&1; then
-  echo "== Bootstrapping repositories via canfar sync =="
-  canfar sync bootstrap --root "$WORK"
+  echo "== Bootstrapping repositories via canfar lab sync =="
+  canfar lab sync bootstrap --root "$WORK"
 elif [[ -f "$WORK/scripts/workspace-sync.py" ]]; then
   if [[ ${#SPECIFIED_REPOS[@]} -gt 0 ]]; then
     python3 "$WORK/scripts/workspace-sync.py" --root "$WORK" bootstrap "${SPECIFIED_REPOS[@]}"
@@ -197,9 +197,9 @@ export SCRATCH="${TMP_SCRATCH_DIR:-/scratch}"
 export PYTHONNOUSERSITE=1
 unset PYTHONPATH
 alias cdwork='cd "$WORK"'
-alias ws-status='canfar sync status'
-alias ws-sync='canfar sync'
-alias ws-dirty='canfar sync dirty'
+alias ws-status='canfar lab sync status'
+alias ws-sync='canfar lab sync'
+alias ws-dirty='canfar lab sync dirty'
 EOF
 
 cat <<EOF
@@ -212,8 +212,8 @@ cat <<EOF
   Spine:       AGENTS.md  workspace.toml  workspace-sync.py
   Environment: PYTHONNOUSERSITE=1  PIXI_CACHE_DIR=$PIXI_CACHE_DIR
 
-  Status:      canfar sync status
-  Sync:        canfar sync
+  Status:      canfar lab sync status
+  Sync:        canfar lab sync
   Quick Env:   source "$WORK/env.sh"
 ======================================================================
 EOF

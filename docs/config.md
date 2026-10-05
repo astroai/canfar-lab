@@ -25,9 +25,9 @@ Environment variables override YAML:
 Inspect current settings:
 
 ```bash
-astroai config show
-astroai config path
-astroai --json config show
+canfar lab config show
+canfar lab config path
+canfar lab --json config show
 ```
 
 Workbench settings stay in `~/.astroai/lab/` so published git repos remain

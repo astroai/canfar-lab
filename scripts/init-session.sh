@@ -154,9 +154,9 @@ export TORCH_HOME="/scratch/.cache/torch"
 # Shortcuts
 alias cdwork='cd /scratch/src'
 alias cdastro='cd /scratch/src/astroai'
-alias ws-status='canfar sync status 2>/dev/null || python3 /scratch/src/astroai/canfar-lab/src/canfar_lab/cli/sync.py status 2>/dev/null'
-alias ws-push='canfar sync push 2>/dev/null || python3 /scratch/src/astroai/canfar-lab/src/canfar_lab/cli/sync.py push 2>/dev/null'
-alias ws-dirty='canfar sync dirty 2>/dev/null || python3 /scratch/src/astroai/canfar-lab/src/canfar_lab/cli/sync.py dirty 2>/dev/null'
+alias ws-status='canfar lab sync status 2>/dev/null || python3 /scratch/src/astroai/canfar-lab/src/canfar_lab/cli/sync.py status 2>/dev/null'
+alias ws-push='canfar lab sync push 2>/dev/null || python3 /scratch/src/astroai/canfar-lab/src/canfar_lab/cli/sync.py push 2>/dev/null'
+alias ws-dirty='canfar lab sync dirty 2>/dev/null || python3 /scratch/src/astroai/canfar-lab/src/canfar_lab/cli/sync.py dirty 2>/dev/null'
 EOF
 
 chmod +x "${WORK}/env.sh"

@@ -1,19 +1,19 @@
 # MNIST CNN on Ray
 
-Train a tiny CNN with `astroai run` on a CANFAR `ray-manager` cluster.
+Train a tiny CNN with `canfar lab run` on a CANFAR `ray-manager` cluster.
 
-1. AstroAI hub: **Start batch compute** (or `astroai cluster start`)
+1. AstroAI hub: **Start batch compute** (or `canfar lab cluster start`)
 2. Then the job:
 
 ```bash
 # address discovery is automatic when a manager is Running
 cd examples/workload/mnist_cnn
 pip install torch torchvision       # in the job cwd / project, not a CLI extra
-astroai run train.py --epochs 1 --ckpt /arc/home/$USER/mnist.pt
+canfar lab run train.py --epochs 1 --ckpt /arc/home/$USER/mnist.pt
 python infer.py --ckpt /arc/home/$USER/mnist.pt
 ```
 
 Write checkpoints under `/arc`, not `/scratch`. Torch is not a dependency of
-`astroai`; install it in the project the job runs from.
+`canfar-lab`; install it in the project the job runs from.
 
 Use `run`. The Dashboard can still show the same job after it is submitted.

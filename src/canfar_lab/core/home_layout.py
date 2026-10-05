@@ -285,7 +285,7 @@ def ensure_agent_runtime_on_scratch(
 ) -> list[str]:
     """Create scratch roots, apply env redirects, and symlink hot agent trees.
 
-    Intended entry point for ``canfar agent install`` / ``agent setup`` /
+    Intended entry point for ``canfar lab agent install`` / ``agent setup`` /
     ``agent layout`` so CLIs write under ``$SCRATCH`` before they first run.
     Also repairs durable dsh dirs that older builds left pointing at scratch.
 

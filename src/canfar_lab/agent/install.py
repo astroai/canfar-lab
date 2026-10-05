@@ -1,910 +1,58 @@
+"""Install and remove agent CLIs. Public names are re-exported for callers."""
+
 from __future__ import annotations
 
 import contextlib
-import os
 import platform
 import shutil
 import subprocess
-import sys
-import tarfile
-import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from canfar_lab.core.paths import npm_prefix_dir, user_bin_dir
+from canfar_lab.agent.install_bins import (
+    BINARY_SOURCE_HOME,
+    BINARY_SOURCE_LEGACY,
+    BINARY_SOURCE_MANAGED,
+    BINARY_SOURCE_MISSING,
+    BINARY_SOURCE_OTHER,
+    TOOL_BINARIES,
+    TOOL_UTILITIES,
+    TOOLS,
+    _bin_dir,
+    _is_system_sg_impostor,
+    _npm_prefix,
+    _path_under,
+    classify_binary,
+    clear_legacy_scratch_binary,
+    home_bin_candidates,
+    legacy_scratch_bin_roots,
+    list_tools,
+    list_tools_status,
+    managed_bin_roots,
+    refuse_if_home_owned,
+    tool_binary,
+    tool_on_path,
+)
+from canfar_lab.agent.install_fetch import (
+    _curl_pipe_bash,
+    _download_public_gh_release,
+    _ensure_bin_dir,
+    _gh_auth_ok,
+    _gh_release_bin,
+    _link_into_local_bin,
+    _managed_share_dir,
+    _npm_version_tuple,
+    _require,
+    _session_environ,
+    _verify_cmd,
+    curl_installer_environ,
+    find_curl_binary,
+    npm_global_install_cmd,
+    npm_install_environ,
+)
 from canfar_lab.errors import LabError
 from canfar_lab.shell.session_env import resolve_session_env
 from canfar_lab.utils.subprocess import run
-
-TOOLS = {
-    "node": "Node.js + npm (baked into base image; pixi fallback)",
-    "cursor": "Cursor Agent (binary: agent)",
-    "claude": "Claude Code",
-    "agy": "Antigravity CLI",
-    "copilot": "GitHub Copilot CLI",
-    "qoder": "Qoder CLI (qodercli)",
-    "hermes": "Hermes Agent (Nous Research)",
-    "openclaw": "OpenClaw (openclaw/openclaw)",
-    # Backend for `agent plugins install ast-grep-cli` only (not an agent).
-    "ast-grep": "ast-grep (sg)",
-    # Backend for `agent plugins install skore-cli` (binary: skore).
-    "skore-cli": "Skore CLI (skore — skills + Skore Hub)",
-}
-
-# TOOLS entries that are not coding agents (no agents/*.yaml registry row).
-# hyperfine is image-baked — do not list or reinstall it.
-TOOL_UTILITIES = frozenset({"node", "ast-grep", "skore-cli"})
-
-# CLI binary name when it differs from the install tool key.
-TOOL_BINARIES = {
-    "ast-grep": "sg",
-    "skore-cli": "skore",
-    "qoder": "qodercli",
-    "cursor": "agent",  # upstream Cursor Agent binary is still named `agent`
-}
-
-# Where an on-disk CLI came from relative to lab management.
-BINARY_SOURCE_MANAGED = "managed"  # under CANFAR_LAB_BIN_DIR / npm prefix (scratch)
-BINARY_SOURCE_HOME = "home"  # under $HOME (/arc/home) — user-owned, not managed
-BINARY_SOURCE_OTHER = "other"  # elsewhere on PATH
-BINARY_SOURCE_MISSING = "missing"
-# Kept for call-site compatibility; scratch is managed again, not "legacy".
-BINARY_SOURCE_LEGACY = "legacy"
-
-
-def _bin_dir() -> Path:
-    return user_bin_dir()
-
-
-def _npm_prefix() -> Path:
-    return npm_prefix_dir()
-
-
-def _npm_version_tuple() -> tuple[int, int]:
-    """Return (major, minor) for the npm on PATH, or (0, 0) if unknown."""
-    try:
-        proc = subprocess.run(
-            ["npm", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return (0, 0)
-    text = ((proc.stdout or "") + (proc.stderr or "")).strip().splitlines()
-    if not text:
-        return (0, 0)
-    parts = text[0].strip().split(".")
-    try:
-        return (int(parts[0]), int(parts[1]) if len(parts) > 1 else 0)
-    except ValueError:
-        return (0, 0)
-
-
-def npm_install_environ(extra: dict[str, str] | None = None) -> dict[str, str]:
-    """Session env for ``npm install -g`` agent installs.
-
-    - ``UPDATE_NOTIFIER=false`` silences the cosmetic "New major version of
-      npm available" notice (npm 11→12) that users read as an install failure.
-    - ``DANGEROUSLY_ALLOW_ALL_SCRIPTS=true`` opts into dependency install /
-      postinstall scripts for global installs (npm 11.16+ advisory; required
-      once npm 12 blocks scripts by default). Agent CLIs like omp pull
-      ``sharp`` / ``onnxruntime-node`` which need those scripts.
-    """
-    merged = _session_environ(extra)
-    merged.setdefault("NPM_CONFIG_UPDATE_NOTIFIER", "false")
-    # Env form works on npm that understand the setting; harmless if ignored.
-    merged.setdefault("NPM_CONFIG_DANGEROUSLY_ALLOW_ALL_SCRIPTS", "true")
-    return merged
-
-
-def npm_global_install_cmd(prefix: Path, *packages: str) -> list[str]:
-    """Build ``npm install -g --prefix …`` argv for an intentional agent install.
-
-    On npm ≥ 11.16 (and npm 12+), also pass ``--dangerously-allow-all-scripts``
-    so native deps (sharp, onnxruntime, protobufjs, …) actually build. Global
-    installs have no project ``package.json#allowScripts`` to approve into.
-    """
-    if not packages:
-        raise ValueError("npm_global_install_cmd requires at least one package")
-    cmd = ["npm", "install", "-g", "--prefix", str(prefix)]
-    major, minor = _npm_version_tuple()
-    if (major, minor) >= (11, 16):
-        cmd.append("--dangerously-allow-all-scripts")
-    cmd.extend(packages)
-    return cmd
-
-
-def list_tools() -> dict[str, str]:
-    return dict(TOOLS)
-
-
-def tool_binary(name: str) -> str:
-    if name in TOOL_BINARIES:
-        return TOOL_BINARIES[name]
-    # Registry agents may declare a different binary (augment → auggie).
-    try:
-        from canfar_lab.agent.registry import get_registry_agent
-
-        agent = get_registry_agent(name)
-        if agent is not None and agent.get("binary"):
-            return str(agent["binary"])
-    except (ImportError, KeyError, TypeError, ValueError):
-        pass
-    return name
-
-
-def _path_under(path: Path, root: Path) -> bool:
-    try:
-        path.resolve().relative_to(root.resolve())
-        return True
-    except (OSError, ValueError):
-        return False
-
-
-def managed_bin_roots() -> list[Path]:
-    """Dirs where astroai owns agent CLIs (scratch / session, never $HOME)."""
-    session = resolve_session_env(ensure=False)
-    # Include `_bin_dir()` / `_npm_prefix()` so test monkeypatches and the
-    # live session resolver always agree on "managed".
-    roots = [
-        session.canfar_lab_bin_dir,
-        session.canfar_lab_npm_prefix / "bin",
-        _bin_dir(),
-        _npm_prefix() / "bin",
-    ]
-    # Deduplicate while preserving order.
-    seen: set[Path] = set()
-    out: list[Path] = []
-    for root in roots:
-        try:
-            key = root.resolve()
-        except OSError:
-            key = root
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(root)
-    return out
-
-
-def legacy_scratch_bin_roots() -> list[Path]:
-    """No-op list: scratch ``.local/bin`` is managed again, not legacy.
-
-    Kept so older call sites / tests that import the name keep working.
-    """
-    return []
-
-
-def home_bin_candidates(binary: str, *, home: Path | None = None) -> list[Path]:
-    """Typical user-owned CLI locations under $HOME (/arc/home on CANFAR)."""
-    home = home or Path.home()
-    return [
-        home / ".local" / "bin" / binary,
-        home / f".{binary}" / "bin" / binary,
-        home / ".npm-global" / "bin" / binary,
-        home / ".kilo" / "bin" / binary,
-        home / ".opencode" / "bin" / binary,
-        home / ".hermes" / "bin" / binary,
-        home / ".agy" / "bin" / binary,
-    ]
-
-
-def classify_binary(
-    binary: str,
-    *,
-    home: Path | None = None,
-) -> dict[str, object]:
-    """Locate a CLI and classify ownership for list/install/remove policy.
-
-    Config may live on ``$HOME`` (/arc/home); managed binaries live under
-    ``CANFAR_LAB_BIN_DIR`` (scratch). A home-tree CLI is user-owned: lab will
-    not install/overwrite it, but ``agent remove --clean-home`` can delete it.
-
-    Special case: Linux ``/usr/bin/sg`` is shadow-utils ``newgrp``, not
-    ast-grep — treat it as missing unless a managed/home ``sg`` or ``ast-grep``
-    is present.
-    """
-    home = home or Path.home()
-    managed_roots = managed_bin_roots()
-    managed_hit: Path | None = None
-    for root in managed_roots:
-        candidate = root / binary
-        if candidate.is_file():
-            managed_hit = candidate
-            break
-        if binary == "sg":
-            alt = root / "ast-grep"
-            if alt.is_file():
-                managed_hit = alt
-                break
-
-    home_hit = next(
-        (p for p in home_bin_candidates(binary, home=home) if p.is_file()),
-        None,
-    )
-    if home_hit is None and binary == "sg":
-        home_hit = next(
-            (p for p in home_bin_candidates("ast-grep", home=home) if p.is_file()),
-            None,
-        )
-
-    which = shutil.which(binary)
-    which_path = Path(which) if which else None
-    if which_path is not None and binary == "sg" and _is_system_sg_impostor(which_path):
-        which_path = None
-        alt_which = shutil.which("ast-grep")
-        if alt_which is not None:
-            which_path = Path(alt_which)
-
-    # Prefer managed (scratch) over home-owned over PATH other.
-    if managed_hit is not None:
-        path = managed_hit
-        source = BINARY_SOURCE_MANAGED
-    elif home_hit is not None:
-        path = home_hit
-        source = BINARY_SOURCE_HOME
-    elif which_path is not None and _path_under(which_path, home):
-        path = which_path
-        source = BINARY_SOURCE_HOME
-    elif which_path is not None:
-        path = which_path
-        source = BINARY_SOURCE_OTHER
-    else:
-        path = None
-        source = BINARY_SOURCE_MISSING
-
-    return {
-        "binary": binary,
-        "path": str(path) if path else None,
-        "source": source,
-        "managed": source == BINARY_SOURCE_MANAGED,
-        "home_install": home_hit is not None
-        or (which_path is not None and _path_under(which_path, home)),
-        "home_path": str(home_hit) if home_hit else None,
-        "legacy": False,
-        "legacy_path": None,
-    }
-
-
-def _is_system_sg_impostor(path: Path) -> bool:
-    """True when ``path`` is the Linux shadow-utils ``sg`` (newgrp), not ast-grep."""
-    try:
-        resolved = path.resolve()
-    except OSError:
-        resolved = path
-    if resolved.name == "newgrp":
-        return True
-    text = str(resolved)
-    return resolved.name == "sg" and (
-        text in ("/usr/bin/sg", "/bin/sg", "/usr/sbin/sg")
-        or text.endswith(("/usr/bin/sg", "/bin/sg"))
-    )
-
-
-def refuse_if_home_owned(name: str, *, home: Path | None = None) -> None:
-    """Block install when the CLI already lives under ``$HOME`` (/arc).
-
-    Also clears unsafe symlink landings at expected paths so curl|bash cannot
-    write through them into arbitrary home files.
-    """
-    for path in _install_landing_paths(name, home=home):
-        _clear_unsafe_landing(path)
-    binary = tool_binary(name)
-    info = classify_binary(binary, home=home)
-    if info["managed"]:
-        return
-    if not info["home_install"]:
-        return
-    where = info.get("home_path") or info.get("path") or f"~/.local/bin/{binary}"
-    raise LabError(
-        f"{name} is already installed under your home ({where}). "
-        "astroai manages CLIs on $SCRATCH ($CANFAR_LAB_BIN_DIR), not /arc/home.",
-        hint=f"canfar agent remove {name} --clean-home   # then: agent install {name}",
-    )
-
-
-def _install_landing_paths(name: str, *, home: Path | None = None) -> list[Path]:
-    """Paths an upstream installer or shim step may overwrite for *name*."""
-    home = home or Path.home()
-    binary = tool_binary(name)
-    seen: set[Path] = set()
-    out: list[Path] = []
-    candidates = [
-        user_bin_dir() / binary,
-        npm_prefix_dir() / "bin" / binary,
-        *home_bin_candidates(binary, home=home),
-    ]
-    for path in candidates:
-        if path in seen:
-            continue
-        seen.add(path)
-        out.append(path)
-    if binary == "sg":
-        for path in [
-            user_bin_dir() / "ast-grep",
-            npm_prefix_dir() / "bin" / "ast-grep",
-            *home_bin_candidates("ast-grep", home=home),
-        ]:
-            if path not in seen:
-                seen.add(path)
-                out.append(path)
-    return out
-
-
-def _clear_unsafe_landing(path: Path) -> None:
-    """Unlink symlink landings; refuse directories / special files at the path."""
-    if path.is_symlink():
-        path.unlink()
-        return
-    if not path.exists():
-        return
-    if path.is_dir():
-        raise LabError(
-            f"Install target is a directory: {path}",
-            hint="Move or remove it, then retry the install",
-        )
-    if not path.is_file():
-        raise LabError(
-            f"Install target is not a regular file: {path}",
-            hint="Remove it, then retry the install",
-        )
-
-
-def _unlink_landing(path: Path) -> None:
-    """Remove a bin landing without following symlinks (safe before copy/shim)."""
-    if path.is_symlink() or path.is_file():
-        path.unlink()
-        return
-    if path.exists():
-        raise LabError(
-            f"Cannot replace install target: {path}",
-            hint="Remove it, then retry",
-        )
-
-
-def clear_legacy_scratch_binary(binary: str) -> None:
-    """Clear leftover ``~/.local/bin/<binary>`` from the brief home-canonical policy.
-
-    Scratch ``$SCRATCH/.local/bin`` is managed again; home copies compete on PATH
-    over NFS and must not shadow the scratch install.
-    """
-    home = Path.home()
-    managed = {_bin_dir(), _npm_prefix() / "bin"}
-    for root in (home / ".local" / "bin",):
-        try:
-            if any(root.resolve() == m.resolve() for m in managed if m.exists()):
-                continue
-        except OSError:
-            pass
-        for name in (binary, "ast-grep" if binary == "sg" else None):
-            if not name:
-                continue
-            path = root / name
-            if not (path.is_file() or path.is_symlink()):
-                continue
-            with contextlib.suppress(OSError):
-                path.unlink()
-
-
-def tool_on_path(name: str) -> bool:
-    """True when any copy of the binary is available (managed, home, or PATH)."""
-    binary = tool_binary(name)
-    info = classify_binary(binary)
-    if info["source"] != BINARY_SOURCE_MISSING:
-        return True
-    session = resolve_session_env(ensure=False)
-    candidates = [
-        session.canfar_lab_bin_dir / binary,
-        session.canfar_lab_npm_prefix / "bin" / binary,
-    ]
-    return any(path.is_file() and os.access(path, os.X_OK) for path in candidates)
-
-
-def list_tools_status() -> list[dict[str, object]]:
-    """Installable tools with whether their binary is currently available."""
-    rows: list[dict[str, object]] = []
-    for name, desc in TOOLS.items():
-        binary = tool_binary(name)
-        info = classify_binary(binary)
-        rows.append(
-            {
-                "name": name,
-                "binary": binary,
-                "description": desc,
-                "installed": info["source"] != BINARY_SOURCE_MISSING,
-                "source": info["source"],
-                "managed": info["managed"],
-                "home_install": info["home_install"],
-                "path": info["path"],
-            }
-        )
-    return rows
-
-
-def _ensure_bin_dir() -> None:
-    _bin_dir().mkdir(parents=True, exist_ok=True)
-
-
-def _session_environ(extra: dict[str, str] | None = None) -> dict[str, str]:
-    merged = {**os.environ, **resolve_session_env(ensure=False).exports()}
-    if extra:
-        merged.update(extra)
-    return merged
-
-
-def installer_sandbox_home() -> Path:
-    """Scratch ``HOME`` for curl install scripts (never /arc/home).
-
-    Cursor/kilo/opencode/claude installers hardcode ``$HOME/.local/bin``,
-    ``$HOME/.kilo/bin``, ``$HOME/.opencode/bin``. Pointing the subprocess HOME
-    at scratch keeps those droppings off the Ceph quota. Real ``~/.config``
-    stays via ``XDG_CONFIG_HOME``.
-    """
-    root = _bin_dir().parent / "installer-home"
-    root.mkdir(parents=True, exist_ok=True)
-    return root
-
-
-def curl_installer_environ(extra: dict[str, str] | None = None) -> dict[str, str]:
-    """Env for an upstream curl|bash installer: binaries on scratch, configs on $HOME."""
-    sandbox = installer_sandbox_home()
-    merged = _session_environ(extra)
-    merged["HOME"] = str(sandbox)
-    merged["XDG_CONFIG_HOME"] = str(Path.home() / ".config")
-    merged.setdefault("XDG_BIN_DIR", str(_bin_dir()))
-    return merged
-
-
-def find_curl_binary(binary: str, extra: list[Path] | None = None) -> Path | None:
-    """Locate a CLI just dropped by a curl installer (sandbox, scratch, or leftover home).
-
-    Sandbox wins over ``CANFAR_LAB_BIN_DIR`` so a reinstall picks up the new
-    drop, not a stale wrapper already sitting in the managed bin dir.
-    """
-    sandbox = installer_sandbox_home()
-    home = Path.home()
-    candidates = [
-        sandbox / ".local" / "bin" / binary,
-        sandbox / f".{binary}" / "bin" / binary,
-        sandbox / ".kilo" / "bin" / binary,
-        sandbox / ".opencode" / "bin" / binary,
-        sandbox / ".hermes" / "bin" / binary,
-        sandbox / ".agy" / "bin" / binary,
-        _bin_dir() / binary,
-        *(extra or []),
-        home / ".local" / "bin" / binary,
-        home / f".{binary}" / "bin" / binary,
-        home / ".kilo" / "bin" / binary,
-        home / ".opencode" / "bin" / binary,
-        home / ".hermes" / "bin" / binary,
-    ]
-    return next((p for p in candidates if p.is_file()), None)
-
-
-def _installer_noise(line: str) -> bool:
-    """Upstream installers often spam glog / PATH chatter we already handle."""
-    text = line.strip()
-    if not text:
-        return True
-    lower = text.lower()
-    if lower.startswith("error: logging before google.init"):
-        return True
-    if "path verification:" in lower:
-        return True
-    # Final land path is reported by `agent install` after we copy into scratch.
-    if "installed successfully at" in lower or "installed agy" in lower:
-        return True
-    return text.startswith("Run '") and " to start" in lower
-
-
-def _raise_curl_install_failure(url: str, text: str) -> None:
-    useful = "\n".join(line for line in text.splitlines() if not _installer_noise(line))
-    raise LabError(
-        f"Install failed for {url}" + (f":\n{useful}" if useful else ""),
-        hint="Check network / auth, then retry",
-    )
-
-
-def _curl_pipe_bash(
-    url: str,
-    *,
-    env: dict[str, str] | None = None,
-    args: list[str] | None = None,
-    stream: bool | None = None,
-) -> None:
-    """Fetch an install script and run it.
-
-    Upstream scripts (cursor, kilo, opencode, claude, hermes, …) write under
-    ``$HOME/.local/bin`` etc. AstroAI sandboxes subprocess HOME onto scratch
-    (``installer-home``) so those drops never hit /arc NFS.
-
-    When ``stderr`` is a TTY, installer stdout is streamed live so long
-    bootstraps (Hermes: uv + Python + Node + git clone) do not look hung.
-    """
-    from canfar_lab.agent.setup_state import INSTALL_TIMEOUT_SEC
-
-    _require("curl")
-    merged = curl_installer_environ(env)
-    # Keep curl + bash within INSTALL_TIMEOUT_SEC total (including curl's +5 slack).
-    total = max(60, INSTALL_TIMEOUT_SEC)
-    curl_budget = max(20, (total - 5) // 3)
-    bash_budget = max(30, total - curl_budget - 5)
-    if stream is None:
-        stream = sys.stderr.isatty()
-    cmd = ["bash", "-s", "--", *(args or [])]
-    try:
-        if stream:
-            print(f"Downloading installer from {url}…", file=sys.stderr, flush=True)
-        script = subprocess.run(
-            ["curl", "-fsSL", "--max-time", str(curl_budget), url],
-            capture_output=True,
-            check=True,
-            env=merged,
-            timeout=curl_budget + 5,
-        ).stdout
-    except subprocess.TimeoutExpired as exc:
-        raise LabError(
-            f"Install timed out after {total}s fetching {url}",
-            hint="Retry later or raise CANFAR_LAB_AGENT_INSTALL_TIMEOUT",
-        ) from exc
-    except subprocess.CalledProcessError as exc:
-        detail = (
-            (exc.stderr or b"").decode(errors="replace").strip()
-            if isinstance(exc.stderr, bytes)
-            else (exc.stderr or "")
-        )
-        raise LabError(
-            f"Install failed for {url}" + (f": {detail}" if detail else ""),
-            hint="Check network / auth, then retry",
-        ) from exc
-
-    if stream:
-        print(
-            "Running installer (self-bootstrapping agents can take 5–15 minutes)…",
-            file=sys.stderr,
-            flush=True,
-        )
-        proc = subprocess.Popen(
-            cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            env=merged,
-        )
-        assert proc.stdin is not None
-        proc.stdin.write(script)
-        proc.stdin.close()
-        assert proc.stdout is not None
-        chunks: list[bytes] = []
-        for raw in iter(proc.stdout.readline, b""):
-            chunks.append(raw)
-            line = raw.decode(errors="replace").rstrip("\r\n")
-            if line and not _installer_noise(line):
-                sys.stderr.buffer.write(raw)
-                if not raw.endswith(b"\n"):
-                    sys.stderr.buffer.write(b"\n")
-                sys.stderr.buffer.flush()
-        try:
-            proc.wait(timeout=bash_budget)
-        except subprocess.TimeoutExpired as exc:
-            proc.kill()
-            with contextlib.suppress(OSError, subprocess.TimeoutExpired):
-                proc.wait(timeout=5)
-            raise LabError(
-                f"Install timed out after {total}s running installer from {url}",
-                hint="Retry later or raise CANFAR_LAB_AGENT_INSTALL_TIMEOUT",
-            ) from exc
-        text = b"".join(chunks).decode(errors="replace").strip()
-        if proc.returncode != 0:
-            _raise_curl_install_failure(url, text)
-        return
-
-    proc = subprocess.run(
-        cmd,
-        input=script,
-        capture_output=True,
-        check=False,
-        env=merged,
-        timeout=bash_budget,
-    )
-    out = b""
-    if isinstance(proc.stdout, bytes):
-        out += proc.stdout
-    if isinstance(proc.stderr, bytes):
-        out += proc.stderr
-    text = out.decode(errors="replace").strip()
-    if proc.returncode != 0:
-        _raise_curl_install_failure(url, text)
-
-
-def _managed_share_dir() -> Path:
-    """``~/.local/share`` next to the managed bin dir (Cursor payload, …)."""
-    return _bin_dir().parent / "share"
-
-
-def _land_symlink_payload(src: Path, dst: Path) -> bool:
-    """Keep a versioned CLI payload (bundled node + index.js) together.
-
-    Cursor's installer symlinks ``~/.local/bin/agent`` into
-    ``~/.local/share/cursor-agent/versions/<ver>/cursor-agent``. That wrapper
-    uses ``realpath $0`` to find bundled ``node``. Returns True when ``dst``
-    already points at a usable payload (leave upstream layout alone).
-    """
-    if not src.is_symlink():
-        return False
-    try:
-        target = src.resolve(strict=True)
-    except OSError:
-        return False
-    if not target.is_file() or target.parent == src.parent:
-        return False
-    # Already under home share next to ~/.local/bin — leave upstream layout.
-    home = Path.home()
-    if _path_under(src, home) and _path_under(target, home):
-        if src.resolve() == dst.resolve() or src == dst:
-            return True
-        # Need a ~/.local/bin shim pointing at the same payload executable.
-        _unlink_landing(dst)
-        dst.symlink_to(target)
-        return True
-    payload = target.parent
-    dest_payload = _managed_share_dir() / target.name / payload.name
-    if dest_payload.resolve() != payload.resolve():
-        if dest_payload.exists() or dest_payload.is_symlink():
-            if dest_payload.is_dir() and not dest_payload.is_symlink():
-                shutil.rmtree(dest_payload)
-            else:
-                dest_payload.unlink()
-        dest_payload.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            shutil.move(str(payload), str(dest_payload))
-        except OSError:
-            shutil.copytree(payload, dest_payload, symlinks=True)
-    dest_exe = dest_payload / target.name
-    _unlink_landing(dst)
-    dst.symlink_to(dest_exe)
-    with contextlib.suppress(OSError):
-        dest_exe.chmod(dest_exe.stat().st_mode | 0o111)
-    return True
-
-
-def _link_into_local_bin(src: Path, name: str) -> None:
-    """Ensure ``name`` is on PATH via ``CANFAR_LAB_BIN_DIR`` (scratch).
-
-    Curl installers often drop under ``$HOME``; we copy/symlink into the
-    managed scratch bin and clear leftover home ``~/.local/bin`` shadows.
-    Symlink destinations are unlinked first so we never write through a
-    planted symlink.
-    """
-    if not src.is_file():
-        return
-    with contextlib.suppress(OSError):
-        src.chmod(src.stat().st_mode | 0o111)
-    dst = _bin_dir() / name
-    home = Path.home()
-    try:
-        if src.resolve() == dst.resolve():
-            clear_legacy_scratch_binary(name)
-            return
-    except OSError:
-        pass
-    if _land_symlink_payload(src, dst):
-        clear_legacy_scratch_binary(name)
-        return
-    # Already a home install at a non-bin path (e.g. ~/.opencode/bin/opencode):
-    # add a managed-bin shim, keep the original payload.
-    if _path_under(src, home):
-        try:
-            if (dst.exists() or dst.is_symlink()) and dst.resolve() == src.resolve():
-                clear_legacy_scratch_binary(name)
-                return
-        except OSError:
-            pass
-        _unlink_landing(dst)
-        dst.symlink_to(src)
-        _copy_installer_siblings(src)
-        clear_legacy_scratch_binary(name)
-        return
-    _unlink_landing(dst)
-    try:
-        shutil.copy2(src, dst)
-        with contextlib.suppress(OSError):
-            dst.chmod(dst.stat().st_mode | 0o111)
-    except OSError:
-        dst.symlink_to(src)
-        clear_legacy_scratch_binary(name)
-        return
-    _copy_installer_siblings(src)
-    clear_legacy_scratch_binary(name)
-
-
-def _copy_installer_siblings(src: Path) -> None:
-    """Copy sidecar files next to a curl-dropped CLI (e.g. kilo ``tree-sitter``)."""
-    parent = src.parent
-    dst_dir = _bin_dir()
-    if parent == dst_dir or parent.name != "bin":
-        return
-    try:
-        src_key = src.resolve()
-    except OSError:
-        src_key = src
-    for child in parent.iterdir():
-        try:
-            if child.resolve() == src_key:
-                continue
-        except OSError:
-            if child.name == src.name:
-                continue
-        dest = dst_dir / child.name
-        if dest.exists() or dest.is_symlink():
-            continue
-        with contextlib.suppress(OSError):
-            if child.is_dir():
-                shutil.copytree(child, dest)
-            elif child.is_file():
-                shutil.copy2(child, dest)
-
-
-def _verify_cmd(cmd: str, *, extra_paths: list[Path] | None = None) -> None:
-    if classify_binary(cmd)["source"] != BINARY_SOURCE_MISSING:
-        return
-    session = resolve_session_env(ensure=False)
-    candidates = [
-        session.canfar_lab_bin_dir / cmd,
-        session.canfar_lab_npm_prefix / "bin" / cmd,
-        *(extra_paths or []),
-    ]
-    for path in candidates:
-        if path.is_file() and os.access(path, os.X_OK):
-            return
-    raise LabError(f"{cmd} not found on PATH after install — open a new shell")
-
-
-def _require(cmd: str) -> None:
-    if shutil.which(cmd) is None:
-        raise LabError(f"{cmd} is required.", hint=f"Install {cmd} or check PATH")
-
-
-def _gh_auth_ok() -> bool:
-    if shutil.which("gh") is None:
-        return False
-    try:
-        proc = subprocess.run(
-            ["gh", "auth", "status"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    return proc.returncode == 0
-
-
-def _download_public_gh_release(repo: str, asset: str, dest: Path) -> None:
-    """Fetch a release asset from a public GitHub repo (no ``gh auth login``)."""
-    url = f"https://github.com/{repo}/releases/latest/download/{asset}"
-    run(["curl", "-fsSL", "-o", str(dest), url])
-
-
-def _symlink_into_bin(src: Path, name: str) -> None:
-    """Point ``$BIN_DIR/name`` at ``src`` (replace any prior file/symlink)."""
-    if not src.is_file():
-        return
-    dst = _bin_dir() / name
-    _bin_dir().mkdir(parents=True, exist_ok=True)
-    if dst.exists() or dst.is_symlink():
-        dst.unlink()
-    dst.symlink_to(src.resolve())
-    with contextlib.suppress(OSError):
-        src.chmod(src.stat().st_mode | 0o111)
-
-
-def _land_codex_package(package_root: Path, binary: str) -> None:
-    """Install OpenAI's canonical Codex package under scratch ``share/codex``.
-
-    Layout (see openai/codex ``scripts/codex_package``)::
-
-        share/codex/current/
-          codex-package.json
-          bin/codex
-          bin/codex-code-mode-host
-          codex-resources/bwrap
-          codex-path/rg
-
-    Symlinks ``codex``, ``codex-code-mode-host``, and ``bwrap`` into the
-    managed bin dir so sibling host resolution and PATH lookups work even when
-    ``current_exe()`` returns the symlink path (not the package tree).
-    """
-    dest = _managed_share_dir() / "codex" / "current"
-    if dest.exists() or dest.is_symlink():
-        if dest.is_dir() and not dest.is_symlink():
-            shutil.rmtree(dest)
-        else:
-            dest.unlink()
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(package_root, dest, symlinks=True)
-
-    entry = dest / "bin" / binary
-    if not entry.is_file():
-        raise LabError(f"Package missing bin/{binary}")
-    _symlink_into_bin(entry, binary)
-
-    host = dest / "bin" / "codex-code-mode-host"
-    if host.is_file():
-        _symlink_into_bin(host, "codex-code-mode-host")
-
-    bwrap = dest / "codex-resources" / "bwrap"
-    if bwrap.is_file():
-        _symlink_into_bin(bwrap, "bwrap")
-
-
-def _gh_release_bin(repo: str, asset: str, binary: str, *, requires_gh_auth: bool = False) -> None:
-    _require("curl")
-    tmp = Path(os.environ.get("TMPDIR", "").strip() or "/tmp")
-    tmp.mkdir(parents=True, exist_ok=True)
-    archive = tmp / asset
-    if _gh_auth_ok():
-        _require("gh")
-        run(["gh", "release", "download", "-R", repo, "-p", asset, "-D", str(tmp)])
-    elif requires_gh_auth:
-        raise LabError(
-            f"Installing from {repo} requires GitHub CLI authentication.",
-            hint="Run: gh auth login",
-        )
-    else:
-        try:
-            _download_public_gh_release(repo, asset, archive)
-        except LabError as exc:
-            raise LabError(
-                f"Could not download {asset} from {repo}.",
-                hint="Check network access, or run: gh auth login (private releases)",
-            ) from exc
-    # Extract into a dedicated dir so rglob does not see sibling downloads.
-    extract_root = tmp / f"extract-{asset}"
-    if extract_root.exists():
-        shutil.rmtree(extract_root)
-    extract_root.mkdir(parents=True, exist_ok=True)
-    if asset.endswith(".tar.gz"):
-        with tarfile.open(archive, "r:gz") as tf:
-            try:
-                tf.extractall(extract_root, filter="data")
-            except TypeError:  # pragma: no cover — Python < 3.12
-                tf.extractall(extract_root)
-    elif asset.endswith(".zip"):
-        with zipfile.ZipFile(archive) as zf:
-            zf.extractall(extract_root)
-    else:
-        raise LabError(f"Unsupported archive: {asset}")
-
-    package_json = next(extract_root.rglob("codex-package.json"), None)
-    if package_json is not None:
-        _land_codex_package(package_json.parent, binary)
-        archive.unlink(missing_ok=True)
-        shutil.rmtree(extract_root, ignore_errors=True)
-        return
-
-    found = next(extract_root.rglob(binary), None)
-    if found is None:
-        # Some releases name the extracted binary after the asset basename
-        # (e.g. codex-x86_64-unknown-linux-musl) instead of the bare name.
-        stem = asset.removesuffix(".tar.gz").removesuffix(".zip")
-        for candidate in (extract_root / stem, extract_root / binary):
-            if candidate.is_file():
-                found = candidate
-                break
-    if found is None:
-        raise LabError(f"Binary {binary} not found in {asset}")
-    _bin_dir().mkdir(parents=True, exist_ok=True)
-    dest = _bin_dir() / binary
-    _unlink_landing(dest)
-    shutil.copy2(found, dest)
-    with contextlib.suppress(OSError):
-        dest.chmod(dest.stat().st_mode | 0o111)
-    archive.unlink(missing_ok=True)
-    shutil.rmtree(extract_root, ignore_errors=True)
 
 
 def install_tool(name: str, *, dry_run: bool = False) -> None:
@@ -914,7 +62,7 @@ def install_tool(name: str, *, dry_run: bool = False) -> None:
             hint="hyperfine --version",
         )
     if name not in TOOLS:
-        raise LabError(f"Unknown tool: {name}", hint="canfar agent list")
+        raise LabError(f"Unknown tool: {name}", hint="canfar lab agent list")
     refuse_if_home_owned(name)
     if dry_run:
         return
@@ -1040,7 +188,7 @@ def _install_tool_locked(name: str, npm_timeout: int) -> None:
         )
         _verify_cmd("skore")
     else:
-        raise LabError(f"Unknown tool: {name}", hint="canfar agent install  (or agent list)")
+        raise LabError(f"Unknown tool: {name}", hint="canfar lab agent install  (or agent list)")
 
 
 # ---------------------------------------------------------------------------
@@ -1113,7 +261,7 @@ def uninstall_tool(
     when ``clean_home=True``. ``purge`` removes the tool's whole home config dir.
     """
     if name not in TOOLS:
-        raise LabError(f"Unknown tool: {name}", hint="canfar agent list")
+        raise LabError(f"Unknown tool: {name}", hint="canfar lab agent list")
     home = home or Path.home()
     from canfar_lab.agent.setup_state import agent_setup_lock
 
@@ -1250,3 +398,43 @@ def _uninstall_tool_locked(
                     results.append(result)
 
     return results
+
+
+__all__ = [
+    "BINARY_SOURCE_HOME",
+    "BINARY_SOURCE_LEGACY",
+    "BINARY_SOURCE_MANAGED",
+    "BINARY_SOURCE_MISSING",
+    "BINARY_SOURCE_OTHER",
+    "RemoveResult",
+    "TOOL_BINARIES",
+    "TOOL_CONFIG_PATHS",
+    "TOOL_NPM_PACKAGES",
+    "TOOL_UTILITIES",
+    "TOOLS",
+    "_bin_dir",
+    "_curl_pipe_bash",
+    "_download_public_gh_release",
+    "_gh_auth_ok",
+    "_gh_release_bin",
+    "_is_system_sg_impostor",
+    "_link_into_local_bin",
+    "_npm_prefix",
+    "_npm_version_tuple",
+    "classify_binary",
+    "clear_legacy_scratch_binary",
+    "curl_installer_environ",
+    "find_curl_binary",
+    "home_bin_candidates",
+    "install_tool",
+    "legacy_scratch_bin_roots",
+    "list_tools",
+    "list_tools_status",
+    "managed_bin_roots",
+    "npm_global_install_cmd",
+    "npm_install_environ",
+    "refuse_if_home_owned",
+    "tool_binary",
+    "tool_on_path",
+    "uninstall_tool",
+]

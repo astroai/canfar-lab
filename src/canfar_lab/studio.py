@@ -4,7 +4,7 @@ Studio is a thin, opinionated launcher around the DeepSeek Harness. It owns a
 dsh profile named ``astroai`` (see :mod:`canfar_lab.studio_profile`) instead of
 the shipped ``web`` profile, so AstroAI can add the Agent Teams layers, route
 session state off a quota-constrained ``/arc`` home, register the managed preset
-root and mount the ``astroai mcp serve`` server that gives a chat real CANFAR
+root and mount the ``canfar lab mcp serve`` server that gives a chat real CANFAR
 job and cluster tools.
 
 Two resource profiles, nothing more:
@@ -145,7 +145,7 @@ def apply_studio_bash_timeout(
     end_mark = "# /astroai-studio-bash-timeout"
     block = (
         f"{_STUDIO_BASH_MARK}\n"
-        f"# Written by `astroai studio --prepare` (profile={profile}).\n"
+        f"# Written by `canfar lab studio --prepare` (profile={profile}).\n"
         "# Targets the shipped base `bash-sandbox` row. A patch row replaces the\n"
         "# targeted row's whole config, so this row stays deliberately tiny: the\n"
         "# shipped default is 60s and bash-sandbox carries no other config.\n"
@@ -427,7 +427,7 @@ def pin_mcp_bin(home: Path, mcp_bin: str, *, dry_run: bool = False) -> str | Non
 def _studio_profile_document(profile: StudioProfile) -> str:
     defaults = profile_defaults(profile)
     return (
-        "# AstroAI Studio profile — written by `astroai studio --prepare`\n"
+        "# AstroAI Studio profile — written by `canfar lab studio --prepare`\n"
         f"profile: {profile}\n"
         f"bash_timeout_sec: {defaults['bash_timeout_sec']}\n"
         f"max_parallel_children: {defaults['max_parallel_children']}\n"
@@ -437,7 +437,7 @@ def _studio_profile_document(profile: StudioProfile) -> str:
         "applied:\n"
         f"  dsh_profile: {sp.STUDIO_PROFILE_NAME}\n"
         "  bash_timeout: ~/.dsh/cordis.patch.yml → bash-sandbox.timeoutMs\n"
-        "  state: see `astroai studio --doctor`\n"
+        "  state: see `canfar lab studio --doctor`\n"
     )
 
 

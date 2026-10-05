@@ -21,11 +21,11 @@ from .models import DataProductRef, ResourceRequest, RunSpec, RunStatus
 _MAIN_HELP = """
 Run a program on an autoscaling Ray cluster on CANFAR.
 
-  canfar cluster start          # autoscaling head; Ray adds workers on demand
-  canfar run train.py --cpus 2  # jobs add workers automatically
-  canfar jobs submit --cmd 'python -m mosaic.stack' --wait
-  canfar cluster status
-  canfar cluster stop           # tear down workers + manager
+  canfar lab cluster start          # autoscaling head; Ray adds workers on demand
+  canfar lab run train.py --cpus 2  # jobs add workers automatically
+  canfar lab jobs submit --cmd 'python -m mosaic.stack' --wait
+  canfar lab cluster status
+  canfar lab cluster stop           # tear down workers + manager
 """
 
 app = typer.Typer(
@@ -114,7 +114,7 @@ def _manager_base_url(address: str | None) -> str:
         resolved = resolve_dashboard_url() or ""
         if not resolved:
             raise typer.BadParameter(
-                "No Ray manager address. Run `canfar cluster start` first, "
+                "No Ray manager address. Run `canfar lab cluster start` first, "
                 "or set CANFAR_RAY_JOBS_ADDRESS / pass --address."
             )
     if resolved.endswith("/dashboard"):
@@ -316,11 +316,11 @@ def cmd_run(
     Does not start workers. Use `cluster start` first.
 
     Extra arguments after the script go to the script
-    (`canfar run train.py --epochs 2`).
+    (`canfar lab run train.py --epochs 2`).
 
     Examples:
-      canfar run train.py --cpus 2
-      canfar run train.py --gpus 1 --input /arc/projects/g/in --output /arc/projects/g/out
+      canfar lab run train.py --cpus 2
+      canfar lab run train.py --gpus 1 --input /arc/projects/g/in --output /arc/projects/g/out
     """
     try:
         result = job_run_payload(
@@ -392,8 +392,8 @@ def cmd_submit(
     Does not wait unless you pass --wait.
 
     Examples:
-      canfar jobs submit --cmd 'python -m mosaic.stack --in /arc/projects/g/in'
-      canfar jobs submit --cmd 'python train.py' --wait --cpus 2
+      canfar lab jobs submit --cmd 'python -m mosaic.stack --in /arc/projects/g/in'
+      canfar lab jobs submit --cmd 'python train.py' --wait --cpus 2
     """
     if cmd:
         command = tuple(shlex.split(cmd))
@@ -555,7 +555,7 @@ def cluster_start_payload(
 ) -> dict[str, Any]:
     """Start (or reuse) an autoscaling Ray cluster.
 
-    Single source of truth shared by ``canfar cluster start`` and the
+    Single source of truth shared by ``canfar lab cluster start`` and the
     MCP ``cluster_start`` tool. Writes ``~/.config/canfar/lab/ray-manager.env``
     so the manager head autoscales, creates the ray-manager session when none
     is running, waits for /readyz, and returns the Jobs address + Dashboard
@@ -678,7 +678,7 @@ def _cluster_start_locked(
             time.sleep(poll_s)
     if not base:
         raise RuntimeError(
-            "No ray-manager found. Run `canfar cluster start` "
+            "No ray-manager found. Run `canfar lab cluster start` "
             "or start one from the AstroAI hub (Start batch compute)."
         )
 
@@ -737,7 +737,7 @@ def cluster_cmd_start(
     and lets Ray add `ray-as-*` workers on demand.
 
     Example:
-      canfar cluster start --max-workers 8 --cores 2 --ram 8
+      canfar lab cluster start --max-workers 8 --cores 2 --ram 8
     """
     del ctx  # accepted for CLI symmetry; no legacy aliases remain
     try:
@@ -964,7 +964,7 @@ def dashboard_url_payload(address: str | None = None) -> str:
     if not url:
         raise RuntimeError(
             "No dashboard URL resolvable. Start a ray-manager session and run "
-            "`canfar cluster start` first."
+            "`canfar lab cluster start` first."
         )
     return url
 
@@ -994,14 +994,16 @@ def dashboard_cmd_proxy(
     """Local proxy so a notebook or marimo cell can embed the Ray Dashboard.
 
     Example:
-      canfar cluster dashboard proxy --port 9000
+      canfar lab cluster dashboard proxy --port 9000
       then <iframe src="http://127.0.0.1:9000/">
     """
     from .dashboard import DashboardProxy, resolve_dashboard_url
 
     url = resolve_dashboard_url(address)
     if not url:
-        raise typer.BadParameter("No dashboard URL resolvable (see `canfar cluster dashboard`).")
+        raise typer.BadParameter(
+            "No dashboard URL resolvable (see `canfar lab cluster dashboard`)."
+        )
     if url.endswith("/dashboard"):
         url = url[: -len("/dashboard")] + "/"
     elif not url.endswith("/"):
@@ -1045,7 +1047,9 @@ def dashboard_cmd_iframe(
 
     url = resolve_dashboard_url(address)
     if not url:
-        raise typer.BadParameter("No dashboard URL resolvable (see `canfar cluster dashboard`).")
+        raise typer.BadParameter(
+            "No dashboard URL resolvable (see `canfar lab cluster dashboard`)."
+        )
     print(dashboard_iframe_html(url, height=height))
 
 

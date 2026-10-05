@@ -41,7 +41,7 @@ def register(app: typer.Typer) -> None:
         Lists ``~/.cache`` as it exists now (not a fixed tool list). Those
         files come back the next time you install a package. Saved
         environments and lab preferences are removed only with `--saves` /
-        `--config`, or if you confirm. Agent logins: `canfar agent wipe`.
+        `--config`, or if you confirm. Agent logins: `canfar lab agent wipe`.
 
         Examples:
             canfar lab clean
@@ -77,7 +77,7 @@ def register(app: typer.Typer) -> None:
                     ui.print_hint("  Saved environments: `canfar lab clean --yes --saves`")
                 if plan["config"] is not None:
                     ui.print_hint("  Lab preferences: `canfar lab clean --yes --config`")
-                ui.print_hint("  Agent logins: `canfar agent wipe`")
+                ui.print_hint("  Agent logins: `canfar lab agent wipe`")
             else:
                 ui.print_json({**plan, "actions": [], "ok": True, "dry_run": True})
             return
@@ -119,7 +119,7 @@ def register(app: typer.Typer) -> None:
             ui.print_hint("  Saved environments kept. Pass `--saves` to delete them.")
         if not do_config and plan["config"] is not None and not opts.dry_run:
             ui.print_hint("  Lab preferences kept. Pass `--config` to reset them.")
-        ui.print_hint("  Agent logins: `canfar agent wipe`")
+        ui.print_hint("  Agent logins: `canfar lab agent wipe`")
 
 
 def _print_plan(plan: dict) -> None:
