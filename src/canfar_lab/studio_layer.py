@@ -104,12 +104,12 @@ def mcp_serve_command(
     Resolution order: an explicit path, then ``ASTROAI_STUDIO_MCP_BIN`` (in the
     environment or in ``~/.astroai/lab/.env``, so a working checkout can pin the
     row without every later ``--prepare`` reverting it to whatever ``PATH``
-    happened to hold), then ``canfar-lab`` or ``astroai`` on ``PATH``, then this interpreter.
+    happened to hold), then ``canfar-lab`` on ``PATH``, then this interpreter.
     """
     explicit = astroai_bin or mcp_bin_override(home)
     if explicit:
         return (explicit, "mcp", "serve")
-    for name in ("canfar-lab", "astroai"):
+    for name in ("canfar-lab",):
         found = shutil.which(name)
         if found:
             return (found, "mcp", "serve")

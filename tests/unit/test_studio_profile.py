@@ -214,10 +214,10 @@ def test_mcp_bin_override_ignores_a_path_that_is_gone(tmp_path: Path) -> None:
     missing = tmp_path / "uninstalled-astroai"
     monkey = pytest.MonkeyPatch()
     monkey.setenv(sp.MCP_BIN_ENV, str(missing))
-    monkey.setattr(sp.shutil, "which", lambda *_: "/usr/bin/astroai")
+    monkey.setattr(sp.shutil, "which", lambda *_: "/usr/bin/canfar-lab")
     try:
         assert sp.mcp_bin_override(tmp_path) is None
-        assert sp.mcp_serve_command(home=tmp_path) == ("/usr/bin/astroai", "mcp", "serve")
+        assert sp.mcp_serve_command(home=tmp_path) == ("/usr/bin/canfar-lab", "mcp", "serve")
     finally:
         monkey.undo()
 

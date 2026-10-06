@@ -182,7 +182,7 @@ Global flags work before or after the subcommand: `canfar lab status --json`.
 |------|------|
 | `${WORK}` (`$SCRATCH/src`) | Code + project `.pixi`/`.venv` — session-ephemeral |
 | `${SCRATCH}` | Data, download caches, runtime installs |
-| `/opt/astroai/venv/cadc` | Platform CLIs (`canfar`, `cadcget`, `canfar-lab`) — session-writable |
+| `/opt/canfar` | Platform CLIs (`canfar`, `cadcget`, `canfar-lab`) — session-writable |
 | `/arc/projects/<team>/.local` | Shared team tools (persistent) |
 | `/arc` (`$HOME`) | **Small only** — MCP, gh auth, lockfile saves |
 

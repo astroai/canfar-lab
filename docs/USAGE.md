@@ -65,7 +65,7 @@ flowchart TB
 
 ## Install
 
-Images ship `canfar-lab` on PATH (`/opt/astroai/venv/cadc`).
+Images ship `canfar-lab` on PATH (`/opt/canfar`).
 
 ```bash
 uv tool install git+https://github.com/astroai/canfar-lab.git
@@ -268,7 +268,7 @@ npx skills add astroai/canfar-skills
 Upgrade lab in a running session (no image rebuild):
 
 ```bash
-uv pip install --python /opt/astroai/venv/cadc \
+uv pip install --python /opt/canfar \
   "git+https://github.com/astroai/canfar-lab.git@main"
 hash -r
 ```

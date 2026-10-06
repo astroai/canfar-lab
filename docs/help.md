@@ -75,7 +75,7 @@ canfar-lab --install-completion bash
 
 | Layer | Where | Versioned by |
 |-------|-------|--------------|
-| Platform CLIs | `/opt/astroai/venv/cadc` | Image lock (`canfar lab --version`) |
+| Platform CLIs | `/opt/canfar` | Image lock (`canfar lab --version`) |
 | Your project | `$WORK` pixi/uv env | `pixi.lock` / `uv.lock` |
 
 ```bash

@@ -1,6 +1,6 @@
 # Pre-installed on AstroAI lab (use these names directly — no custom wrappers):
 #   rg  fd  fzf  bat  peek  jq  gh  pixi  uv  hyperfine
-#   canfar  cadcget  cadc-tap  vcp  canfar-lab  — /opt/astroai/venv/cadc/bin
+#   canfar  cadcget  cadc-tap  vcp  canfar-lab  — /opt/canfar/bin
 #   sg  —  canfar lab agent plugins install ast-grep-cli
 #
 # pixi project:  pixi install && pixi run python script.py  (versions in pixi.lock)

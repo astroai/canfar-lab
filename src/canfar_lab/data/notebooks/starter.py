@@ -75,11 +75,11 @@ def _(mo):
     import subprocess
 
     def _lab_argv(*args: str) -> list[str]:
-        for name in ("canfar-lab", "astroai"):
+        for name in ("canfar-lab",):
             if shutil.which(name):
                 return [name, *args]
-        image = pathlib.Path("/opt/astroai/venv/cadc/bin")
-        for name in ("canfar-lab", "astroai"):
+        image = pathlib.Path("/opt/canfar/bin")
+        for name in ("canfar-lab",):
             path = image / name
             if path.is_file():
                 return [str(path), *args]

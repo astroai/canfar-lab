@@ -27,12 +27,8 @@ astroai_boot_log "profile:start"
 
 if command -v canfar-lab >/dev/null 2>&1; then
     _canfar_lab_cli="canfar-lab"
-elif command -v astroai >/dev/null 2>&1; then
-    _canfar_lab_cli="astroai"
-elif [[ -x /opt/astroai/venv/cadc/bin/canfar-lab ]]; then
-    _canfar_lab_cli="/opt/astroai/venv/cadc/bin/canfar-lab"
-elif [[ -x /opt/astroai/venv/cadc/bin/astroai ]]; then
-    _canfar_lab_cli="/opt/astroai/venv/cadc/bin/astroai"
+elif [[ -x /opt/canfar/bin/canfar-lab ]]; then
+    _canfar_lab_cli="/opt/canfar/bin/canfar-lab"
 fi
 
 if [[ -n "${_canfar_lab_cli:-}" ]]; then

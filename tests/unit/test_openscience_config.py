@@ -18,7 +18,7 @@ from canfar_lab.agent.openscience import (
 from canfar_lab.agent.registry import get_registry_agent
 from canfar_lab.agent.setup import default_bundle_names, run_bundle
 
-CMD = ("/opt/astroai/venv/cadc/bin/canfar-lab", "mcp", "serve")
+CMD = ("/opt/canfar/bin/canfar-lab", "mcp", "serve")
 
 
 def _read(home: Path) -> dict:

@@ -220,7 +220,7 @@ committed, upgraded CLI wants.
 ## Troubleshooting
 
 Run `canfar lab studio --doctor` first; it checks the harness binary, the profile
-manifest and layer order, the composed tree (`dsh --profile astroai
+manifest and layer order, the composed tree (`dsh --profile canfar-lab
 --dump-config`), the state root, the port, the MCP handshake and its tool
 inventory, skill discovery, the provider routes and the session's resource
 envelope, and prints the fix for anything that fails. Exit status is `1` when a
