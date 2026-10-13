@@ -8,10 +8,9 @@ Mac `~/src` org trees for **astroai** and **sfabbro** only (no `opencadc/`,
 Bootstrap once per session (or after wipe):
 
 ```bash
-bash "$WORK/sfabbro/agent-home/scripts/bootstrap-canfar-workspace.sh"
-# or from a fresh clone:
-#   git clone git@github.com:sfabbro/agent-home.git "$WORK/sfabbro/agent-home"
-#   bash "$WORK/sfabbro/agent-home/scripts/bootstrap-canfar-workspace.sh"
+bash "$WORK/astroai/canfar-lab/scripts/init-session.sh"
+# CANFAR platform skills, on the session only:
+# npx skills add astroai/canfar-skills
 ```
 
 ## Layout
@@ -19,7 +18,7 @@ bash "$WORK/sfabbro/agent-home/scripts/bootstrap-canfar-workspace.sh"
 | Path | Meaning |
 |------|---------|
 | `$WORK/astroai/<repo>` | AstroAI product clones (fork workflow) |
-| `$WORK/sfabbro/<repo>` | Personal repos (`agent-home`, MSA, …) |
+| `$WORK/sfabbro/<repo>` | Personal repos (MSA, research, …) |
 | `$WORK/workspace.toml` | Catalog for this session (astroai + sfabbro only) |
 | `$WORK/update-repos.sh` | Sync helper (`SRC=$WORK`, `ORGS="astroai sfabbro"`) |
 | `$WORK/scripts/workspace-doctor.py` | Read-only consistency check |
@@ -43,9 +42,9 @@ pixi run pytest -q
 # Sync all session clones
 SRC="$WORK" ORGS="astroai sfabbro" bash "$WORK/update-repos.sh"
 
-# Agent stack
-bash "$WORK/sfabbro/agent-home/scripts/install.sh" all
-bash "$WORK/sfabbro/agent-home/scripts/install.sh" work   # Azure/NRC models
+# Agent stack (rules, MCP). Skills: npx skills. CANFAR pack on the session only.
+bash "$WORK/astroai/canfar-lab/scripts/install-agents.sh"
+npx skills add astroai/canfar-skills
 ```
 
 Clone into the org tree (wrapper in bootstrap, or manually):
@@ -75,7 +74,7 @@ mv "$WORK/torchsky" "$WORK/astroai/torchsky"
 ## Instruction precedence
 
 User request → repository-local `AGENTS.md` / harness → this workspace file →
-agent-home skills/rules → generated agent config.
+installed skills → generated agent config.
 
 Per-repo `.cursor/harness/` travels with the clone. Azure/NRC model notes:
-`sfabbro/agent-home/docs/openai_with_nrc.md`.
+`astroai/canfar-lab/docs/` (install with `scripts/install-work-models.py`).

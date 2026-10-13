@@ -24,7 +24,7 @@ def test_default_repositories_list():
     assert "astroai/uspm" in DEFAULT_SCIENCE_REPOSITORIES
     assert "astroai/torchz" in DEFAULT_SCIENCE_REPOSITORIES
     assert "astroai/torchfits" in DEFAULT_SCIENCE_REPOSITORIES
-    assert "astroai/xmatch" in DEFAULT_SCIENCE_REPOSITORIES
+    assert "astroai/xmatcher" in DEFAULT_SCIENCE_REPOSITORIES
     assert "astroai/zensus" in DEFAULT_SCIENCE_REPOSITORIES
     assert "astroai/weightmask" in DEFAULT_SCIENCE_REPOSITORIES
     assert len(DEFAULT_SCIENCE_REPOSITORIES) == 10

@@ -25,16 +25,6 @@ command = "uvx"
 args = ["mcp-server-fetch"]
 enabled = true
 
-[mcp_servers.sequential-thinking]
-command = "npx"
-args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
-enabled = true
-
-[mcp_servers.puppeteer]
-command = "npx"
-args = ["-y", "@modelcontextprotocol/server-puppeteer"]
-enabled = true
-
 [mcp_servers.overleaf]
 command = "npx"
 args = ["-y", "@mjyoo2/overleaf-mcp"]

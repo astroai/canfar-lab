@@ -44,7 +44,6 @@ CORE_REPOSITORIES = [
     "astroai/torchfits",
     "astroai/canfar-lab",
     "astroai/canfar-skills",
-    "sfabbro/agent-home",
 ]
 
 # Color codes

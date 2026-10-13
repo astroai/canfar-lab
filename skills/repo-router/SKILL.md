@@ -1,7 +1,7 @@
 ---
 name: repo-router
 description: >-
-  Route to the right agent-home skill and verifier for sfabbro repos. Use at
+  Route to the right skill and verifier for sfabbro repos. Use at
   session start, when switching directories, or when unsure which workflow applies.
 ---
 
@@ -12,9 +12,9 @@ Read repo-root `AGENTS.md` first. Then pick skills and verifiers:
 | Repo / family | Env skill | Domain skill | Typical verifier |
 |---------------|-----------|--------------|------------------|
 | torchsky | pixi-dev | torchsky-dev | `pixi run ci-local` |
-| torchfits | pixi-dev | release-api-freeze-review (pre-tag) | `pixi run ci-local` |
+| torchfits | pixi-dev | — | `pixi run ci-local` |
 | zensus | pixi-dev | — | `pixi run pytest` |
-| cosmodist, cfhtcast, xmatch | pixi-dev | — | `pixi run` CI task |
+| cosmodist, cfhtcast, xmatcher | pixi-dev | — | `pixi run` CI task |
 | torchregress | pixi-dev | — | `./scripts/preflight_push.sh`; `pixi run ci` |
 | torchregress-harness | pixi-dev | harness-coding | `pixi run preflight-push`; `pixi run ci` |
 | torchz | pixi-dev | — | `./scripts/preflight_push.sh`; `pixi run ci` |
@@ -25,7 +25,7 @@ Read repo-root `AGENTS.md` first. Then pick skills and verifiers:
 | CANFAR lab session | — | canfar-lab-workflow | pixi/uv under `${WORK}` |
 | masked-stellar-autoencoder | pixi-dev | — | `pixi run` tests; push `origin` only (not aydan upstream) |
 | science-platform/* | harness-coding | — | repo CI |
-| agent-home | harness-coding | — | `bash scripts/install.sh` dry run |
+| canfar-lab | harness-coding | canfar-lab-workflow | `./scripts/ci.sh` |
 
 ## Remotes (AstroAI products under `~/src/astroai/`)
 
@@ -40,8 +40,6 @@ extra `wip/*` branches unless necessary. Never force-push `astroai` `main`.
 |------|-------|
 | Failing GitHub Actions on a PR | gh-fix-ci |
 | Review comment triage | gh-address-comments |
-| Batch bot PRs (Jules, etc.) | jules-pr-batch-triage |
-| Merge + verify branches | pr-merger |
 
 ## Always on
 

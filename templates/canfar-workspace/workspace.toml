@@ -98,13 +98,13 @@ workflow = "pixi"
 remote_policy = "astroai_fork"
 harness_config = "astroai/weightmask/.cursor/harness/config.json"
 
-[repositories."astroai/xmatch"]
-path = "astroai/xmatch"
+[repositories."astroai/xmatcher"]
+path = "astroai/xmatcher"
 class = "owned_product"
 lifecycle = "active"
 workflow = "pixi"
 remote_policy = "astroai_fork"
-harness_config = "astroai/xmatch/.cursor/harness/config.json"
+harness_config = "astroai/xmatcher/.cursor/harness/config.json"
 
 [repositories."astroai/zensus"]
 path = "astroai/zensus"

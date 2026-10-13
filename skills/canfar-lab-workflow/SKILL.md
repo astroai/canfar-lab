@@ -137,7 +137,7 @@ Mirror Mac `~/src/{astroai,sfabbro}` under `${WORK}` (`/scratch/src`) — not `o
 
 ```bash
 # In-session one-shot bootstrap (wires agents, clones repos, installs pixi envs):
-bash "$WORK/sfabbro/agent-home/scripts/bootstrap-canfar-workspace.sh" --tier core
+bash "$WORK/astroai/canfar-lab/scripts/init-session.sh"
 
 # Sync git repos, check dirty state, check key validity:
 workspace-sync status     # or: python3 "$WORK/scripts/workspace-sync.py" status

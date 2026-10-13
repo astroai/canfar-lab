@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install agent-home: skills, rules, MCP, AGENTS instructions for all coding agents.
+# Install canfar-lab skills, rules, MCP, and AGENTS instructions for coding agents.
 # Usage: install.sh [all|skills|rules|instructions|mcp|pi] [--force]
 set -euo pipefail
 
@@ -251,14 +251,6 @@ PY
 }
 
 # Default clone location marker (optional convenience symlink)
-MARKER="$HOME_DIR/.agent-home"
-if [[ "$REPO_ROOT" != "$MARKER" ]]; then
-  if [[ -L "$MARKER" || ! -e "$MARKER" ]]; then
-    ln -sfn "$REPO_ROOT" "$MARKER"
-    echo "linked $MARKER -> $REPO_ROOT"
-  fi
-fi
-
 mkdir -p "$HOME_DIR/.local/share/agent-home"
 
 if should_run skills || should_run all; then
@@ -274,14 +266,20 @@ if should_run skills || should_run all; then
     "$HOME_DIR/.agents/skills"
     "$HOME_DIR/.cline/skills"
   )
+  # Laptop clones of canfar-skills must not land in every agent prompt.
+  # Install that pack on a session: npx skills add astroai/canfar-skills
+  on_canfar=0
+  if [[ "$HOME_DIR" == /arc/home/* || "${CANFAR_SKILLS:-}" == 1 ]]; then
+    on_canfar=1
+  fi
   for target in "${skill_targets[@]}"; do
     link_skill_dir "$target" "$REPO_ROOT/skills"
+    if [[ $on_canfar -eq 0 ]]; then
+      continue
+    fi
     for canfar_candidate in \
       "${WORK:-/scratch/src}/astroai/canfar-skills/skills" \
       "/scratch/src/astroai/canfar-skills/skills" \
-      "$HOME_DIR/src/astroai/canfar-skills/skills" \
-      "$REPO_ROOT/../astroai/canfar-skills/skills" \
-      "$REPO_ROOT/../../astroai/canfar-skills/skills" \
       "$HOME_DIR/.canfar-skills/skills"; do
       if [[ -d "$canfar_candidate" ]]; then
         link_skill_dir "$target" "$canfar_candidate"
