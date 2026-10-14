@@ -57,7 +57,7 @@ Claude Code reads `CLAUDE.md`, not `AGENTS.md`. Repo roots should ship:
 ```
 
 as `CLAUDE.md` (or prepend that line). Run
-`bash ~/.agent-home/scripts/ensure-claude-bridge.sh` after adding `AGENTS.md`.
+`bash ~/src/astroai/canfar-lab/scripts/ensure-claude-bridge.sh` after adding `AGENTS.md`.
 
 ## Skills
 
@@ -66,6 +66,6 @@ as `CLAUDE.md` (or prepend that line). Run
 - `pixi-dev` — owned science packages
 - `harness-reflect` / `harness-improve` — harness maintenance (manual)
 
-Bootstrap a repo: `bash ~/.agent-home/scripts/init-harness.sh`
+Bootstrap a repo: `bash ~/src/astroai/canfar-lab/scripts/init-harness.sh`
 
-Install stack: `bash ~/.agent-home/scripts/install.sh`
+Install stack: `bash ~/src/astroai/canfar-lab/scripts/install-agents.sh`

@@ -71,7 +71,7 @@ fi
 echo -e "  ${GREEN}✓${RESET} Active GitHub User / Fork Owner: ${BOLD}${FORK_USER}${RESET}"
 
 # ------------------------------------------------------------------------------
-# 3. Synchronize Core Infrastructure (canfar-lab & agent-home)
+# 3. Synchronize canfar-lab. agent-home is retired.
 # ------------------------------------------------------------------------------
 sync_repo() {
     local org="$1"
@@ -100,7 +100,6 @@ sync_repo() {
 
 echo -e "\n${BOLD}[1/4] Syncing Infrastructure Repositories...${RESET}"
 sync_repo "astroai" "canfar-lab"
-sync_repo "sfabbro" "agent-home"
 
 # ------------------------------------------------------------------------------
 # 4. Synchronize the 10 Science Repositories
@@ -113,7 +112,7 @@ SCIENCE_REPOS=(
     torchsky
     torchregress
     torchfits
-    xmatch
+    xmatcher
     zensus
     weightmask
 )

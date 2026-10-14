@@ -9,4 +9,6 @@ alwaysApply: false
 - `#!/bin/bash` with `set -euo pipefail` (or `-e` only when `-u`/`-o pipefail` break intentional patterns).
 - Quote variables; use `[[ ]]` in bash; prefer `$()` over backticks.
 - Run `shellcheck` on non-trivial scripts before claiming done.
+- CANFAR lab sessions: login shells source `/etc/profile.d/astroai.sh` then `/etc/astroai-lab/profile.sh` (`astroai env export`).
+- Platform CADC venv upgrades: `/opt/astroai/bin/upgrade-cadc-tools.sh` (wraps `uv pip install --python /opt/astroai/venv/cadc`).
 - Idempotent installs: skip if target exists unless `--force`; merge configs instead of blind overwrite.

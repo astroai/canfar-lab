@@ -33,7 +33,7 @@ DEFAULT_SCIENCE_REPOSITORIES: list[str] = [
     "astroai/torchsky",
     "astroai/torchregress",
     "astroai/torchfits",
-    "astroai/xmatch",
+    "astroai/xmatcher",
     "astroai/zensus",
     "astroai/weightmask",
 ]

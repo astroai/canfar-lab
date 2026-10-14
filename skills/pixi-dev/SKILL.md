@@ -34,7 +34,7 @@ Repo uses Pixi when `pixi.toml` exists at the git root (sometimes nested in `pyp
 | **torchsky** | `pixi run preflight-push` | Full pytest is GitHub `build-test`; `ci-local` is optional. See `AGENTS.md` |
 | **torchfits** | `pixi run ci-local` / `pixi run release-gate` before tag | FITS I/O; sibling of torchsky |
 | **zscrape** | `pixi run pytest` or task from `pixi.toml` | Always `pixi run python` / `pixi run zscrape` |
-| **cosmapper**, **cfhtcast**, **xmatch** | `pixi run` tasks from each repo | Check `AGENTS.md` |
+| **cosmapper**, **cfhtcast**, **xmatcher** | `pixi run` tasks from each repo | Check `AGENTS.md` |
 
 ## Agent loop
 

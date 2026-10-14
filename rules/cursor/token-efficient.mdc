@@ -12,4 +12,4 @@ alwaysApply: true
 5. **APIs/docs:** Context7 MCP, `tldr`, or `gh api` — not full reference dumps.
 6. **Benchmark:** `hyperfine 'cmd A' 'cmd B'` when comparing implementations.
 
-Install optional **ast-grep** and **matplotlib-data-visualization** via `bash ~/.agent-home/scripts/install-upstream-skills.sh`.
+Use the **ast-grep** skill (from GitHub) for syntax-aware refactors; use **matplotlib-data-visualization** from skill-forge for plots.

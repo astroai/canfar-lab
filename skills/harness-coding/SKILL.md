@@ -84,21 +84,21 @@ When you learn something reusable (recurring mistake, repo-specific verifier, AP
 If `.cursor/harness/` is missing in the git root, run:
 
 ```bash
-bash ~/.agent-home/scripts/init-harness.sh
+bash ~/src/astroai/canfar-lab/scripts/init-harness.sh
 ```
 
 Optional pre-push git hook (runs `verify` tier only):
 
 ```bash
-bash ~/.agent-home/skills/harness-coding/scripts/install_pre_push_hook.sh
+bash ~/src/astroai/canfar-lab/skills/harness-coding/scripts/install_pre_push_hook.sh
 ```
 
 ## Other agents (Codex, OpenCode, Antigravity, Freebuff, Pi)
 
-Install skills + always-on instructions once:
+Install skills and rules from canfar-lab:
 
 ```bash
-bash ~/.agent-home/scripts/install.sh
+bash ~/src/astroai/canfar-lab/scripts/install-agents.sh
 ```
 
 Repo harness files (`.cursor/harness/`) are shared across all agents.
