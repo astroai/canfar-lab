@@ -398,15 +398,27 @@ tests/cli/{test_desk,test_sync}.py
 ### 9.2 canfar-containers
 
 ```
-scripts/lib/studio-canfar-proxy.py   GET/POST /api/studio/sync (job runner, cookie auth)
-                                     + Desktop sync chip + parity row in the dock
-scripts/startup-studio.sh            start `canfar-lab sync watch --session` (skip if CLI
-                                     missing), write ready.json on $HOME, boot log
-scripts/lib/astroai-dock.html        vendored dock asset (from canfar-lab)
+scripts/lib/studio-canfar-proxy.py   GET/POST /api/studio/sync + Desk dock injection
+                                     (rev 16): bearer-or-loopback auth, single-flight
+                                     exchange, dry_run passthrough, cluster start/stop
+scripts/startup-studio.sh            start `canfar-lab sync watch --session --interval 30`
+                                     (skip if CLI missing), supervision-loop restart,
+                                     boot log; the watcher writes ready.json itself
+scripts/lib/astroai-dock.html        vendored dock asset (from canfar-lab), rev 2
 scripts/sync-desk-assets.sh + config/desk-assets.lock   vendoring + drift check
 Makefile                             `desk-assets-check` added to `lint`
-scripts/test-studio-local.sh         assert /api/studio/sync + dock rev fingerprint
+dockerfiles/studio/Dockerfile        COPY + chmod the vendored asset into /opt/astroai/lib
+scripts/lib/test_studio_canfar_proxy.py  host tests: injection, state, auth, actions
+scripts/test-studio-local.sh         assert dock rev fingerprint, /api/studio/sync
+                                     state + dry-run POST, watcher ready.json
 ```
+
+Deviations from the sketch above, as implemented: the dock is injected the same
+way the command dock is (stdlib string splice), and session-mode buttons stay
+value-add only (**Desktop sync**, **Launch cluster**) so the Studio command dock
+keeps navigation. `/api/studio/sync` authorizes with the per-process bearer
+embedded in the injected config (`X-Desk-Token`) or a loopback caller instead of
+a dsh cookie, and the exchange runs single-flight with a 300 s timeout.
 
 Both proxies stay **stdlib-only** (the image proxy's zero-dependency invariant
 and its Docker-free CI are preserved); only the dock asset is shared, via the
@@ -442,8 +454,9 @@ P1 and P2 can partly overlap; P1 is independently useful (sync without cockpit).
 
 - Desk proxy binds `127.0.0.1` only; action POSTs require a per-run bearer token
   plus `Origin` allowlist (localhost CSRF/DNS-rebinding guard). No action on GET.
-- Session-side endpoints reuse the proxy's existing auth (token redirect +
-  `dsh-auth-*` cookie + Host fence); job status is read-only JSON.
+- Session-side endpoints authorize with the per-process bearer embedded in the
+  injected dock config (`X-Desk-Token`, constant-time compare) or a loopback
+  caller; GET state is read-only JSON, the exchange is single-flight.
 - Mailbox files are user-owned and reference-only; `sync.exclude` + refuse-list
   scans guard commits; keys never enter the profile, the mailbox, or git
   (unless `sync.with_keys`, user home only).
@@ -475,7 +488,8 @@ P1 and P2 can partly overlap; P1 is independently useful (sync without cockpit).
    a drift check; both proxies stay stdlib-only so the image CI stays
    Docker-free and the image proxy keeps its zero-dependency invariant.
 6. Action endpoints: loopback + per-run token + Origin checks on the desk;
-   existing cookie/Host auth on the session side; no side effects on GET.
+   per-process bearer (embedded in the injected dock config) or loopback on the
+   session side; no side effects on GET.
 7. Unified catalog precedence; engine is a promoted, tested version of
    `workspace-sync.py` (template kept for compatibility).
 8. Desk origin-poll fallback relaxed to 300 s (mailbox events are the fast path).
