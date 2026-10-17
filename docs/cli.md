@@ -204,6 +204,8 @@ quota-constrained `/arc` home, registers the managed preset root and mounts the
 | `--mcp-bin PATH` | Pin the `canfar-lab` binary the Studio MCP row runs (remembered in `~/.astroai/lab/.env`) |
 | `--skills` | Print skills.sh / agentskills onboarding |
 | `--force` | Overwrite managed scaffolding |
+| `--dsh-version SPEC` | `pin\|alpha\|next\|latest\|newest\|<exact>` — resolved/reported; install with `--install-dsh` |
+| `--install-dsh` | npm-install the resolved dsh when missing/older |
 
 ```bash
 canfar lab studio                          # laptop, cwd
@@ -211,12 +213,60 @@ canfar lab studio ~/src/astroai/torchsky   # explicit workspace
 canfar lab studio --prepare                # provision only
 canfar lab --json studio --doctor          # machine-readable pre-flight
 canfar lab studio --prepare --profile canfar
+canfar lab studio --dsh-version newest --install-dsh
 ```
 
 Studio's `--profile` selects *resources* (`laptop` / `canfar`) and is never
 passed to dsh; the harness profile is always `astroai`. See
 [docs/studio.md](studio.md) for the storage split, the teams, the provider
 seeding, and the CANFAR proxy.
+
+### `canfar lab desk`
+
+Browser cockpit for a laptop: the **latest dsh** (resolved through npm
+dist-tags, default spec `newest`; offline falls back to the repo pin) served on
+loopback behind a small stdlib proxy that injects the Desk dock — marimo,
+JupyterLab, VS Code, terminal, Launch cluster, Canfar sync. Design and
+protocol: [desk-sync.md](desk-sync.md).
+
+| Flag | What it does |
+|------|----------------|
+| `REPO` | Workspace directory (default: cwd) |
+| `--port N` | Cockpit port (default: `desk_port` = 5080; dsh itself stays on `--dsh-port` = 3080) |
+| `--dsh-version SPEC` | `pin\|alpha\|next\|latest\|newest\|<exact>` (default: `dsh_version` = `newest`) |
+| `--no-install-dsh` | Never npm-install dsh |
+| `--no-open` | Do not open the browser |
+| `--doctor` | Pre-flight workspace, dsh/npm, apps, mailbox, auth; `--json` prints the report |
+
+```bash
+canfar lab desk                    # newest dsh + dock, opens the browser
+canfar lab --json desk --doctor    # machine-readable pre-flight
+```
+
+The dock's Canfar sync button publishes (commit + push, secret-scan gated) and
+drops a request in the shared mailbox; the session watcher answers with
+bootstrap + fast-forward. The mailbox is only a doorbell — GitHub is the sync
+protocol; when it is laptop-local the desk says so and the session can still
+pull manually.
+
+### `canfar lab sync`
+
+Fetch/refresh the workspace catalog (default command), plus the Desk exchange
+transactions:
+
+```bash
+canfar lab sync                                    # fetch all repos (ff-only)
+canfar lab sync exchange --to canfar               # desk: publish + queue session request
+canfar lab sync exchange --to desktop --dry-run    # plan only, nothing pushed
+canfar lab sync watch --desk --once                # desk: absorb session events
+canfar lab sync watch --session --interval 30      # session: poll requests (no inotify on /arc)
+```
+
+`exchange` flags: `--to canfar|desktop`, `--root`, `--repos`, `--repos-file`,
+`--mailbox`, `--publish-mode commit|report`, `--message`,
+`--bootstrap/--no-bootstrap`. `watch` flags: `--session`/`--desk`, `--root`,
+`--mailbox`, `--repos-file`, `--interval`, `--once`. The protocol is documented
+in [desk-sync.md](desk-sync.md) §6.
 
 ### `canfar lab help`
 

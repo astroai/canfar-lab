@@ -184,6 +184,24 @@ Because the default root is ephemeral, the design absorbs the failure mode:
 | `data.project` | `/arc/projects/<group>` | shared | default durable output root |
 | `agent.bundles` | shipped defaults | shared | same composition both sides |
 
+The matrix above is the design vocabulary (dotted paths). The keys that
+actually ship in `canfar_lab/config/settings.py` are **flat snake_case** —
+`code.root.session`/`code.root.desktop` map to the existing `$WORK` /
+`/scratch/src` / `~/src` resolution in `canfar_lab/cli/sync.py`, and the rest:
+
+| Implemented key | Default | What it drives |
+|---|---|---|
+| `sync_mailbox` | unset (auto) | mailbox path override; `CANFAR_LAB_SYNC_MAILBOX` also honored (SSHFS of a shared home) |
+| `sync_publish_mode` | `commit` | engine publish: `commit` (auto-commit with secret scan) or `report` (never commit) |
+| `sync_absorb_mode` | unset | engine absorb: `ff`, `rebase`, or unset (callers choose; session watcher is `ff`, desk watcher is `rebase`) |
+| `sync_exclude` | `[]` | extra exclude globs on top of the engine's built-in list |
+| `dsh_version` | `newest` | dsh spec for the desk: `pin\|alpha\|next\|latest\|newest\|<exact>` (§7.3) |
+| `desk_port` | `5080` | local cockpit port (dsh itself stays on 3080) |
+| `apps_editor` | `vscode` | `vscode`/`cursor`/`windsurf`/custom argv |
+| `apps_terminal` | `auto` | macOS: Ghostty → iTerm → Terminal.app; Linux: `$TERMINAL` → known emulators |
+| `session_name` | `astroai-studio` | "ensure" reuses one session (interactive cap) |
+| `session_image` | unset | `images.canfar.net/astroai/studio:<tag>` override |
+
 ### 5.4 Secrets
 
 - The shared profile and mailbox carry **references only** (env var names,
@@ -280,10 +298,11 @@ $HOME/.astroai/lab/sync/          # /arc/home in session; SSHFS-or-canfar-data o
 
 ```bash
 canfar lab desk                    # prepare profile, start dsh + desk proxy, open browser
-canfar lab desk --dsh-version latest
+canfar lab desk --dsh-version newest   # default; pin|alpha|next|latest|newest|<exact>
 canfar lab desk --doctor           # validate profile, bus, apps, session profile
+canfar lab desk --no-install-dsh   # never npm-install dsh
 canfar lab sync exchange --to canfar|desktop [--dry-run] [--json]
-canfar lab sync watch --desk|--session [--once]
+canfar lab sync watch --desk|--session [--once] [--interval S]
 ```
 
 `canfar lab desk` reuses `studio --prepare` (laptop profile) and
@@ -291,9 +310,9 @@ canfar lab sync watch --desk|--session [--once]
 
 - `/` proxies dsh (HTTP + WebSocket splice, loopback only) and injects the Desk
   dock (same dock asset as the session side);
-- `/api/desk/actions/*` is the action API (POST), requiring a per-run bearer
-  token embedded in the served page plus an `Origin` check;
-- `GET /api/desk/state` returns chip state for the dock.
+- `POST /__desk/action/<name>` is the action API, requiring a per-run bearer
+  token (`X-Desk-Token`) embedded in the served page plus an `Origin` check;
+- `GET /__desk/state` returns chip state for the dock.
 
 ### 7.2 Dock buttons
 
@@ -309,13 +328,19 @@ canfar lab sync watch --desk|--session [--once]
 
 ### 7.3 dsh version policy and parity
 
-- The repo pins `0.2.1-alpha.1` (`studio.py`, image `ARG DSH_VERSION`); npm
-  `latest` currently resolves to `0.2.0-rc.2`, i.e. **older than the pin**.
-- The desk therefore defaults to the pin, allows `--dsh-version`/`desk.dsh_version:
-  latest`, and gates the result with `desk --doctor` (the existing
-  `--dump-config` compose check runs in a scrubbed environment). The parity chip
-  reports desk-dsh vs session-dsh and offers "align" (install the image's pin
-  locally).
+- Repo pins (`studio.py`, `agent/review_bench.py`, `studio_paths.py`,
+  `data/agent/agents/dsh.yaml`) are bumped together to `0.2.1-alpha.5`
+  (the image installs the `@alpha` channel; a unit test keeps the four in
+  lockstep). The four pins are the *offline fallback*, not the desk default.
+- The desk default is `newest`: `canfar_lab/dsh_release.py` resolves the max
+  semver across all npm dist-tags (prereleases included; as of 2026-10 that is
+  `next=0.2.1-rc.2`). Specs: `pin|alpha|next|latest|newest|<exact>`.
+  Registry failures degrade to the pin with an `offline` note — no hard stop.
+- `canfar lab desk` installs the resolved release with `npm install -g` when it
+  is missing/older (`--no-install-dsh` to opt out). `canfar lab studio
+  --dsh-version <spec> --install-dsh` does the same for the raw `studio` path;
+  `--doctor`/`desk --doctor` report `{spec, release, installed, needs_install}`
+  in JSON so the parity decision is scriptable.
 - Parity report contents: image tag/digest; dsh version; canfar-lab version
   (note: the image installs `canfar-lab` from git `main` at build time, so the
   session CLI may be *newer* than the desk's install — shown, not assumed);

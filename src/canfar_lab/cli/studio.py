@@ -226,6 +226,18 @@ def studio_main(
         bool,
         typer.Option("--skills", help="Print skills.sh / agentskills onboarding and exit."),
     ] = False,
+    dsh_version: Annotated[
+        str | None,
+        typer.Option(
+            "--dsh-version",
+            help="pin|alpha|next|latest|newest|<version> — reported everywhere, "
+            "installed with --install-dsh.",
+        ),
+    ] = None,
+    install_dsh: Annotated[
+        bool,
+        typer.Option("--install-dsh", help="npm-install the resolved dsh when missing/older."),
+    ] = False,
 ) -> None:
     """Launch AstroAI Studio (dsh web) or prepare/diagnose its configuration.
 
@@ -235,12 +247,14 @@ def studio_main(
     if ctx.invoked_subcommand is not None:
         return
 
+    from canfar_lab import dsh_release as _dsh
     from canfar_lab import panel as _panel
     from canfar_lab import studio as _studio
     from canfar_lab import studio_profile as _sp
     from canfar_lab.utils.subprocess import run
 
     opts = merge_opts(ctx)
+    dsh_info = _dsh.resolve(dsh_version)
 
     if repo == "status":
         studio_status_cmd(ctx, json_output=opts.json)
@@ -271,6 +285,19 @@ def studio_main(
             port=port,
             with_team=with_team,
         )
+        dsh_now = _studio.dsh_binary()
+        dsh_installed = _dsh.installed_version(dsh_now)
+        report["dsh"] = {
+            "spec": dsh_version or "pin",
+            "release": {
+                "version": dsh_info.version,
+                "source": dsh_info.source,
+                "note": dsh_info.note,
+            },
+            "binary": dsh_now,
+            "installed": dsh_installed,
+            "needs_install": dsh_now is None or _dsh.has_update(dsh_installed, dsh_info),
+        }
         if opts.json:
             ui.print_json(report)
         else:
@@ -320,6 +347,18 @@ def studio_main(
     try:
         repo_path = _studio.resolve_repo(repo)
         dsh_bin = _studio.dsh_binary()
+        dsh_installed = _dsh.installed_version(dsh_bin)
+        dsh_change = (dsh_version or install_dsh) and _dsh.has_update(dsh_installed, dsh_info)
+        if dsh_change and install_dsh and not (opts.dry_run or opts.json):
+            npm = _dsh.npm_binary()
+            if npm is None:
+                raise LabError(
+                    "npm is needed to install dsh",
+                    hint="Install Node.js/npm or drop --install-dsh.",
+                )
+            run([npm, *_dsh.install_command(dsh_info.version)[1:]])
+            dsh_bin = _studio.dsh_binary()
+            dsh_installed = _dsh.installed_version(dsh_bin)
         if dsh_bin is None:
             raise _studio.dsh_missing_error()
     except LabError as exc:
@@ -351,6 +390,15 @@ def studio_main(
                 "dsh_profile": _sp.STUDIO_PROFILE_NAME,
                 "cmd": cmd,
                 "env": studio_env,
+                "dsh": {
+                    "spec": dsh_version or "pin",
+                    "release": {
+                        "version": dsh_info.version,
+                        "source": dsh_info.source,
+                        "note": dsh_info.note,
+                    },
+                    "installed": dsh_installed,
+                },
                 "prepare": prep,
             }
         )

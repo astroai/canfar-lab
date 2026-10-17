@@ -10,6 +10,7 @@ import typer
 
 from canfar_lab import ui
 from canfar_lab.cli.context import merge_opts
+from canfar_lab.session_urls import contrib_url, local_base_url
 
 
 def run_open(
@@ -22,11 +23,7 @@ def run_open(
     session_id = (
         os.environ.get("SKAHA_SESSIONID") or os.environ.get("skaha_sessionid") or ""  # noqa: SIM112
     ).strip()
-    base_url = (
-        f"https://workloads.canfar.net/session/contrib/{session_id}"
-        if session_id
-        else "http://127.0.0.1:5000"
-    )
+    base_url = contrib_url(session_id) if session_id else local_base_url()
 
     tool = "agent"
     file_path = None

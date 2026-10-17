@@ -13,6 +13,7 @@ from canfar_lab.cli.agent_cmd import agent_app
 from canfar_lab.cli.banner import show_banner
 from canfar_lab.cli.config import config_app
 from canfar_lab.cli.context import GlobalOpts, merge_opts
+from canfar_lab.cli.desk import desk_app
 from canfar_lab.cli.env import env_app
 from canfar_lab.cli.help_cmd import command_path_completer, help_cmd_body
 from canfar_lab.cli.kernel import kernel_app
@@ -42,6 +43,7 @@ app.add_typer(studio_app, name="studio")
 open_cmd.register(app)
 app.add_typer(panel_app, name="panel")
 app.add_typer(sync_app, name="sync")
+app.add_typer(desk_app, name="desk")
 register_workload(app, jobs_as="jobs")
 
 lab_app = app

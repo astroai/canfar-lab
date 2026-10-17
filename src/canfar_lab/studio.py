@@ -31,10 +31,13 @@ from canfar_lab.errors import LabError
 
 StudioProfile = Literal["laptop", "canfar"]
 
-#: Pinned harness version. Keep in sync with canfar-containers
-#: `dockerfiles/studio/Dockerfile` (ARG DSH_VERSION) and
-#: `src/canfar_lab/data/agent/agents/dsh.yaml`.
-DSH_VERSION = "0.2.1-alpha.1"
+#: Pinned harness snapshot (fallback for offline resolution). canfar-containers
+#: installs ``@deepseek-ai/dsh@alpha``; ``canfar_lab.dsh_release`` resolves
+#: ``newest`` across npm dist-tags and this pin is what ``studio``/``desk``
+#: fall back to without network. Keep the string in sync with
+#: ``agent/review_bench.py``, ``studio_paths.DSH_INSTALL_HINT`` and
+#: ``data/agent/agents/dsh.yaml``.
+DSH_VERSION = "0.2.1-alpha.5"
 DSH_NPM = f"@deepseek-ai/dsh@{DSH_VERSION}"
 
 DEFAULT_PORT = 3080
