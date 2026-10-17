@@ -78,6 +78,16 @@ def session_once(
             note=payload.get("note"),
         )
         event_path = bus.enqueue("events", reply, mailbox=mailbox)
+        bus.write_state(
+            mailbox=mailbox,
+            side=bus.SESSION,
+            payload={
+                "last_event": event_path.name,
+                "absorbed_at": clock.utc_iso(),
+                "from": payload.get("from"),
+                "absorb": report.to_dict(),
+            },
+        )
         with contextlib.suppress(OSError):
             claimed.unlink()
         bus.prune_events(mailbox=mailbox)

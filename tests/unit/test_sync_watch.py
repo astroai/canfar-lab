@@ -41,6 +41,10 @@ def test_session_once_processes_request_and_writes_event(tmp_path):
 
     ready = bus.read_ready(mailbox=mailbox)
     assert ready is not None
+    state = bus.read_state(mailbox=mailbox, side="session")
+    assert state["last_event"]
+    assert state["absorbed_at"]
+    assert state["absorb"]["op"] == "absorb"
     # Request moved out of the queue, nothing left to claim.
     assert bus.pending_requests(mailbox) == []
     assert list((mailbox / "processing").glob("*.json")) == []
