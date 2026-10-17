@@ -95,6 +95,16 @@ def mailbox_state(
     return state
 
 
+def lab_version() -> str | None:
+    """Version of the running canfar-lab install (``None`` when not installed)."""
+    try:
+        from canfar_lab.version import display_version
+
+        return display_version()
+    except Exception:  # noqa: BLE001 — the dock must render without packaging metadata
+        return None
+
+
 def collect(
     *,
     root: Path,
@@ -131,6 +141,7 @@ def collect(
                 else None
             ),
         },
+        "lab": {"version": lab_version()},
         "mailbox": mailbox_state(mailbox, configured=configured, on_session=on_session),
         "auth": {"authenticated": None, "message": "not probed"},
         "session": None,
@@ -141,4 +152,4 @@ def collect(
     return state
 
 
-__all__ = ["auth_state", "canfar_ops", "collect", "mailbox_state", "studio_session"]
+__all__ = ["auth_state", "canfar_ops", "collect", "lab_version", "mailbox_state", "studio_session"]

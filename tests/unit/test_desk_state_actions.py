@@ -121,6 +121,7 @@ def test_collect_without_probe(tmp_path):
     assert state["mode"] == "desk"
     assert state["dsh"]["spec"] == "pin"
     assert state["dsh"]["installed"] is None
+    assert state["lab"]["version"]  # canfar-lab is importable in tests
     assert state["auth"]["authenticated"] is None
     assert state["session"] is None
 

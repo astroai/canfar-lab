@@ -1,6 +1,6 @@
 <!-- AstroAI Desk dock — single source asset (canfar-lab src/canfar_lab/data/desk/dock.html).
      Vendored into canfar-containers via scripts/sync-desk-assets.sh; keep both proxies stdlib-only. -->
-<meta name="astroai-dock-revision" content="1">
+<meta name="astroai-dock-revision" content="2">
 <style>
   #astroai-dock {
     position: fixed; right: 14px; bottom: 14px; z-index: 2147483000;
@@ -113,6 +113,10 @@
       var tone = "ok";
       if (dsh.release && dsh.release.version && dsh.release.version !== dsh.installed) { tone = "warn"; }
       chipsEl.appendChild(chip("dsh " + dsh.installed, tone));
+    }
+    var lab = state && state.lab;
+    if (lab && lab.version) {
+      chipsEl.appendChild(chip("lab " + lab.version, ""));
     }
     var last = state && state.mailbox && state.mailbox.last_exchange;
     if (last && last.absorbed_at) {
