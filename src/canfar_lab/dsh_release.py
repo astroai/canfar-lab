@@ -92,7 +92,7 @@ def resolve(spec: str | None = None, *, fetcher=fetch_dist_tags) -> Release:  # 
         if tags is None:
             return Release(pinned, "offline", note="registry unreachable; using pin")
         best = max(tags.values(), key=semver_key)
-        if semver_key(best) <= semver_key(pinned):
+        if semver_key(best) < semver_key(pinned):
             return Release(pinned, "pin", note=f"registry newest is {best}")
         return Release(best, "newest")
     if wanted in TAG_SPECS:
