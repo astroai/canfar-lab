@@ -433,7 +433,7 @@ def test_doctor_reports_a_missing_dsh_as_fatal(home: Path, monkeypatch: pytest.M
 
 def test_doctor_reports_profile_state(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-alpha.1")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-rc.2")
     monkeypatch.setattr("canfar_lab.studio_doctor.dump_config", lambda *a, **k: (0, "tree", ""))
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),
@@ -454,7 +454,7 @@ def test_doctor_reports_profile_state(home: Path, monkeypatch: pytest.MonkeyPatc
 
 def test_doctor_counts_a_native_deepseek_route(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-alpha.1")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-rc.2")
     monkeypatch.setattr(
         "canfar_lab.studio_doctor._available_keys", lambda _home: ["DEEPSEEK_API_KEY"]
     )
@@ -466,7 +466,7 @@ def test_doctor_counts_a_native_deepseek_route(home: Path, monkeypatch: pytest.M
 
 def test_doctor_flags_a_broken_composition(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-alpha.1")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-rc.2")
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),
         install_bundles=False,
@@ -547,7 +547,7 @@ def test_doctor_probes_the_baked_row_not_the_path(
     home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-alpha.1")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-rc.2")
     monkeypatch.setattr("canfar_lab.studio_doctor.dump_config", lambda *a, **k: (0, "tree", ""))
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),

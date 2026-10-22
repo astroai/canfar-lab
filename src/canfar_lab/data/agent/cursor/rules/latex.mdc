@@ -1,0 +1,15 @@
+---
+description: LaTeX and BibTeX editing conventions for papers
+globs: "**/*.{tex,bib,cls,sty,bbx,cbx,lbx}"
+alwaysApply: false
+---
+
+# LaTeX
+
+- Load **latex-debug** for build failures; **academic-writing** + **academic-humanizer** + **unslop** for prose; **overleaf-git** when syncing Overleaf.
+- Prefer the project's existing engine and class; do not switch `pdflatex`/`xelatex` or document classes unless asked.
+- Minimal diff: change only the sentences/macros needed; keep the author's macros and citation style (`natbib` vs `biblatex`).
+- After non-trivial `.tex` edits, run `latexmk` (or report why it was skipped) and fix the first real error in the log.
+- ASCII quotes/hyphens in source unless the project already uses Unicode with Xe/LuaLaTeX.
+- Figures: include paths relative to the main file; do not rename figure assets unless asked.
+- Never invent bibliography entries; only edit `.bib` keys that exist or that the user supplies.

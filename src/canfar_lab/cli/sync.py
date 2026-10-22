@@ -282,10 +282,13 @@ def default_sync(
     ws_root = resolve_workspace_root(root)
     console.print(f"[bold]Syncing repositories in:[/bold] {ws_root}")
 
+    seen = 0
+    skipped_dirty: list[str] = []
     for repo_slug in DEFAULT_REPOSITORIES:
         st = inspect_repo(repo_slug, ws_root)
         if not st.exists:
             continue
+        seen += 1
 
         console.print(f"… fetching {st.name}")
         _git_run(["fetch", "--all", "--prune"], st.path)
@@ -301,7 +304,15 @@ def default_sync(
                     f"  [yellow]Cannot fast-forward {st.name}; divergence detected[/yellow]"
                 )
         elif st.dirty:
+            skipped_dirty.append(st.name)
             console.print(f"  [dim]Skipped merge for dirty repo {st.name}[/dim]")
+    if seen == 0:
+        console.print("[yellow]No clones under this root.[/yellow] Next: canfar lab sync bootstrap")
+    elif skipped_dirty:
+        console.print(
+            "Dirty repos were left as-is. Next on this computer: canfar lab sync push. "
+            "Next in the session: canfar lab sync"
+        )
 
 
 # --- Desk ↔ session exchange (docs/desk-sync.md §6) ---------------------------

@@ -176,13 +176,29 @@ def classify_binary(
                 managed_hit = alt
                 break
 
+    def _follows_managed(path: Path) -> bool:
+        """A home drop symlink that lands in the managed bin is one binary."""
+        try:
+            resolved = path.resolve()
+        except OSError:
+            return False
+        return any(_path_under(resolved, root) for root in managed_roots)
+
     home_hit = next(
-        (p for p in home_bin_candidates(binary, home=home) if p.is_file()),
+        (
+            p
+            for p in home_bin_candidates(binary, home=home)
+            if p.is_file() and not _follows_managed(p)
+        ),
         None,
     )
     if home_hit is None and binary == "sg":
         home_hit = next(
-            (p for p in home_bin_candidates("ast-grep", home=home) if p.is_file()),
+            (
+                p
+                for p in home_bin_candidates("ast-grep", home=home)
+                if p.is_file() and not _follows_managed(p)
+            ),
             None,
         )
 
@@ -217,7 +233,11 @@ def classify_binary(
         "source": source,
         "managed": source == BINARY_SOURCE_MANAGED,
         "home_install": home_hit is not None
-        or (which_path is not None and _path_under(which_path, home)),
+        or (
+            which_path is not None
+            and _path_under(which_path, home)
+            and not _follows_managed(which_path)
+        ),
         "home_path": str(home_hit) if home_hit else None,
         "legacy": False,
         "legacy_path": None,
@@ -243,8 +263,16 @@ def refuse_if_home_owned(name: str, *, home: Path | None = None) -> None:
     """Block install when the CLI already lives under ``$HOME`` (/arc).
 
     Also clears unsafe symlink landings at expected paths so curl|bash cannot
-    write through them into arbitrary home files.
+    write through them into arbitrary home files. A remembered ``home`` install
+    root is the place those CLIs belong, so it is not a clash.
     """
+    from canfar_lab.agent.bin_root import ROOT_HOME, effective_root
+    from canfar_lab.shell.session_env import install_scratch_dir
+
+    home = home or Path.home()
+    scratch = install_scratch_dir()
+    if scratch is not None and effective_root(home, scratch) == ROOT_HOME:
+        return
     for path in _install_landing_paths(name, home=home):
         _clear_unsafe_landing(path)
     binary = tool_binary(name)

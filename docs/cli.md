@@ -347,7 +347,7 @@ under `data/agent/agents/<id>.yaml` (`id`, `name`, `homepage`, `binary`,
 | Command | What it does |
 |---------|----------------|
 | `agent list` | Installable agents: installed / logged in / where (scratch, home, image) / version. `--description` for summaries; `--ui` for container endpoints |
-| `agent install NAME [NAME…]` | Download CLI binary(ies) onto `$SCRATCH/.local/bin` |
+| `agent install NAME [NAME…]` | Download CLI binary(ies). CANFAR default is `$SCRATCH/.local/bin`; `--root home` uses `$HOME` |
 | `agent remove NAME` | Uninstall managed CLI (`--purge` for config dirs; `--clean-home` for leftover `/arc` home CLIs) |
 | `agent wipe` | Factory reset: remove every agent settings file, binary, and state; confirmation or `--yes` |
 | `agent setup [NAME…]` | First-run scaffold for an agent id or setup name; `--all` / `--project` |

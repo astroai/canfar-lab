@@ -12,7 +12,7 @@ from canfar_lab.agent import clean_agent as agent_clean_mod
 from canfar_lab.agent import fix as agent_fix_mod
 from canfar_lab.agent import install as agent_install
 from canfar_lab.cli.agent_cmd import _agent_completer, _tool_completer
-from canfar_lab.cli.context import get_opts
+from canfar_lab.cli.context import get_opts, merge_opts
 from canfar_lab.core.paths import user_bin_dir
 from canfar_lab.errors import LabError
 
@@ -120,12 +120,19 @@ def agent_verify_cmd(
 
     issues = agent_inventory.verify_setup(home, probe_binaries=True)
     state = read_setup_state(home)
+    from canfar_lab.agent.bin_root import layout_report
     from canfar_lab.agent.reconcile import drift_issues
 
+    report = layout_report(home)
     drift = drift_issues(home)
+    warnings = report["warnings"] if isinstance(report["warnings"], list) else []
     payload = {
         "ok": not issues,
         "issues": issues,
+        "warnings": warnings,
+        "bin_root": report["root"],
+        "bin_dir": report["bin_dir"],
+        "choice": report["choice"],
         "drift": drift,
         "setup": state.to_dict(),
     }
@@ -134,6 +141,9 @@ def agent_verify_cmd(
         if issues:
             raise typer.Exit(1)
         return
+    ui.print_hint(f"  bin root: {report['root']} ({report['bin_dir']})")
+    for warning in warnings:
+        ui.print_warn(f"  {warning}")
     if drift:
         ui.print_warn("Installed state has drifted from this lab version:")
         for d in drift:
@@ -216,6 +226,66 @@ def _post_install_hint(tool: str) -> None:
         ui.print_hint(f"  canfar lab agent setup {tool}   # create {path}")
 
 
+def agent_settings_cmd(
+    ctx: typer.Context,
+    root: Annotated[
+        str | None,
+        typer.Option("--root", help="Remember install root: home or scratch."),
+    ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Machine-readable output. Key values are never included."),
+    ] = False,
+) -> None:
+    """Show the install root, which provider keys are set, and layout issues.
+
+    Key values are never printed. ``--root`` saves the CANFAR choice used by
+    ``agent install`` and the Studio settings section.
+    """
+    from canfar_lab.agent.bin_root import set_bin_root, settings_payload
+
+    opts = merge_opts(ctx, json_output=json_output)
+    home = Path.home()
+    if root is not None:
+        try:
+            actions = set_bin_root(home, root, dry_run=opts.dry_run)
+        except LabError as exc:
+            if opts.json:
+                ui.print_json({"ok": False, "error": str(exc)})
+            else:
+                ui.print_error(str(exc))
+            raise typer.Exit(1) from exc
+        if not opts.json:
+            for action in actions:
+                ui.print_hint(f"  {action}")
+    payload = settings_payload(home)
+    issues = payload["issues"] if isinstance(payload["issues"], list) else []
+    payload = {**payload, "ok": not issues}
+    if opts.json:
+        ui.print_json(payload)
+        if issues:
+            raise typer.Exit(1)
+        return
+    ui.print_hint(f"bin root: {payload['root']} ({payload['bin_dir']})")
+    if payload["choice"]:
+        ui.print_hint("  default on CANFAR is scratch; config and keys stay on home")
+    else:
+        ui.print_hint("  this computer keeps each agent's usual install path")
+    key_rows = payload["keys"] if isinstance(payload["keys"], list) else []
+    for row in key_rows:
+        if not isinstance(row, dict):
+            continue
+        mark = "set" if row["present"] else "not set"
+        label = row.get("label") or row["key"]
+        ui.print_hint(f"  {label} ({row['key']}): {mark}")
+    for warning in payload["warnings"] if isinstance(payload["warnings"], list) else []:
+        ui.print_warn(f"  {warning}")
+    if issues:
+        ui.print_error("Layout:\n  " + "\n  ".join(str(item) for item in issues))
+        raise typer.Exit(1)
+    ui.print_ok("Agent layout OK")
+
+
 def agent_install_cmd(
     ctx: typer.Context,
     tools: Annotated[
@@ -230,16 +300,41 @@ def agent_install_cmd(
             "(a new session starts with an empty $SCRATCH; configs stay on home).",
         ),
     ] = False,
+    root: Annotated[
+        str | None,
+        typer.Option(
+            "--root",
+            help="Where CLIs live on CANFAR: scratch (default, fast) or home "
+            "($HOME, /arc/home). Caches stay on scratch. Ignored on a laptop.",
+        ),
+    ] = None,
 ) -> None:
-    """Install AI coding CLI(s) to $SCRATCH/.local/bin (fast local disk).
+    """Install AI coding CLI(s).
+
+    On CANFAR the default is ``$SCRATCH/.local/bin``. ``--root home`` keeps the
+    binary under ``$HOME`` instead. Config and keys always stay on home.
 
     Examples:
       canfar lab agent install kilo
-      canfar lab agent install agy omp pi freebuff
+      canfar lab agent install --root home opencode
       canfar lab agent install --restore
     """
     opts = get_opts(ctx)
     names = list(tools or [])
+    if root is not None:
+        from canfar_lab.agent.bin_root import set_bin_root
+
+        try:
+            actions = set_bin_root(Path.home(), root, dry_run=opts.dry_run)
+        except LabError as exc:
+            if opts.json:
+                ui.print_json({"ok": False, "error": str(exc), "tools": names})
+            else:
+                ui.print_error(str(exc))
+            raise typer.Exit(1) from exc
+        if not opts.json and not opts.quiet:
+            for action in actions:
+                ui.print_hint(f"  {action}")
     if restore:
         names = [*names, *(n for n in _agents_to_restore() if n not in names)]
         if not names:
@@ -249,6 +344,16 @@ def agent_install_cmd(
                 ui.print_ok("Nothing to restore: every remembered agent is installed.")
             return
     if not names:
+        if root is not None:
+            if opts.json:
+                from canfar_lab.agent.bin_root import settings_payload
+
+                ui.print_json(
+                    {"ok": True, "tools": [], "results": [], **settings_payload(Path.home())}
+                )
+            elif not opts.quiet:
+                ui.print_ok(f"Install root set to {root}")
+            return
         if opts.json:
             ui.print_json(
                 {

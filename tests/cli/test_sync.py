@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 
 from canfar_lab.cli.sync import (
     DEFAULT_SCIENCE_REPOSITORIES,
+    _git_run,
     detect_github_user,
     inspect_repo,
     resolve_workspace_root,
@@ -101,6 +102,33 @@ def test_inspect_repo_git(tmp_path):
     assert st.exists
     assert st.branch == "main"
     assert not st.dirty
+
+
+def test_sync_empty_root_names_bootstrap(tmp_path, monkeypatch):
+    monkeypatch.delenv("WORK", raising=False)
+    result = runner.invoke(sync_app, ["--root", str(tmp_path)])
+    assert result.exit_code == 0
+    assert "sync bootstrap" in result.output
+
+
+def test_sync_dirty_names_push(tmp_path, monkeypatch):
+    repo_dir = tmp_path / "astroai" / "torchsky"
+    repo_dir.mkdir(parents=True)
+    subprocess.run(["git", "init", "-b", "main"], cwd=repo_dir, check=True, capture_output=True)
+    (repo_dir / "README.md").write_text("# Test\n")
+
+    def _git(args, cwd):
+        if args and args[0] == "fetch":
+            return subprocess.CompletedProcess(["git", *args], 0, "", "")
+        return _git_run(args, cwd)
+
+    monkeypatch.setattr("canfar_lab.cli.sync._git_run", _git)
+    monkeypatch.delenv("WORK", raising=False)
+    result = runner.invoke(sync_app, ["--root", str(tmp_path)])
+    assert result.exit_code == 0
+    flat = result.output.replace("\n", "")
+    assert "sync push" in flat
+    assert "Next in the session: canfar lab sync" in flat
 
 
 def test_cmd_status_empty_workspace(tmp_path):

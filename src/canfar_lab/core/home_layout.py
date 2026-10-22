@@ -302,7 +302,7 @@ def ensure_agent_runtime_on_scratch(
     except OSError:
         return []
 
-    from canfar_lab.shell.session_env import resolve_session_env
+    from canfar_lab.shell.session_env import install_scratch_dir, resolve_session_env
 
     actions: list[str] = []
     env = resolve_session_env(ensure=not dry_run)
@@ -319,6 +319,21 @@ def ensure_agent_runtime_on_scratch(
     actions.extend(repair_dsh_durable_dirs(home, dry_run=dry_run))
     if not boot:
         actions.extend(relocate_agent_runtime(home, env.xdg_data_home, dry_run=dry_run))
+    from canfar_lab.agent.bin_root import align_home_bin_drops, effective_root, sync_fast_io_env
+
+    install_scratch = install_scratch_dir()
+    actions.extend(
+        align_home_bin_drops(
+            home,
+            scratch=install_scratch,
+            root=effective_root(home, install_scratch),
+            dry_run=dry_run,
+        )
+    )
+    if not dry_run:
+        synced = sync_fast_io_env(home)
+        if synced:
+            actions.append(f"env:{synced}")
     return actions
 
 

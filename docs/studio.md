@@ -220,7 +220,7 @@ committed, upgraded CLI wants.
 ## Troubleshooting
 
 Run `canfar lab studio --doctor` first; it checks the harness binary, the profile
-manifest and layer order, the composed tree (`dsh --profile canfar-lab
+manifest and layer order, the composed tree (`dsh --profile astroai
 --dump-config`), the state root, the port, the MCP handshake and its tool
 inventory, skill discovery, the provider routes and the session's resource
 envelope, and prints the fix for anything that fails. Exit status is `1` when a
@@ -228,7 +228,7 @@ check is fatal, so it doubles as a container smoke test.
 
 | Symptom | Cause |
 |---|---|
-| `No dsh executable found` | install it: `npm install -g @deepseek-ai/dsh@0.2.1-alpha.1`. Never `npx -y @deepseek-ai/dsh …` — npm ≥ 10 swallows the launcher flags Studio depends on |
+| `No dsh executable found` | install it: `npm install -g @deepseek-ai/dsh@0.2.1-rc.2`. Never `npx -y @deepseek-ai/dsh …` — npm ≥ 10 swallows the launcher flags Studio depends on |
 | `TEAM LAYERS UNAVAILABLE: no pnpm` | `dsh plugin` forwards to pnpm: `corepack enable pnpm`, then re-run `--prepare` |
 | Team layers off after a failed install | the manifest is rewritten without them so the profile still boots: fix the cause and re-run `--prepare` |
 | `--dump-config` fails | a declared bundle is not installed, or a patch row targets a row this dsh version no longer ships |

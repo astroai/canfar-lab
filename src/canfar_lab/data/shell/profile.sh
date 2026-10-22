@@ -55,7 +55,8 @@ _astroai_keys_stamp=""
 _astroai_keys_names=""
 _astroai_keys_load() {
     local stamp name
-    stamp="$(stat -c '%i %y' "${_astroai_keys_file}" 2>/dev/null)" || stamp=""
+    # GNU stat (-c) on Linux; BSD stat (-f) on macOS. A missing file leaves stamp empty.
+    stamp="$(stat -c '%i %Y' "${_astroai_keys_file}" 2>/dev/null || stat -f '%i %m' "${_astroai_keys_file}" 2>/dev/null || true)"
     [[ "${stamp}" == "${_astroai_keys_stamp}" ]] && return 0
     _astroai_keys_stamp="${stamp}"
     for name in ${_astroai_keys_names}; do unset "${name}"; done
@@ -70,13 +71,16 @@ _astroai_keys_load() {
 _astroai_keys_load
 if [[ $- == *i* ]]; then
     # DEBUG fires before every simple command: at most one stat per 2 s.
-    _astroai_keys_at="${EPOCHSECONDS:-0}"
+    # date +%s, not EPOCHSECONDS: macOS ships bash 3.2, which has no EPOCHSECONDS,
+    # and a missing clock makes the throttle look like "0 seconds elapsed" forever.
+    _astroai_keys_now() { date +%s 2>/dev/null || echo 0; }
+    _astroai_keys_at="$(_astroai_keys_now)"
     _astroai_keys_preexec() {
-        _astroai_keys_at="${EPOCHSECONDS:-0}"
+        _astroai_keys_at="$(_astroai_keys_now)"
         _astroai_keys_load
     }
     [[ -n "$(trap -p DEBUG)" ]] ||
-        trap '(( ${EPOCHSECONDS:-0} - _astroai_keys_at < 2 )) || _astroai_keys_preexec' DEBUG
+        trap '(( $(_astroai_keys_now) - _astroai_keys_at < 2 )) || _astroai_keys_preexec' DEBUG
     PROMPT_COMMAND="_astroai_keys_load${PROMPT_COMMAND:+; ${PROMPT_COMMAND}}"
 fi
 

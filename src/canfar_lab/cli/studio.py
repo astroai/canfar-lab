@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 import shutil
 import socket
+import subprocess
+import sys
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -35,6 +37,17 @@ studio_app = typer.Typer(
 def _on_skaha() -> bool:
     names = {key.upper() for key in os.environ}
     return "SKAHA_SESSIONID" in names or "SKAHA_HOSTNAME" in names
+
+
+def _open_browser(url: str) -> None:
+    """Open the Studio URL on macOS. ``dsh`` is started with ``--no-open``."""
+    if sys.platform != "darwin":
+        return
+    subprocess.Popen(
+        ["open", url],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 def _check_port_open(host: str, port: int) -> bool:
@@ -105,6 +118,10 @@ def studio_status_cmd(
                 "up": _check_port_open("127.0.0.1", 4792),
             },
         }
+        laptop = not _on_skaha()
+        for key, svc in services.items():
+            if laptop and key != "agent":
+                svc["session_only"] = True
         scratch_dir = os.environ.get("SCRATCH", "/scratch")
         scratch_free_gb = 0.0
         if os.path.isdir(scratch_dir):
@@ -124,6 +141,7 @@ def studio_status_cmd(
                 "cpus": os.cpu_count() or 1,
                 "scratch_free_gb": scratch_free_gb,
             },
+            "laptop": laptop,
         }
 
     if is_json:
@@ -141,7 +159,12 @@ def studio_status_cmd(
     for s_id, s_info_raw in services_map.items():
         s_info: dict[str, Any] = s_info_raw if isinstance(s_info_raw, dict) else {}
         is_up = bool(s_info.get("up", False))
-        status_badge = "[bold green]ONLINE[/bold green]" if is_up else "[dim]STOPPED[/dim]"
+        if s_info.get("session_only") and not is_up:
+            status_badge = "[dim]session only[/dim]"
+        elif is_up:
+            status_badge = "[bold green]ONLINE[/bold green]"
+        else:
+            status_badge = "[dim]STOPPED[/dim]"
         svc_path = str(s_info.get("path", ""))
         path_str = f"{prefix}{svc_path}" if prefix else svc_path
         rows.append(
@@ -156,7 +179,9 @@ def studio_status_cmd(
     from rich.console import Console
     from rich.table import Table
 
-    table = Table(title="Studio Services (Multiplexed on :5000)", show_header=True)
+    laptop = bool(status_data.get("laptop"))
+    title = "AstroAI Studio (this computer)" if laptop else "Studio Services (Multiplexed on :5000)"
+    table = Table(title=title, show_header=True)
     table.add_column("Service", style="bold")
     table.add_column("Internal Port")
     table.add_column("Public Path")
@@ -171,7 +196,13 @@ def studio_status_cmd(
     res: dict[str, Any] = res_raw if isinstance(res_raw, dict) else {}
     scratch_free = res.get("scratch_free_gb", 0)
     cpus = res.get("cpus", 1)
-    ui.print_hint(f"Resources: {cpus} CPU cores | Scratch free: {scratch_free} GB")
+    if laptop:
+        ui.print_hint("Agents listen on http://127.0.0.1:3080.")
+        ui.print_hint(
+            "Terminal, Jupyter, Marimo, VS Code, and the hub run in the CANFAR studio image."
+        )
+    else:
+        ui.print_hint(f"Resources: {cpus} CPU cores | Scratch free: {scratch_free} GB")
 
 
 @studio_app.callback(invoke_without_command=True)
@@ -221,6 +252,10 @@ def studio_main(
     force: Annotated[
         bool,
         typer.Option("--force", help="Overwrite managed studio/dsh scaffolding."),
+    ] = False,
+    no_open: Annotated[
+        bool,
+        typer.Option("--no-open", help="Do not open a browser. dsh itself never opens one."),
     ] = False,
     skills: Annotated[
         bool,
@@ -404,9 +439,15 @@ def studio_main(
         )
         return
 
-    ui.print_hint(
-        f"AstroAI Studio ({resolved_profile}) → http://127.0.0.1:{port}  (repo {repo_path})"
-    )
+    url = f"http://127.0.0.1:{port}"
+    if prep.get("degraded"):
+        ui.print_warn("Team layers are not active — see `canfar lab studio --prepare`.")
+    if _check_port_open("127.0.0.1", port):
+        ui.print_ok(f"AstroAI Studio is already running → {url}")
+        if not no_open:
+            _open_browser(url)
+        return
+    ui.print_hint(f"AstroAI Studio ({resolved_profile}) → {url}  (repo {repo_path})")
     ui.print_hint(
         f"  harness profile: {_sp.STUDIO_PROFILE_NAME} — state in {prep.get('state_root')}"
     )
@@ -414,4 +455,6 @@ def studio_main(
     if with_team:
         ui.print_hint("  Agent Teams: ask for a team in the chat (roster + shared task board)")
     ui.print_hint(f"  {_studio.skills_onboarding_hint().splitlines()[1].strip()}")
+    if not no_open:
+        _open_browser(url)
     run(cmd, cwd=repo_path, env=env)

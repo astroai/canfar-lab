@@ -36,7 +36,13 @@ OPENCODE_SESSION_BUNDLE = "dsh-opencode-session"
 #: AstroAI mark/name in the sidebar and blank-chat hero (replaces the official
 #: brand row). Vendored alongside the OpenCode plugin for the same reason.
 BRAND_BUNDLE = "dsh-astroai-brand"
-ASTROAI_EXTRA_BUNDLES: tuple[str, ...] = (OPENCODE_SESSION_BUNDLE, BRAND_BUNDLE)
+#: Studio settings section: home vs scratch, key names, layout status.
+SETTINGS_BUNDLE = "dsh-astroai-settings"
+ASTROAI_EXTRA_BUNDLES: tuple[str, ...] = (
+    OPENCODE_SESSION_BUNDLE,
+    BRAND_BUNDLE,
+    SETTINGS_BUNDLE,
+)
 
 #: Required layer order for every bundle the Studio profile names.
 BUNDLE_ORDER: tuple[str, ...] = WEB_TEMPLATE_BUNDLES + TEAM_BUNDLES + ASTROAI_EXTRA_BUNDLES
@@ -119,7 +125,7 @@ PROFILE_MANIFEST_FILENAME = "package.json"
 PROFILE_WORKSPACE_FILENAME = "pnpm-workspace.yaml"
 
 # Pin stays in sync with studio.DSH_VERSION / agents/dsh.yaml.
-DSH_INSTALL_HINT = "npm install -g @deepseek-ai/dsh@0.2.1-alpha.5"
+DSH_INSTALL_HINT = "npm install -g @deepseek-ai/dsh@0.2.1-rc.2"
 
 
 # ---------------------------------------------------------------------------

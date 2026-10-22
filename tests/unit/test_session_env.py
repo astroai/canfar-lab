@@ -35,6 +35,7 @@ def _scratch_session(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[P
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("WORK", str(work))
     monkeypatch.setenv("SCRATCH", str(scratch))
+    monkeypatch.setenv("ASTROAI_SESSION_KIND", "studio")
     monkeypatch.delenv("CANFAR_LAB_BIN_DIR", raising=False)
     return work, scratch
 

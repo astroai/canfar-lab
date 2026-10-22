@@ -329,8 +329,8 @@ canfar lab sync watch --desk|--session [--once] [--interval S]
 ### 7.3 dsh version policy and parity
 
 - Repo pins (`studio.py`, `agent/review_bench.py`, `studio_paths.py`,
-  `data/agent/agents/dsh.yaml`) are bumped together to `0.2.1-alpha.5`
-  (the image installs the `@alpha` channel; a unit test keeps the four in
+  `data/agent/agents/dsh.yaml`) are bumped together to `0.2.1-rc.2`
+  (the image installs that exact version; a unit test keeps the four in
   lockstep). The four pins are the *offline fallback*, not the desk default.
 - The desk default is `newest`: `canfar_lab/dsh_release.py` resolves the max
   semver across all npm dist-tags (prereleases included; as of 2026-10 that is

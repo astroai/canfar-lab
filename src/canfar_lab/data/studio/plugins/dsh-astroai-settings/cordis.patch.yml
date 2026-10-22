@@ -1,0 +1,4 @@
+# AstroAI settings section inside the existing Studio settings panel.
+- insert:
+    - id: ui-astroai-settings
+      name: dsh-astroai-settings

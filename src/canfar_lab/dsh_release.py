@@ -6,8 +6,8 @@ release to use without giving up reproducibility:
 * ``pin`` — the version this repo ships and tests (``studio.DSH_VERSION``).
 * ``alpha`` / ``next`` / ``latest`` — the npm dist-tag by that name.
 * ``newest`` — highest semver across every dist-tag, prereleases included.
-  The npm ``latest`` tag can lag the newer channels (as of 2026-10 the Studio
-  image installs ``@alpha``); ``newest`` is the honest "latest".
+  The npm ``latest`` tag can lag a newer channel. The Studio image installs
+  the pinned version, not a floating tag. ``newest`` is the honest "latest".
 * any exact version string — used as-is.
 
 Resolution needs the network; failures fall back to the pin with

@@ -16,6 +16,7 @@ from canfar_lab.studio_paths import (
     OPENCODE_SESSION_BUNDLE,
     PROFILE_MANIFEST_FILENAME,
     RETIRED_BUNDLES,
+    SETTINGS_BUNDLE,
     TEAM_BUNDLES,
     WEB_TEMPLATE_BUNDLES,
 )
@@ -68,6 +69,7 @@ def team_bundles_missing(existing: list[str], *, with_team: bool) -> list[str]:
 _VENDORED_PURPOSE = {
     OPENCODE_SESSION_BUNDLE: "x-opencode-session header",
     BRAND_BUNDLE: "AstroAI branding",
+    SETTINGS_BUNDLE: "AstroAI settings section",
 }
 
 

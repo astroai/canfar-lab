@@ -16,7 +16,8 @@ runner = CliRunner()
 
 # Lean surface: list/plugins/keys are sub-typers. `env` reports shared credential
 # state (presence only) for OpenRouter + dsh routes; `keys` is the write path
-# (list/set/unset, value on stdin) used by the Studio hub.
+# (list/set/unset, value on stdin) used by the Studio hub. `settings` is the
+# install-root and key-presence readout (no secret values).
 CANONICAL_VERBS = {
     "keys",
     "list",
@@ -31,6 +32,7 @@ CANONICAL_VERBS = {
     "env",
     "routers",
     "plugins",
+    "settings",
 }
 
 REMOVED_VERBS = {
@@ -184,6 +186,27 @@ def test_setup_project_positional_path(tmp_path, monkeypatch) -> None:
         or "would" in out.lower()
         or result.exit_code == 0
     )
+
+
+def test_agent_settings_accepts_json_after_the_verb(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "canfar_lab.agent.bin_root.settings_payload",
+        lambda home: {
+            "root": "home",
+            "choice": False,
+            "default_root": None,
+            "bin_dir": "/tmp/bin",
+            "warnings": [],
+            "issues": [],
+            "keys": [],
+        },
+    )
+    result = runner.invoke(app, ["agent", "settings", "--json"])
+    assert result.exit_code == 0, result.output
+    body = json.loads(result.stdout)
+    assert body["ok"] is True
+    assert body["root"] == "home"
+    assert "value" not in body
 
 
 def test_verify_clean(tmp_path, monkeypatch) -> None:

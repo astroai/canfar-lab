@@ -46,6 +46,7 @@ def test_user_bin_dir_prefers_scratch_local(
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("SCRATCH", str(scratch))
+    monkeypatch.setenv("ASTROAI_SESSION_KIND", "studio")
     monkeypatch.setenv("WORK", str(tmp_path / "work"))
     (tmp_path / "work").mkdir(exist_ok=True)
     monkeypatch.delenv("CANFAR_LAB_BIN_DIR", raising=False)

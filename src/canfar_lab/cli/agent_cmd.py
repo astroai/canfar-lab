@@ -25,7 +25,7 @@ agent_app = typer.Typer(
         "Skills: npx skills add …  (not managed by AstroAI).\n\n"
         "Quick map:\n"
         "  list          agents (Bin/Cfg/Where/Ver; --description, --supported, --ui)\n"
-        "  install       CLI binary onto $SCRATCH/.local/bin\n"
+        "  install       CLI binary (--root scratch|home on CANFAR)\n"
         "  remove        managed CLI (use --clean-home for leftover /arc home copies)\n"
         "  setup         first-run scaffold (--recommended, --project for a repo)\n"
         "  routers       AstroAI-supported LLM routers (shared with panel)\n"
@@ -350,6 +350,7 @@ from canfar_lab.cli.agent_format import (  # noqa: E402
 from canfar_lab.cli.agent_install import (  # noqa: E402
     agent_install_cmd,
     agent_remove_cmd,
+    agent_settings_cmd,
     agent_verify_cmd,
     agent_wipe_cmd,
 )
@@ -369,6 +370,7 @@ from canfar_lab.cli.agent_setup import agent_setup_cmd, agent_update_cmd  # noqa
 agent_app.command("setup")(agent_setup_cmd)
 agent_app.command("update")(agent_update_cmd)
 agent_app.command("verify")(agent_verify_cmd)
+agent_app.command("settings")(agent_settings_cmd)
 agent_app.command("install")(agent_install_cmd)
 agent_app.command("remove")(agent_remove_cmd)
 agent_app.command("wipe")(agent_wipe_cmd)
