@@ -31,10 +31,13 @@ from canfar_lab.errors import LabError
 
 StudioProfile = Literal["laptop", "canfar"]
 
-#: Pinned harness version. Keep in sync with canfar-containers
-#: `dockerfiles/studio/Dockerfile` (ARG DSH_VERSION) and
-#: `src/canfar_lab/data/agent/agents/dsh.yaml`.
-DSH_VERSION = "0.2.1-alpha.1"
+#: Pinned harness snapshot (fallback for offline resolution). canfar-containers
+#: installs this exact version (``ARG DSH_VERSION``). ``canfar_lab.dsh_release``
+#: resolves ``newest`` across npm dist-tags; this pin is what ``studio``/``desk``
+#: fall back to without network. Keep the string in sync with
+#: ``agent/review_bench.py``, ``studio_paths.DSH_INSTALL_HINT`` and
+#: ``data/agent/agents/dsh.yaml``.
+DSH_VERSION = "0.2.1-rc.3"
 DSH_NPM = f"@deepseek-ai/dsh@{DSH_VERSION}"
 
 DEFAULT_PORT = 3080
@@ -338,7 +341,7 @@ def prepare_studio(
             "actions": [
                 "would ensure review-bench + dsh dotenv/settings + studio profile",
                 "would write " + ", ".join(str(p) for p in plan.files),
-                *([f"would run: {' '.join(plan.commands[0])}"] if plan.commands else []),
+                *(f"would run: {' '.join(command)}" for command in plan.commands),
             ],
             "profile_plan": plan.to_dict(),
             "dry_run": True,

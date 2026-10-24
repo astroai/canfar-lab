@@ -161,18 +161,27 @@ def verify_setup(home: Path, *, probe_binaries: bool = False) -> list[str]:
     # fresh images without hermes/openclaw don't fail the container gate.
     issues.extend(registry_verify_issues(home, installed_only=True, probe_binaries=probe_binaries))
 
-    home_clis: list[str] = []
-    for agent in list_registry_agents():
-        info = classify_binary(str(agent["binary"]), home=home)
-        if info.get("home_install") and not info.get("managed"):
-            home_clis.append(agent["id"])
-    if home_clis:
-        issues.append(
-            "Agent CLIs under $HOME (/arc — slow NFS); prefer $SCRATCH: "
-            + ", ".join(home_clis)
-            + ". Move with: canfar lab agent remove NAME --clean-home"
-            + " && canfar lab agent install NAME"
-        )
+    from canfar_lab.agent.bin_root import ROOT_HOME, effective_root, layout_report
+    from canfar_lab.shell.session_env import install_scratch_dir
+
+    scratch = install_scratch_dir()
+    chosen_home = scratch is not None and effective_root(home, scratch) == ROOT_HOME
+    if not chosen_home:
+        home_clis: list[str] = []
+        for agent in list_registry_agents():
+            info = classify_binary(str(agent["binary"]), home=home)
+            if info.get("home_install") and not info.get("managed"):
+                home_clis.append(agent["id"])
+        if home_clis:
+            issues.append(
+                "Agent CLIs under $HOME (/arc — slow NFS); prefer $SCRATCH: "
+                + ", ".join(home_clis)
+                + ". Move with: canfar lab agent remove NAME --clean-home"
+                + " && canfar lab agent install NAME"
+            )
+    extra = layout_report(home)["issues"]
+    if isinstance(extra, list):
+        issues.extend(str(item) for item in extra)
 
     return issues
 

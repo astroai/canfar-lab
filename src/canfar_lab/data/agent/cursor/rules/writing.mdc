@@ -1,0 +1,15 @@
+---
+description: Prose quality for papers, notes, and rebuttals
+globs: "**/*.{tex,md,txt}"
+alwaysApply: false
+---
+
+# Writing
+
+- Use **academic-writing** for scientific tone and structure.
+- De-AI papers with **academic-humanizer** then **unslop**. Do not use **human-voice** on manuscripts (it casualizes).
+- Prefer concrete verbs; cut "utilize", "leverage", "novel framework", "it is worth noting". One claim per paragraph.
+- One claim per paragraph; lead with the result when editing Results/Abstract.
+- Do not fabricate citations, numbers, or reviewer quotes.
+- Prefer concrete verbs; cut "utilize", "leverage", "novel framework", "it is worth noting".
+- Preserve LaTeX commands and math; rewrite the words around them.

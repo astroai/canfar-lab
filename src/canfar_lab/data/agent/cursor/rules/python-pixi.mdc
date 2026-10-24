@@ -1,0 +1,13 @@
+---
+description: Python — pixi/uv projects, typing, no bare python on PATH
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python
+
+- **pixi project:** `pixi install`, `pixi run …`, `pixi add …` — lock in `pixi.lock`. Prefer `pixi run` / `pixi run python` over bare `python3`. See **pixi-dev** and **env-hygiene**.
+- **uv project:** `uv sync`, `uv run …`, `uv add …` — lock in `uv.lock`. See **uv-dev** skill.
+- Do not use bare `python` or ad-hoc `pip install` (especially `--user` / `~/.local`) when a project manager exists.
+- Docs: Context7 MCP or official pixi/uv docs — not invented wrapper commands.
+- Type hints on public functions; run project linters when present (`ruff`, `mypy`, `pyright` per repo).

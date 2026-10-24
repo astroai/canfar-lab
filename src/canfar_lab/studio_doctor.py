@@ -61,13 +61,16 @@ class Check:
 
 
 def _port_free(port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            probe.bind(("127.0.0.1", port))
-        except OSError:
+    """True when nothing is accepting connections on loopback.
+
+    A bind with ``SO_REUSEADDR`` succeeds on macOS while another process is
+    already listening, so this connects instead.
+    """
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.2):
             return False
-    return True
+    except OSError:
+        return True
 
 
 def dsh_version(dsh_bin: str) -> str | None:
@@ -386,11 +389,12 @@ def doctor(
         )
     )
 
+    port_free = _port_free(port)
     checks.append(
         Check(
             name="port",
-            ok=_port_free(port),
-            detail=f"127.0.0.1:{port} " + ("free" if _port_free(port) else "already in use"),
+            ok=port_free,
+            detail=f"127.0.0.1:{port} " + ("free" if port_free else "already in use"),
             hint="pass `--port <n>`; dsh refuses to bind all interfaces by design",
         )
     )

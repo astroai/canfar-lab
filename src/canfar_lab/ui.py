@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -57,7 +57,7 @@ def print_warn(message: str) -> None:
 
 
 @contextmanager
-def progress_task(description: str, *, quiet: bool = False) -> Iterator[None]:
+def progress_task(description: str, *, quiet: bool = False) -> Generator[None, None, None]:
     if quiet:
         yield
         return

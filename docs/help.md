@@ -45,6 +45,18 @@ See USAGE.md → Code propagation (sessions + jobs).
 
 Same as AstroAI hub **Start batch compute**. `canfar lab status` is not the cluster.
 
+## Desk sync (laptop ⇄ session)
+
+The mailbox under `~/.astroai/lab/sync` is only a doorbell; GitHub is the
+protocol. Session side:
+
+```text
+canfar lab sync watch --session --interval 30   # polls requests (no inotify on /arc)
+canfar lab sync exchange --to desktop           # push, then tell the desk
+```
+
+Laptop side: `canfar lab desk` (newest dsh + dock buttons; `docs/desk-sync.md`).
+
 ## Commands
 
 ```bash
@@ -66,6 +78,8 @@ canfar lab jobs list
 canfar lab agent setup
 canfar lab agent install kilo
 canfar lab agent verify
+canfar lab sync exchange --to desktop
+canfar lab sync watch --session --interval 30
 canfar-lab --install-completion bash
 ```
 

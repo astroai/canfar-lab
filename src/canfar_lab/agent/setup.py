@@ -474,6 +474,12 @@ def run_bundle(
             force=force,
             dry_run=dry_run,
         )
+        install_tree(
+            root / "rules",
+            home / ".agents" / "rules",
+            force=force,
+            dry_run=dry_run,
+        )
         # Skills: npx skills add astroai/canfar-skills (not managed by AstroAI).
     elif name == "claude":
         merge_claude_json(

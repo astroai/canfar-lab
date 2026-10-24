@@ -95,6 +95,24 @@ def resolve_scratch_dir() -> Path | None:
     return settings.resolve_scratch_dir()
 
 
+def on_canfar_session() -> bool:
+    """True on a Skaha session or an image that set ``ASTROAI_SESSION_KIND=studio``.
+
+    A laptop directory named scratch, or a copied ``SCRATCH`` variable, is not
+    a session. Home vs scratch is only a choice here.
+    """
+    from canfar_lab.studio import detect_profile
+
+    return detect_profile() == "canfar"
+
+
+def install_scratch_dir() -> Path | None:
+    """Scratch disk used for CLI installs. ``None`` on a laptop."""
+    if not on_canfar_session():
+        return None
+    return resolve_scratch_dir()
+
+
 def user_bin_dir(work: Path, scratch: Path | None) -> Path:
     """CLI install dir — prefer ``$SCRATCH/.local/bin`` on CANFAR (fast local disk).
 
@@ -108,6 +126,12 @@ def user_bin_dir(work: Path, scratch: Path | None) -> Path:
             path.mkdir(parents=True, exist_ok=True)
             return path
     if scratch is not None:
+        from canfar_lab.agent.bin_root import ROOT_HOME, effective_root
+
+        if effective_root(Path.home(), scratch) == ROOT_HOME:
+            path = Path.home() / ".local" / "bin"
+            path.mkdir(parents=True, exist_ok=True)
+            return path
         path = scratch / ".local" / "bin"
         try:
             path.mkdir(parents=True, exist_ok=True)
@@ -306,7 +330,7 @@ def resolve_session_env(*, ensure: bool = True) -> SessionEnv:
     work = resolve_work_dir()
     scratch = resolve_scratch_dir()
     cache_root = _session_cache_root(work, scratch)
-    bin_dir = user_bin_dir(work, scratch)
+    bin_dir = user_bin_dir(work, install_scratch_dir())
     runtime = runtime_root(work, scratch)
     home = Path.home()
     xdg_config = Path(os.environ.get("XDG_CONFIG_HOME", str(home / ".config")))

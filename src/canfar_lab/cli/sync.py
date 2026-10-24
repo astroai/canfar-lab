@@ -2,18 +2,29 @@
 
 from __future__ import annotations
 
-import contextlib
-import getpass
 import os
-import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
 from rich.table import Table
+
+from canfar_lab import ui
+from canfar_lab.cli.context import merge_opts
+from canfar_lab.config.settings import get_settings
+from canfar_lab.sync import arc_data
+from canfar_lab.sync import bus as bus_mod
+from canfar_lab.sync.catalog import (
+    DEFAULT_REPOSITORIES,
+    DEFAULT_SCIENCE_REPOSITORIES,  # noqa: F401 — re-exported for back-compat/tests
+    detect_github_user,
+    load_catalog,
+)
+from canfar_lab.sync.engine import SyncEngine
+from canfar_lab.sync.watch import DEFAULT_INTERVAL_SECONDS, watch
 
 console = Console()
 err_console = Console(stderr=True)
@@ -24,60 +35,6 @@ sync_app = typer.Typer(
     no_args_is_help=False,
     rich_markup_mode="rich",
 )
-
-DEFAULT_SCIENCE_REPOSITORIES: list[str] = [
-    "astroai/cfhtcast",
-    "astroai/cosmodist",
-    "astroai/uspm",
-    "astroai/torchz",
-    "astroai/torchsky",
-    "astroai/torchregress",
-    "astroai/torchfits",
-    "astroai/xmatcher",
-    "astroai/zensus",
-    "astroai/weightmask",
-]
-
-DEFAULT_REPOSITORIES: list[str] = DEFAULT_SCIENCE_REPOSITORIES + ["astroai/canfar-lab"]
-
-
-def detect_github_user() -> str | None:
-    """Detect current GitHub username dynamically without hardcoding."""
-    # 1. Environment variable override
-    for var in ("GH_USER", "GITHUB_USER"):
-        val = os.environ.get(var, "").strip()
-        if val:
-            return val
-
-    # 2. gh api
-    if shutil.which("gh"):
-        with contextlib.suppress(OSError, subprocess.SubprocessError):
-            res = subprocess.run(
-                ["gh", "api", "user", "-q", ".login"],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=3,
-            )
-            if res.returncode == 0 and res.stdout.strip():
-                return res.stdout.strip()
-
-    # 3. git config
-    for key in ("github.user", "user.username"):
-        with contextlib.suppress(OSError, subprocess.SubprocessError):
-            res = subprocess.run(
-                ["git", "config", key],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=2,
-            )
-            if res.returncode == 0 and res.stdout.strip():
-                return res.stdout.strip()
-
-    with contextlib.suppress(Exception):
-        return getpass.getuser()
-    return None
 
 
 def resolve_workspace_root(explicit: Path | None = None) -> Path:
@@ -187,9 +144,29 @@ def cmd_status(
         ),
     ] = None,
     all_repos: Annotated[bool, typer.Option("--all", help="Scan all discovered repos.")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
 ) -> None:
     """Show sync status for core science repositories."""
     ws_root = resolve_workspace_root(root)
+    if json_output:
+        repos = []
+        for repo_slug in DEFAULT_REPOSITORIES:
+            st = inspect_repo(repo_slug, ws_root)
+            repos.append(
+                {
+                    "name": st.name,
+                    "exists": st.exists,
+                    "branch": st.branch,
+                    "dirty": st.dirty,
+                    "ahead_origin": st.ahead_origin,
+                    "behind_origin": st.behind_origin,
+                    "ahead_upstream": st.ahead_upstream,
+                    "behind_upstream": st.behind_upstream,
+                    "upstream": st.upstream_configured,
+                }
+            )
+        ui.print_json({"ok": True, "root": str(ws_root), "repos": repos})
+        return
     console.print(f"[bold]Workspace Root:[/bold] {ws_root}")
     gh_user = detect_github_user()
     if gh_user:
@@ -326,10 +303,13 @@ def default_sync(
     ws_root = resolve_workspace_root(root)
     console.print(f"[bold]Syncing repositories in:[/bold] {ws_root}")
 
+    seen = 0
+    skipped_dirty: list[str] = []
     for repo_slug in DEFAULT_REPOSITORIES:
         st = inspect_repo(repo_slug, ws_root)
         if not st.exists:
             continue
+        seen += 1
 
         console.print(f"… fetching {st.name}")
         _git_run(["fetch", "--all", "--prune"], st.path)
@@ -345,4 +325,185 @@ def default_sync(
                     f"  [yellow]Cannot fast-forward {st.name}; divergence detected[/yellow]"
                 )
         elif st.dirty:
+            skipped_dirty.append(st.name)
             console.print(f"  [dim]Skipped merge for dirty repo {st.name}[/dim]")
+    if seen == 0:
+        console.print("[yellow]No clones under this root.[/yellow] Next: canfar lab sync bootstrap")
+    elif skipped_dirty:
+        console.print(
+            "Dirty repos were left as-is. Next on this computer: canfar lab sync push. "
+            "Next in the session: canfar lab sync"
+        )
+
+
+# --- Desk ↔ session exchange (docs/desk-sync.md §6) ---------------------------
+
+
+def _on_session() -> bool:
+    names = {key.upper() for key in os.environ}
+    return "SKAHA_SESSIONID" in names or "SKAHA_HOSTNAME" in names
+
+
+def _mailbox_path(settings: Any, override: Path | None) -> Path:
+    return bus_mod.mailbox_dir(override=override if override is not None else settings.sync_mailbox)
+
+
+def _mailbox_shared(settings: Any, override: Path | None) -> bool:
+    return bool(
+        override
+        or settings.sync_mailbox
+        or os.environ.get(bus_mod.MAILBOX_ENV, "").strip()
+        or _on_session()
+    )
+
+
+@sync_app.command("exchange")
+def cmd_exchange(
+    ctx: typer.Context,
+    to: Annotated[
+        str,
+        typer.Option(
+            "--to",
+            help="Direction: `canfar` (desk → session) or `desktop` (session → desk).",
+        ),
+    ],
+    root: Annotated[Path | None, typer.Option("--root", "-r")] = None,
+    repos: Annotated[
+        list[str] | None,
+        typer.Option("--repos", help="Limit to repos (short names ok; repeatable)."),
+    ] = None,
+    repos_file: Annotated[
+        Path | None, typer.Option("--repos-file", help="workspace.toml-style catalog.")
+    ] = None,
+    mailbox: Annotated[
+        Path | None, typer.Option("--mailbox", help="Sync mailbox override.")
+    ] = None,
+    mode: Annotated[
+        str | None, typer.Option("--publish-mode", help="commit|report (default from config).")
+    ] = None,
+    message: Annotated[str | None, typer.Option("--message", help="Auto-commit message.")] = None,
+    bootstrap: Annotated[
+        bool,
+        typer.Option("--bootstrap/--no-bootstrap", help="Let the session clone missing repos."),
+    ] = True,
+) -> None:
+    """Publish local commits, then ring the other side through the shared mailbox.
+
+    `--to canfar` (desk): commit + push, then drop a request the session
+    watcher answers with bootstrap + fast-forward. `--to desktop` (session):
+    commit + push, then drop the event the desk absorbs (rebase).
+    """
+    if to not in ("canfar", "desktop"):
+        raise typer.BadParameter("--to must be `canfar` or `desktop`")
+    opts = merge_opts(ctx)
+    settings = get_settings()
+    ws_root = resolve_workspace_root(root)
+    catalog = load_catalog(ws_root, repos_file=repos_file)
+    side = "desk" if to == "canfar" else "session"
+    engine = SyncEngine(ws_root, catalog, side=side, exclude=settings.sync_exclude)
+    report = engine.publish(
+        repos=repos,
+        mode=mode or settings.sync_publish_mode,
+        message=message,
+        dry_run=opts.dry_run,
+    )
+    box = _mailbox_path(settings, mailbox)
+    result: dict[str, Any] = {
+        "to": to,
+        "root": str(ws_root),
+        "mailbox": str(box),
+        "shared_mailbox": _mailbox_shared(settings, mailbox),
+        "published": report.to_dict(),
+    }
+    if not opts.dry_run:
+        bus_mod.ensure(box)
+        payload_repos = [
+            {"slug": rec.slug, "head": rec.head} for rec in report.repos if rec.status != "missing"
+        ]
+        if to == "canfar":
+            ready = bus_mod.read_ready(mailbox=box)
+            request = bus_mod.request_payload(
+                side=bus_mod.DESK, root=ws_root, repos=payload_repos, bootstrap=bootstrap
+            )
+            path = bus_mod.enqueue("requests", request, mailbox=box)
+            result.update({"request": path.name, "session_ready": bool(ready)})
+            if not _on_session():
+                arc = arc_data.bridge(box, direction="push")
+                result["arc"] = arc
+                if arc.get("transport") == "arc" and arc.get("ok"):
+                    result["shared_mailbox"] = True
+        else:
+            event = bus_mod.event_payload(
+                side=bus_mod.SESSION, root=ws_root, report=report.to_dict()
+            )
+            path = bus_mod.enqueue("events", event, mailbox=box)
+            result.update({"event": path.name})
+
+    if opts.json:
+        ui.print_json(result)
+        return
+
+    for rec in report.repos:
+        console.print(f"  {rec.slug:<28} {rec.status:<14} {rec.detail}")
+    if opts.dry_run:
+        ui.print_hint("dry-run: nothing pushed, no mailbox message sent")
+        return
+    if to == "canfar":
+        if result.get("session_ready"):
+            ui.print_ok(f"Request {result['request']} queued; the session watcher will pull.")
+        elif result.get("shared_mailbox"):
+            ui.print_warn(
+                f"No session watcher seen; request {result['request']} keeps 30 min and "
+                "is picked up at session boot."
+            )
+        else:
+            ui.print_warn(
+                "Mailbox is laptop-local: the session cannot read it. The push is on "
+                "GitHub, so `canfar lab sync` inside the session still pulls it; set "
+                "sync_mailbox, or `canfar data` (client v1.5) for the arc:/home doorbell."
+            )
+    else:
+        ui.print_ok(f"Event {result['event']} queued; the desk absorbs it on its next pass.")
+
+
+@sync_app.command("watch")
+def cmd_watch(
+    ctx: typer.Context,
+    session: Annotated[
+        bool, typer.Option("--session", help="Session side: requests → pull.")
+    ] = False,
+    desk: Annotated[bool, typer.Option("--desk", help="Desk side: events → absorb.")] = False,
+    root: Annotated[Path | None, typer.Option("--root", "-r")] = None,
+    mailbox: Annotated[
+        Path | None, typer.Option("--mailbox", help="Sync mailbox override.")
+    ] = None,
+    repos_file: Annotated[Path | None, typer.Option("--repos-file")] = None,
+    interval: Annotated[
+        float, typer.Option("--interval", help="Seconds between passes.")
+    ] = DEFAULT_INTERVAL_SECONDS,
+    once: Annotated[bool, typer.Option("--once", help="Single pass, then exit.")] = False,
+) -> None:
+    """Run the mailbox watcher loop (no inotify on /arc: polling by design)."""
+    if session and desk:
+        raise typer.BadParameter("--session and --desk are mutually exclusive")
+    opts = merge_opts(ctx)
+    settings = get_settings()
+    side = "session" if session else "desk" if desk else ("session" if _on_session() else "desk")
+    ws_root = resolve_workspace_root(root)
+    catalog = load_catalog(ws_root, repos_file=repos_file)
+    engine = SyncEngine(ws_root, catalog, side=side, exclude=settings.sync_exclude)
+    box = _mailbox_path(settings, mailbox)
+
+    def say(line: str) -> None:
+        if not opts.json:
+            console.print(f"[dim]{line}[/dim]")
+
+    if not opts.json:
+        console.print(f"[bold]sync watch ({side})[/bold]  root={ws_root}  mailbox={box}")
+    processed = watch(
+        side=side, engine=engine, mailbox=box, root=ws_root, interval=interval, once=once, say=say
+    )
+    if opts.json:
+        ui.print_json({"side": side, "processed": processed, "mailbox": str(box)})
+    elif once:
+        ui.print_ok(f"{processed} item(s) processed")

@@ -65,13 +65,14 @@ flowchart TB
 
 ## Install
 
-Images ship `canfar-lab` on PATH (`/opt/canfar`).
-
 ```bash
-uv tool install git+https://github.com/astroai/canfar-lab.git
-uv sync --all-extras && uv run canfar-lab --help
-./scripts/ci.sh
+pip install canfar-lab
+canfar-lab --help
 ```
+
+Do not pass `--user`. On a CANFAR session that writes `/arc/home/.local`. If the image Python is not writable, `uv pip install --python /opt/canfar canfar-lab`. Upgrade with `pip install -U canfar-lab`. Images that already include the package ship `canfar-lab` on PATH (`/opt/canfar`).
+
+From a checkout, `./scripts/ci.sh` is the development gate.
 
 ---
 
@@ -268,8 +269,7 @@ npx skills add astroai/canfar-skills
 Upgrade lab in a running session (no image rebuild):
 
 ```bash
-uv pip install --python /opt/canfar \
-  "git+https://github.com/astroai/canfar-lab.git@main"
+uv pip install --python /opt/canfar canfar-lab
 hash -r
 ```
 

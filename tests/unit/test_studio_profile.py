@@ -9,6 +9,8 @@ import pytest
 import yaml
 
 from canfar_lab import studio_profile as sp
+from canfar_lab.studio import DSH_VERSION
+from canfar_lab.studio_paths import RETIRED_BUNDLES
 
 
 class _DshLoader(yaml.SafeLoader):
@@ -140,6 +142,30 @@ def test_plan_is_pure_and_describes_a_fresh_profile(home: Path) -> None:
         plan.dir / "cordis.patch.yml",
         plan.dir / "pnpm-workspace.yaml",
     )
+
+
+def test_preset_override_drops_the_colliding_persona_row() -> None:
+    from canfar_lab.studio_layer import strip_preset_persona
+
+    text = """
+# comment
+- insert:
+    - id: preset-standard
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: standard
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: hello
+          - id: tool-bash
+            name: '@deepseek-ai/dsh-tool-bash'
+"""
+    out = strip_preset_persona(text)
+    assert "dsh-persona" not in out
+    assert "tool-bash" in out
+    assert out.startswith("- id: preset-standard")
 
 
 def test_layer_targets_the_rows_it_claims_and_parses(home: Path) -> None:
@@ -277,7 +303,8 @@ def test_manifest_is_never_treated_as_foreign_and_keeps_dependencies(home: Path)
                 "name": "dsh-profile-astroai",
                 "private": True,
                 "dependencies": {
-                    "@deepseek-ai/dsh-experimental-agent-team-profile": "0.1.5-alpha.2"
+                    "@deepseek-ai/dsh-experimental-agent-team-profile": "0.1.5-alpha.2",
+                    "some-user-plugin": "9.9.9",
                 },
                 "dsh": {"profile": {"bundles": ["@deepseek-ai/dsh-base"], "patchReload": "live"}},
             }
@@ -296,9 +323,38 @@ def test_manifest_is_never_treated_as_foreign_and_keeps_dependencies(home: Path)
         *sp.ASTROAI_EXTRA_BUNDLES,
     ]
     assert manifest["dependencies"]["@deepseek-ai/dsh-experimental-agent-team-profile"] == (
-        "0.1.5-alpha.2"
+        DSH_VERSION
     )
+    assert manifest["dependencies"]["some-user-plugin"] == "9.9.9"
     assert manifest["dsh"]["profile"]["patchReload"] == "live"
+
+
+def test_stale_team_plugin_is_reinstalled_at_the_cli_pin(home: Path) -> None:
+    directory = sp.profile_dir(home)
+    directory.mkdir(parents=True)
+    retired = RETIRED_BUNDLES[0]
+    team = sp.TEAM_BUNDLES[0]
+    (directory / "package.json").write_text(
+        json.dumps(
+            {
+                "dependencies": {team: "0.1.5-alpha.2", retired: "0.1.5-alpha.2"},
+                "dsh": {"profile": {"bundles": ["@deepseek-ai/dsh-base", team, retired]}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    installed = directory / "node_modules" / Path(team)
+    installed.mkdir(parents=True)
+    (installed / "package.json").write_text(
+        json.dumps({"name": team, "version": "0.1.5-alpha.2"}), encoding="utf-8"
+    )
+    plan = sp.plan_studio_profile(home, profile="laptop")
+    assert retired not in plan.manifest["dependencies"]
+    assert retired not in plan.bundles
+    assert plan.manifest["dependencies"][team] == DSH_VERSION
+    joined = [" ".join(command) for command in plan.commands]
+    assert all(f"remove {retired}" not in command for command in joined)
+    assert any(f"add {team}@{DSH_VERSION}" in command for command in joined)
 
 
 def test_recovery_reinstates_the_team_bundles_in_the_manifest(home: Path) -> None:
@@ -433,7 +489,7 @@ def test_doctor_reports_a_missing_dsh_as_fatal(home: Path, monkeypatch: pytest.M
 
 def test_doctor_reports_profile_state(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-alpha.1")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-rc.2")
     monkeypatch.setattr("canfar_lab.studio_doctor.dump_config", lambda *a, **k: (0, "tree", ""))
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),
@@ -454,7 +510,7 @@ def test_doctor_reports_profile_state(home: Path, monkeypatch: pytest.MonkeyPatc
 
 def test_doctor_counts_a_native_deepseek_route(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-alpha.1")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-rc.2")
     monkeypatch.setattr(
         "canfar_lab.studio_doctor._available_keys", lambda _home: ["DEEPSEEK_API_KEY"]
     )
@@ -466,7 +522,7 @@ def test_doctor_counts_a_native_deepseek_route(home: Path, monkeypatch: pytest.M
 
 def test_doctor_flags_a_broken_composition(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-alpha.1")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-rc.2")
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),
         install_bundles=False,
@@ -547,7 +603,7 @@ def test_doctor_probes_the_baked_row_not_the_path(
     home: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr("canfar_lab.studio.dsh_binary", lambda: "/usr/bin/dsh")
-    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-alpha.1")
+    monkeypatch.setattr("canfar_lab.studio_doctor.dsh_version", lambda *_: "0.2.1-rc.2")
     monkeypatch.setattr("canfar_lab.studio_doctor.dump_config", lambda *a, **k: (0, "tree", ""))
     sp.apply_studio_profile(
         sp.plan_studio_profile(home, profile="laptop", with_team=False),
@@ -596,6 +652,7 @@ def test_brand_plugin_is_vendored_and_replaces_official_row(tmp_path: Path) -> N
     assert f'id: "{sp.BRAND_BUNDLE}"' in client
     for slot in ("sidebar.brand.mark", "sidebar.brand.name", "conversation.hero.brand.mark"):
         assert slot in client
+    assert 'document.title = "AstroAI Studio"' in client
     patch = yaml.safe_load((dest / "cordis.patch.yml").read_text(encoding="utf-8"))
     assert {"id": "ui-brand-official", "disabled": True} in patch
     assert sp.BRAND_BUNDLE in sp.ASTROAI_EXTRA_BUNDLES

@@ -280,10 +280,10 @@ editor. If you still want to try the web UI behind the proxy (expect `/api`
 failures): `~/dsh/dsh-web.sh /scratch/src/torchregress`, forward 3080 in the
 Ports view, open `…/proxy/3080/`.
 
-## astroai-lab integration (canonical entrypoint)
+## canfar-lab integration (canonical entrypoint)
 
-This bench now ships inside `astroai-lab` (`canfar lab panel --help`): one install
-(`uv pip install git+https://github.com/astroai/canfar-lab.git@main`) provisions
+This bench now ships inside `canfar-lab` (`canfar-lab panel --help`): one install
+(`pip install canfar-lab`) provisions
 the preset, skill, and credentials on laptop, any contributed session, marimo,
 or plain CLI. `~/dsh` remains the dev source; the pip package carries a
 build-time copy (`scripts/sync-review-bench.sh`).

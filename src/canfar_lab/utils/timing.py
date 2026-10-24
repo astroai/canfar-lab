@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import TypeVar
 
@@ -21,7 +21,7 @@ class PhaseTimer:
         self.origin = time.perf_counter()
 
     @contextmanager
-    def phase(self, name: str) -> Iterator[None]:
+    def phase(self, name: str) -> Generator[None, None, None]:
         t0 = time.perf_counter()
         try:
             yield

@@ -15,6 +15,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
@@ -246,7 +247,14 @@ def cadc_search(
 
 def _allowed_dest(dest: Path) -> Path:
     dest = dest.expanduser().resolve()
-    roots = [Path("/arc"), Path("/scratch"), Path.home(), Path.cwd(), Path("/tmp")]
+    roots = [
+        Path("/arc"),
+        Path("/scratch"),
+        Path.home(),
+        Path.cwd(),
+        Path("/tmp"),
+        Path(tempfile.gettempdir()),
+    ]
     for key in ("SCRATCH", "SRCDIR", "WORK"):
         if os.environ.get(key):
             roots.append(Path(os.environ[key]))

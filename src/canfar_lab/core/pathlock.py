@@ -18,7 +18,7 @@ import os
 import socket
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -123,7 +123,7 @@ def path_lock(
     *,
     timeout: float | None = None,
     busy_hint: str = "Another lab action holds this lock",
-) -> Iterator[None]:
+) -> Generator[None, None, None]:
     """Acquire an exclusive lock file, breaking stale locks after *timeout*.
 
     Same-thread re-entrant: nested ``with path_lock(same_path)`` in one thread

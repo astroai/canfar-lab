@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import socket
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,29 @@ from canfar_lab.cli.main import app
 from canfar_lab.errors import LabError
 
 runner = CliRunner()
+
+
+def test_laptop_studio_serves_the_sync_dock() -> None:
+    from canfar_lab.cli.studio import studio_listen_plan
+
+    laptop = studio_listen_plan("laptop", 3080)
+    assert laptop == {"desk": True, "url_port": 3080, "dsh_port": 3081}
+    session = studio_listen_plan("canfar", 3080)
+    assert session == {"desk": False, "url_port": 3080, "dsh_port": 3080}
+
+
+def test_port_probe_sees_a_listener() -> None:
+    from canfar_lab.studio_doctor import _port_free
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(1)
+    port = sock.getsockname()[1]
+    try:
+        assert _port_free(port) is False
+    finally:
+        sock.close()
+    assert _port_free(port) is True
 
 
 def test_detect_profile_laptop(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -63,6 +87,7 @@ def test_prepare_studio_writes_profile(tmp_path: Path, monkeypatch: pytest.Monke
         "@deepseek-ai/dsh-web-app",
         "dsh-opencode-session",
         "dsh-astroai-brand",
+        "dsh-astroai-settings",
     ]
     manifest = (sp.profile_dir(home) / "package.json").read_text(encoding="utf-8")
     assert "dsh-profile-astroai" in manifest
@@ -210,15 +235,28 @@ def test_dsh_version_pin_matches_agent_yaml() -> None:
 
 
 def test_studio_status_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _down(*_args: object, **_kwargs: object) -> None:
+        raise OSError("proxy down")
+
+    monkeypatch.setattr("canfar_lab.cli.studio.httpx.get", _down)
+    monkeypatch.setattr("canfar_lab.cli.studio._check_port_open", lambda host, port: port == 3080)
+    monkeypatch.delenv("SKAHA_SESSIONID", raising=False)
+    monkeypatch.delenv("skaha_sessionid", raising=False)
+    monkeypatch.delenv("SKAHA_HOSTNAME", raising=False)
+    monkeypatch.delenv("skaha_hostname", raising=False)
     res = runner.invoke(app, ["--json", "studio", "status"])
     assert res.exit_code == 0
     data = json.loads(res.output)
+    assert data["laptop"] is True
     assert "services" in data
     assert "agent" in data["services"]
-    assert "terminal" in data["services"]
-    assert "jupyter" in data["services"]
-    assert "marimo" in data["services"]
-    assert "vscode" in data["services"]
+    assert data["services"]["terminal"]["session_only"] is True
+    assert "session_only" not in data["services"]["agent"]
+    text = runner.invoke(app, ["studio", "status"])
+    assert text.exit_code == 0
+    assert "Multiplexed on :5000" not in text.output
+    assert "this computer" in text.output
+    assert "session only" in text.output
 
 
 def test_open_command(monkeypatch: pytest.MonkeyPatch) -> None:

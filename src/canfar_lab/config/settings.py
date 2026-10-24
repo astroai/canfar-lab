@@ -37,6 +37,22 @@ class LabSettings(BaseSettings):
     default_pm: Literal["pixi", "uv"] = "pixi"
     clone_from_env: str | None = None
 
+    # --- sync + desk (docs/desk-sync.md §5.3) — flat keys in config.yaml ------
+    # Shared home mailbox the desk/session watchers exchange requests through.
+    # On a laptop set this to a shared path (SSHFS of arc:/home/$USER/…) or the
+    # session side cannot see requests; see docs/desk-sync.md §6.4.
+    sync_mailbox: Path | None = None
+    sync_publish_mode: Literal["commit", "report"] = "commit"
+    sync_absorb_mode: Literal["ff", "rebase"] | None = None
+    sync_exclude: list[str] = Field(default_factory=list)
+    # dsh spec for `canfar lab desk`: pin|alpha|next|latest|newest|<version>.
+    dsh_version: str = "newest"
+    desk_port: int = 5080
+    apps_editor: str = "vscode"
+    apps_terminal: str = "auto"
+    session_name: str = "astroai-studio"
+    session_image: str = "images.canfar.net/astroai/studio:latest"
+
     def resolve_work_dir(self) -> Path:
         scratch = self.resolve_scratch_dir()
         for raw in (_env_path("SRCDIR"), _env_path("WORK"), self.work_dir):

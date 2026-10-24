@@ -93,9 +93,17 @@ def test_ensure_settings_never_writes_model(
     assert "deepseek-official" not in doc["llm-pi-ai"]["providers"]  # llm-deepseek owns it
 
 
+def _isolate_provider_keys(monkeypatch: pytest.MonkeyPatch, name: str, value: str) -> None:
+    """Drop host provider keys so a developer shell cannot change the assertion."""
+    from canfar_lab.agent.support import load_support
+
+    for key in load_support().dsh_keys:
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv(name, value)
+
+
 def test_resolve_key_health_is_read_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("OPENCODE_API_KEY", "zen")
-    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    _isolate_provider_keys(monkeypatch, "OPENCODE_API_KEY", "zen")
     settings = tmp_path / ".dsh" / "settings.yaml"
     settings.parent.mkdir(parents=True)
     settings.write_text(
@@ -112,8 +120,7 @@ def test_panel_doctor_keys_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setattr(Path, "home", lambda: home)
-    monkeypatch.setenv("OPENCODE_API_KEY", "zen")
-    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    _isolate_provider_keys(monkeypatch, "OPENCODE_API_KEY", "zen")
     doctor = runner.invoke(app, ["--json", "panel", "doctor"])
     assert doctor.exit_code == 0, doctor.output
     import json

@@ -62,13 +62,12 @@ Help: `canfar lab help` · one command: `canfar lab help -c cluster` · cheat sh
 
 ## Install
 
-Session images put `canfar-lab` on PATH (`canfar lab` when the platform CLI is installed).
-
 ```bash
-pipx install git+https://github.com/astroai/canfar-lab.git
-# or: pip install "git+https://github.com/astroai/canfar-lab.git"
-pixi install && pixi run canfar-lab --help   # checkout
+pip install canfar-lab
+canfar-lab --help
 ```
+
+Do not pass `--user`. On a CANFAR session that writes `/arc/home/.local`. If the image Python is not writable, `uv pip install --python /opt/canfar canfar-lab`. Upgrade with `pip install -U canfar-lab`. Session images that already include the package put `canfar-lab` on PATH.
 
 ## Docs
 
@@ -80,6 +79,7 @@ pixi install && pixi run canfar-lab --help   # checkout
 | [docs/config.md](docs/config.md) | Optional `~/.astroai/lab/config.yaml` |
 | [docs/concurrency.md](docs/concurrency.md) | Shared home: locks, atomic writes, agent runtime placement |
 | [docs/studio.md](docs/studio.md) | AstroAI Studio: the browser coding portal, its dsh profile, teams, storage split |
+| [docs/desk-sync.md](docs/desk-sync.md) | Desk cockpit and CANFAR ↔ desktop sync (design proposal) |
 | [docs/panel.md](docs/panel.md) | AstroAI Panel / Studio Team review (keys only; models in dsh Settings) |
 
 Data movement is not this CLI. Use **`canfar data`** and `vcp` / `vls`.

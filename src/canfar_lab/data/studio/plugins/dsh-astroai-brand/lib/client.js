@@ -66,6 +66,7 @@ window.__ModuleLoader__.load({
 		const inject = ["slots"];
 
 		function apply(ctx) {
+			document.title = "AstroAI Studio";
 			ctx.slots.inject("sidebar.brand.mark", () => ctx.slots.inject("sidebar.brand.name", function* () {
 				yield ctx.slots.register({ name: "sidebar.brand.mark" }, AstroAIMark);
 				yield ctx.slots.register({ name: "sidebar.brand.name" }, AstroAIName);

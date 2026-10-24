@@ -93,7 +93,7 @@ check_help_ok "status" status
 check_help_ok "clean" clean
 
 echo "=== Nested typers ==="
-for grp in env config kernel agent cluster jobs; do
+for grp in env config kernel agent cluster jobs sync desk; do
     check_help_ok "$grp" "$grp"
 done
 check_help_ok "cluster dashboard" cluster dashboard
@@ -136,6 +136,23 @@ check_flag_in_help "agent list" "--description" agent list
 check_flag_in_help "cluster start" "--max-workers" cluster start
 check_flag_in_help "cluster start" "--min-workers" cluster start
 check_flag_in_help "agent setup" "--all" agent setup
+check_flag_in_help "sync exchange" "--to" sync exchange
+check_flag_in_help "sync exchange" "--repos" sync exchange
+check_flag_in_help "sync exchange" "--repos-file" sync exchange
+check_flag_in_help "sync exchange" "--mailbox" sync exchange
+check_flag_in_help "sync exchange" "--publish-mode" sync exchange
+check_flag_in_help "sync exchange" "--bootstrap" sync exchange
+check_flag_in_help "sync watch" "--session" sync watch
+check_flag_in_help "sync watch" "--desk" sync watch
+check_flag_in_help "sync watch" "--once" sync watch
+check_flag_in_help "sync watch" "--interval" sync watch
+check_flag_in_help "desk" "--dsh-version" desk
+check_flag_in_help "desk" "--dsh-port" desk
+check_flag_in_help "desk" "--doctor" desk
+check_flag_in_help "desk" "--no-install-dsh" desk
+check_flag_in_help "desk" "--no-open" desk
+check_flag_in_help "studio" "--dsh-version" studio
+check_flag_in_help "studio" "--install-dsh" studio
 
 echo "=== Flag placement (global OR subcommand) ==="
 # Bash 3.2 (macOS /bin/bash) has no negative array indices — peel the flag off
@@ -182,6 +199,9 @@ check_invocation "agent list" agent list
 check_invocation "agent list ui" agent list --ui
 check_invocation "agent plugins list" agent plugins list
 check_invocation "agent plugins list kind" agent plugins list --kind mcp
+check_invocation "sync exchange dry-run" --json --dry-run sync exchange --to canfar
+check_invocation "sync watch session once" --json sync watch --session --once
+check_invocation "desk doctor json" --json desk --doctor --dsh-version pin
 
 echo ""
 if [[ "$FAIL" -eq 0 ]]; then
