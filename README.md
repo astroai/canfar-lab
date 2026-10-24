@@ -62,13 +62,12 @@ Help: `canfar lab help` · one command: `canfar lab help -c cluster` · cheat sh
 
 ## Install
 
-Session images put `canfar-lab` on PATH (`canfar lab` when the platform CLI is installed).
-
 ```bash
-pipx install git+https://github.com/astroai/canfar-lab.git
-# or: pip install "git+https://github.com/astroai/canfar-lab.git"
-pixi install && pixi run canfar-lab --help   # checkout
+pip install canfar-lab
+canfar-lab --help
 ```
+
+Do not pass `--user`. On a CANFAR session that writes `/arc/home/.local`. If the image Python is not writable, `uv pip install --python /opt/canfar canfar-lab`. Upgrade with `pip install -U canfar-lab`. Session images that already include the package put `canfar-lab` on PATH.
 
 ## Docs
 

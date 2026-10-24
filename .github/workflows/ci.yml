@@ -1,6 +1,6 @@
 name: CI
 
-# Remote gate mirroring ./scripts/ci.sh: ruff, ty, CLI audit, pytest.
+# Remote gate mirroring ./scripts/ci.sh: ruff, ty, wheel data, CLI audit, pytest.
 # Run ./scripts/ci.sh locally before pushing.
 on:
   push:
@@ -36,6 +36,9 @@ jobs:
 
       - name: ty typecheck
         run: pixi run typecheck
+
+      - name: Wheel data
+        run: bash scripts/check-wheel.sh
 
       - name: CLI audit
         run: pixi run cli-audit

@@ -17,10 +17,10 @@ Skaha proxy notes:
 ## One install, one command
 
 ```bash
-uv tool install --force git+https://github.com/astroai/canfar-lab.git@main
-canfar lab agent setup --recommended   # recommended agents + dsh / review-bench
-canfar lab panel doctor                # dsh presence + keys (no model choice)
-canfar lab panel run /scratch/src/zensus "C1: 90% intervals cover 90% on 2024 split; C2: bias slope |.|<0.01" smoke
+pip install canfar-lab
+canfar-lab agent setup --recommended   # recommended agents + dsh / review-bench
+canfar-lab panel doctor                # dsh presence + keys (no model choice)
+canfar-lab panel run /scratch/src/zensus "C1: 90% intervals cover 90% on 2024 split; C2: bias slope |.|<0.01" smoke
 ```
 
 `--dry-run` prints the resolved repo,

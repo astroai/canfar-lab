@@ -22,6 +22,9 @@ echo "==> ty check"
 # CONDA_PREFIX can point ty at a conda site-packages on some dev machines.
 env -u CONDA_PREFIX pixi run typecheck
 
+echo "==> wheel data"
+bash scripts/check-wheel.sh
+
 echo "==> CLI audit"
 # GITHUB_ACTIONS=true makes typer/rich emit ANSI SGR codes in --help output,
 # exactly as on ubuntu-latest runners. This exercises the audit script's
