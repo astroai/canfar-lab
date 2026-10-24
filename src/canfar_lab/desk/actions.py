@@ -18,10 +18,11 @@ from pathlib import Path
 from typing import Any
 
 from canfar_lab.config.settings import get_settings
-from canfar_lab.desk import apps
+from canfar_lab.desk import agents_page, apps
 from canfar_lab.desk import state as state_mod
 from canfar_lab.errors import LabError
 from canfar_lab.session_urls import contrib_url
+from canfar_lab.sync import arc_data
 from canfar_lab.sync import bus as bus_mod
 from canfar_lab.sync.catalog import load_catalog
 from canfar_lab.sync.engine import SyncEngine
@@ -113,6 +114,9 @@ class DeskActions:
             "open_terminal": self.open_terminal,
             "cluster": self.cluster,
             "login": self.login,
+            "agents_state": self.agents_state,
+            "agents_key": self.agents_key,
+            "agents_setup": self.agents_setup,
         }
         handler = handlers.get(str(action))
         if handler is None:
@@ -143,6 +147,7 @@ class DeskActions:
         ]
         request = bus_mod.request_payload(side=bus_mod.DESK, root=self.root, repos=repos)
         path = bus_mod.enqueue("requests", request, mailbox=mailbox)
+        arc = arc_data.bridge(mailbox, direction="push")
         shared = (
             bool(getattr(self.settings, "sync_mailbox", None))
             or bool(os.environ.get(bus_mod.MAILBOX_ENV, "").strip())
@@ -153,7 +158,8 @@ class DeskActions:
                 "request": path.name,
                 "mailbox": str(mailbox),
                 "session_ready": bool(ready),
-                "shared_mailbox": bool(shared),
+                "shared_mailbox": bool(shared) or arc.get("transport") == "arc" and arc.get("ok"),
+                "arc": arc,
             }
         )
         if not ready:
@@ -164,13 +170,32 @@ class DeskActions:
                 else (
                     "Mailbox is laptop-local: the session cannot read it. The push is on "
                     "GitHub, so `canfar lab sync` inside the session still pulls it; "
-                    "configure sync_mailbox (SSHFS of arc:/home/$USER) for the doorbell."
+                    "configure sync_mailbox, or install canfar 1.5 so `canfar data` "
+                    "can ring arc:/home."
                 )
             )
         return result
 
     def open_tool(self, payload: dict[str, Any]) -> dict[str, Any]:
         tool = str(payload.get("tool") or "")
+        if tool in ("jupyter", "marimo"):
+            try:
+                launched = apps.ensure_local_app(
+                    tool,
+                    self.root,
+                    home=self.home,
+                    opener=self._opener,
+                    popen=self._popen,
+                )
+            except LabError as exc:
+                return {"ok": False, "error": exc.message, "hint": exc.hint}
+            return {
+                "ok": True,
+                "tool": tool,
+                "url": launched["url"],
+                "opened": launched["opened"],
+                "local": True,
+            }
         suffix = TOOL_SUFFIXES.get(tool)
         if suffix is None:
             raise LabError(f"unknown tool: {tool}")
@@ -179,7 +204,7 @@ class DeskActions:
             return {
                 "ok": False,
                 "error": "No running Studio session",
-                "hint": "Press `Canfar sync` to create it, then retry.",
+                "hint": "Press Sync to CANFAR, then retry.",
             }
         base = str(session.get("url") or contrib_url(str(session["id"])))
         url = f"{base}{suffix}"
@@ -202,6 +227,23 @@ class DeskActions:
         )
         return {"ok": True, "path": str(target), "opened": description}
 
+    def agents_state(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return agents_page.snapshot(self.home)
+
+    def agents_key(self, payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return agents_page.change_key(
+                self.home, str(payload.get("key") or ""), payload.get("value")
+            )
+        except LabError as exc:
+            return {"ok": False, "error": exc.message, "hint": exc.hint}
+
+    def agents_setup(self, payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return agents_page.setup_agent(self.home, str(payload.get("id") or ""))
+        except LabError as exc:
+            return {"ok": False, "error": exc.message, "hint": exc.hint}
+
     def login(self, payload: dict[str, Any]) -> dict[str, Any]:
         description = apps.open_terminal(
             self.root, str(getattr(self.settings, "apps_terminal", "auto"))
@@ -210,7 +252,7 @@ class DeskActions:
             "ok": True,
             "command": "canfar login",
             "terminal": description,
-            "hint": "Finish the device login in the terminal, then press Canfar sync again.",
+            "hint": "Finish the device login in the terminal, then press Sync to CANFAR again.",
         }
 
     def cluster(self, payload: dict[str, Any]) -> dict[str, Any]:

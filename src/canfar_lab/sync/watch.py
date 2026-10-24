@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from canfar_lab.sync import bus, clock
+from canfar_lab.sync import arc_data, bus, clock
 from canfar_lab.sync.engine import ExchangeReport, SyncEngine
 
 DEFAULT_INTERVAL_SECONDS = 10.0
@@ -105,6 +105,7 @@ def desk_once(
 ) -> int:
     """One desk-side pass. Returns the number of events absorbed."""
     speak = say or (lambda message: None)
+    arc_data.bridge(mailbox, direction="pull")
     bus.ensure(mailbox)
     state = bus.read_state(mailbox=mailbox, side=bus.DESK)
     last = str(state.get("last_event") or "")

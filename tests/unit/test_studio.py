@@ -17,6 +17,15 @@ from canfar_lab.errors import LabError
 runner = CliRunner()
 
 
+def test_laptop_studio_serves_the_sync_dock() -> None:
+    from canfar_lab.cli.studio import studio_listen_plan
+
+    laptop = studio_listen_plan("laptop", 3080)
+    assert laptop == {"desk": True, "url_port": 3080, "dsh_port": 3081}
+    session = studio_listen_plan("canfar", 3080)
+    assert session == {"desk": False, "url_port": 3080, "dsh_port": 3080}
+
+
 def test_port_probe_sees_a_listener() -> None:
     from canfar_lab.studio_doctor import _port_free
 

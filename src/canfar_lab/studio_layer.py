@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import sys
 from collections.abc import Iterable
@@ -36,6 +37,7 @@ from canfar_lab.studio_paths import (
     PROFILE_MANIFEST_FILENAME,
     PROFILE_PATCH_FILENAME,
     PROFILE_WORKSPACE_FILENAME,
+    RETIRED_BUNDLES,
     SPILL_CLEANUP_DAYS,
     STUDIO_PROFILE_NAME,
     TEAM_BUNDLES,
@@ -178,6 +180,96 @@ def mcp_row_yaml(command: tuple[str, ...]) -> str:
     )
 
 
+def web_app_preset_dir() -> Path | None:
+    """Installed ``dsh-web-app`` preset patches, beside the ``dsh`` binary."""
+    binary = shutil.which("dsh")
+    if binary is None:
+        return None
+    resolved = Path(binary).resolve()
+    if resolved.name != "bin.js":
+        return None
+    presets = resolved.parent.parent / "node_modules" / "@deepseek-ai" / "dsh-web-app" / "presets"
+    return presets if presets.is_dir() else None
+
+
+def strip_preset_persona(text: str) -> str:
+    """Rewrite one web-app preset patch as an override without ``dsh-persona``.
+
+    The host already registers ``deployment:persona-prefix``. On dsh 0.2.1-rc.3
+    the preset row registers that same section without an agent scope, and
+    New session fails with ``agent-preset/invalid``.
+    """
+    lines = text.replace("\r\n", "\n").splitlines()
+    body: list[str] = []
+    started = False
+    for line in lines:
+        if not started:
+            if line.startswith("- insert:"):
+                started = True
+            continue
+        body.append(line[4:] if line.startswith("    ") else line)
+    spans: list[tuple[int, int, int]] = []
+    index = 0
+    while index < len(body):
+        match = re.match(r"^(\s*)- id:", body[index])
+        if match is None:
+            index += 1
+            continue
+        indent = len(match.group(1))
+        end = index + 1
+        while end < len(body):
+            nxt = body[end]
+            nxt_indent = len(nxt) - len(nxt.lstrip())
+            if nxt.strip() and nxt_indent == indent and nxt.lstrip().startswith("- "):
+                break
+            end += 1
+        spans.append((index, end, indent))
+        index += 1
+    drop: set[int] = set()
+    for start, end, indent in spans:
+        for item in body[start + 1 : end]:
+            if not item.strip():
+                continue
+            item_indent = len(item) - len(item.lstrip())
+            if item_indent <= indent:
+                break
+            if item_indent == indent + 2 and item.lstrip().startswith("name:"):
+                if "@deepseek-ai/dsh-persona" in item:
+                    drop.add(start)
+                break
+            if item_indent == indent + 2:
+                break
+    skip = [False] * len(body)
+    for start, end, _indent in spans:
+        if start not in drop:
+            continue
+        for cursor in range(start, end):
+            skip[cursor] = True
+    kept = [line for cursor, line in enumerate(body) if not skip[cursor]]
+    return "\n".join(kept).strip() + "\n"
+
+
+def preset_persona_overrides() -> str:
+    """Profile overrides for the shipped presets, persona row removed."""
+    presets = web_app_preset_dir()
+    if presets is None:
+        return ""
+    chunks = [
+        "# dsh 0.2.1-rc.3 registers the persona section on the host.",
+        "# These overrides drop the preset copy that makes New session fail.",
+    ]
+    found = False
+    for name in ("standard", "minimal", "ptc", "cordis"):
+        path = presets / f"{name}.patch.yml"
+        if not path.is_file():
+            continue
+        chunks.append(strip_preset_persona(path.read_text(encoding="utf-8")).rstrip())
+        found = True
+    if not found:
+        return ""
+    return "\n".join(chunks) + "\n"
+
+
 def studio_layer_yaml(
     *,
     profile: StudioProfile,
@@ -224,6 +316,13 @@ def studio_layer_yaml(
         "- id: agent-preset-registry",
         "  config:",
         "    default: standard",
+        "",
+        "# Identity lives here. The preset persona row collides with this section",
+        "# on dsh 0.2.1-rc.3, so the overrides below remove that row.",
+        "- id: system-prompt",
+        "  config:",
+        '    personaPrefix: "You are a coding agent powered by the {{model}} model."',
+        '    personaSuffix: "Your working directory is {{cwd}}."',
         "",
         "# ── session storage ────────────────────────────────────────────────────",
         "# Session logs and the full-text index are append-heavy and unbounded, so",
@@ -279,6 +378,9 @@ def studio_layer_yaml(
     body = "\n".join(lines)
     if carried.strip():
         body = body.rstrip() + "\n\n" + carried.strip() + "\n"
+    overrides = preset_persona_overrides()
+    if overrides:
+        body = body.rstrip() + "\n\n" + overrides
     return body
 
 
@@ -474,6 +576,7 @@ def manifest_document(
     base: dict[str, Any] | None = None,
     pins: dict[str, str] | None = None,
     defaults: dict[str, str] | None = None,
+    drop: Iterable[str] | None = None,
 ) -> dict:
     """The profile manifest: our bundle list over whatever dsh and pnpm wrote.
 
@@ -493,6 +596,8 @@ def manifest_document(
     for name, spec in (defaults or {}).items():
         dependencies.setdefault(name, spec)
     dependencies.update(pins or {})
+    for name in drop or ():
+        dependencies.pop(name, None)
     doc["dependencies"] = dependencies
     section = doc.get("dsh")
     section = dict(section) if isinstance(section, dict) else {}
@@ -544,6 +649,41 @@ def _read_text(path: Path) -> str | None:
         return path.read_text(encoding="utf-8")
     except OSError:
         return None
+
+
+def _installed_bundle_version(directory: Path, name: str) -> str | None:
+    """Version of a bundle in this profile's own ``node_modules``, if present."""
+    version = read_manifest(directory / "node_modules" / Path(name) / "package.json").get("version")
+    return str(version) if version else None
+
+
+def _plugin_commands(
+    directory: Path,
+    *,
+    uninstalled: list[str],
+    with_team: bool,
+    dsh_version: str,
+) -> tuple[tuple[str, ...], ...]:
+    """pnpm invocations that make the profile match the pinned dsh CLI.
+
+    ``dsh plugin`` forwards to pnpm in the profile directory. A bare ``add``
+    follows npm ``latest``, which lags the CLI, so the team profile is always
+    ``name@<dsh version>``.
+    """
+    # One `add` upgrades the team pin and prunes retired packages. A separate
+    # `remove` first aborts the upgrade when pnpm refuses the old package.
+    commands: list[tuple[str, ...]] = []
+    add: list[str] = []
+    if with_team:
+        add.extend(
+            f"{name}@{dsh_version}"
+            for name in TEAM_BUNDLES
+            if name in uninstalled or _installed_bundle_version(directory, name) != dsh_version
+        )
+    add.extend(name for name in uninstalled if name not in TEAM_BUNDLES)
+    if add:
+        commands.append(("dsh", "plugin", "--profile", STUDIO_PROFILE_NAME, "add", *add))
+    return tuple(commands)
 
 
 def plan_studio_profile(
@@ -598,10 +738,20 @@ def plan_studio_profile(
         directory / PROFILE_PATCH_FILENAME,
         directory / PROFILE_WORKSPACE_FILENAME,
     )
-    commands: list[tuple[str, ...]] = []
-    if uninstalled:
-        # Only `dsh plugin add` can install a bundle, and only pnpm knows how.
-        commands.append(("dsh", "plugin", "--profile", STUDIO_PROFILE_NAME, "add", *uninstalled))
+    # studio.py imports this module through studio_profile, so the pin stays local.
+    from canfar_lab.studio import DSH_VERSION
+
+    pins = vendored_dependencies()
+    if with_team:
+        # npm `latest` for the team profile is still 0.1.5-alpha.2, which
+        # shadows the pinned dsh CLI. The profile must install that same version.
+        pins.update({name: DSH_VERSION for name in TEAM_BUNDLES})
+    commands = _plugin_commands(
+        directory,
+        uninstalled=uninstalled,
+        with_team=with_team,
+        dsh_version=DSH_VERSION,
+    )
     return StudioPlan(
         name=STUDIO_PROFILE_NAME,
         dir=directory,
@@ -612,8 +762,9 @@ def plan_studio_profile(
         manifest=manifest_document(
             bundles,
             base=read_manifest(directory / PROFILE_MANIFEST_FILENAME),
-            pins=vendored_dependencies(),
+            pins=pins,
             defaults=baked,
+            drop=RETIRED_BUNDLES,
         ),
         layer_yaml=layer,
         workspace_yaml=workspace_document(),
@@ -729,7 +880,7 @@ def _install_bundles(
 ) -> bool:
     """Install the missing bundles; True when every one now resolves."""
     if dry_run:
-        actions.append("would run: " + " ".join(plan.commands[0]))
+        actions.append("would run: " + " && ".join(" ".join(command) for command in plan.commands))
         return True
     dsh = dsh_bin
     if dsh is None:
@@ -749,7 +900,7 @@ def _install_bundles(
     # profile's node_modules from shadowing the installation's own in-box
     # bundles, so a plain `npm install` in the profile dir is *not* an
     # equivalent fallback (it pulls a version-skewed public copy of dsh-base).
-    launched = " ".join(("dsh", *plan.commands[0][1:]))
+    launched = " && ".join(" ".join(("dsh", *command[1:])) for command in plan.commands)
     if shutil.which("pnpm") is None:
         actions.append(
             "TEAM LAYERS UNAVAILABLE: no `pnpm` on PATH (`dsh plugin` needs it). "
@@ -757,11 +908,18 @@ def _install_bundles(
         )
         return False
     try:
-        run_cmd([dsh, *plan.commands[0][1:]], capture=True, timeout=1800)
+        for command in plan.commands:
+            run_cmd([dsh, *command[1:]], capture=True, timeout=1800)
     except LabError as exc:
         actions.append(f"TEAM LAYERS UNAVAILABLE: {exc}\n    retry with: {launched}")
         return False
     unresolved = [name for name in missing if not bundle_installed(plan.dir, name)]
+    if plan.with_team:
+        unresolved.extend(
+            name
+            for name in TEAM_BUNDLES
+            if _installed_bundle_version(plan.dir, name) != plan.manifest["dependencies"].get(name)
+        )
     if unresolved:
         actions.append(
             "TEAM LAYERS UNAVAILABLE: still unresolved after install: " + ", ".join(unresolved)

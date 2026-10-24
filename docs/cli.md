@@ -226,7 +226,7 @@ seeding, and the CANFAR proxy.
 Browser cockpit for a laptop: the **latest dsh** (resolved through npm
 dist-tags, default spec `newest`; offline falls back to the repo pin) served on
 loopback behind a small stdlib proxy that injects the Desk dock — marimo,
-JupyterLab, VS Code, terminal, Launch cluster, Canfar sync. Design and
+JupyterLab, VS Code, terminal, Launch cluster, Sync to CANFAR. Design and
 protocol: [desk-sync.md](desk-sync.md).
 
 | Flag | What it does |
@@ -243,7 +243,7 @@ canfar lab desk                    # newest dsh + dock, opens the browser
 canfar lab --json desk --doctor    # machine-readable pre-flight
 ```
 
-The dock's Canfar sync button publishes (commit + push, secret-scan gated) and
+The dock's Sync to CANFAR button publishes (commit + push, secret-scan gated) and
 drops a request in the shared mailbox; the session watcher answers with
 bootstrap + fast-forward. The mailbox is only a doorbell — GitHub is the sync
 protocol; when it is laptop-local the desk says so and the session can still

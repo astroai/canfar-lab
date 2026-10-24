@@ -17,7 +17,7 @@ import os
 import re
 import tempfile
 import time
-from collections.abc import Iterator
+from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 
@@ -139,7 +139,7 @@ def _pid_alive(pid: int) -> bool:
 
 
 @contextlib.contextmanager
-def _file_lock(path: Path, *, wait: float = LOCK_WAIT_SEC) -> Iterator[None]:
+def _file_lock(path: Path, *, wait: float = LOCK_WAIT_SEC) -> Generator[None, None, None]:
     """dsh's writer lock: a ``wx``-created ``<file>.lock`` holding our pid."""
     lock = path.with_name(path.name + ".lock")
     lock.parent.mkdir(parents=True, exist_ok=True, mode=0o700)

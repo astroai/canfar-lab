@@ -15,6 +15,7 @@ from rich.table import Table
 from canfar_lab import ui
 from canfar_lab.cli.context import merge_opts
 from canfar_lab.config.settings import get_settings
+from canfar_lab.sync import arc_data
 from canfar_lab.sync import bus as bus_mod
 from canfar_lab.sync.catalog import (
     DEFAULT_REPOSITORIES,
@@ -143,9 +144,29 @@ def cmd_status(
         ),
     ] = None,
     all_repos: Annotated[bool, typer.Option("--all", help="Scan all discovered repos.")] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
 ) -> None:
     """Show sync status for core science repositories."""
     ws_root = resolve_workspace_root(root)
+    if json_output:
+        repos = []
+        for repo_slug in DEFAULT_REPOSITORIES:
+            st = inspect_repo(repo_slug, ws_root)
+            repos.append(
+                {
+                    "name": st.name,
+                    "exists": st.exists,
+                    "branch": st.branch,
+                    "dirty": st.dirty,
+                    "ahead_origin": st.ahead_origin,
+                    "behind_origin": st.behind_origin,
+                    "ahead_upstream": st.ahead_upstream,
+                    "behind_upstream": st.behind_upstream,
+                    "upstream": st.upstream_configured,
+                }
+            )
+        ui.print_json({"ok": True, "root": str(ws_root), "repos": repos})
+        return
     console.print(f"[bold]Workspace Root:[/bold] {ws_root}")
     gh_user = detect_github_user()
     if gh_user:
@@ -406,6 +427,11 @@ def cmd_exchange(
             )
             path = bus_mod.enqueue("requests", request, mailbox=box)
             result.update({"request": path.name, "session_ready": bool(ready)})
+            if not _on_session():
+                arc = arc_data.bridge(box, direction="push")
+                result["arc"] = arc
+                if arc.get("transport") == "arc" and arc.get("ok"):
+                    result["shared_mailbox"] = True
         else:
             event = bus_mod.event_payload(
                 side=bus_mod.SESSION, root=ws_root, report=report.to_dict()
@@ -434,7 +460,7 @@ def cmd_exchange(
             ui.print_warn(
                 "Mailbox is laptop-local: the session cannot read it. The push is on "
                 "GitHub, so `canfar lab sync` inside the session still pulls it; set "
-                "sync_mailbox (SSHFS of arc:/home/$USER) for the doorbell."
+                "sync_mailbox, or `canfar data` (client v1.5) for the arc:/home doorbell."
             )
     else:
         ui.print_ok(f"Event {result['event']} queued; the desk absorbs it on its next pass.")

@@ -15,6 +15,8 @@ import typer
 
 from canfar_lab import ui
 from canfar_lab.cli.context import merge_opts
+from canfar_lab.config.settings import get_settings
+from canfar_lab.desk import serve as serve_mod
 from canfar_lab.errors import LabError
 
 studio_app = typer.Typer(
@@ -56,6 +58,29 @@ def _check_port_open(host: str, port: int) -> bool:
             return True
     except OSError:
         return False
+
+
+def studio_listen_plan(profile: str, port: int) -> dict[str, Any]:
+    """Laptop pages include the sync dock. A session serves dsh on ``port`` directly."""
+    if profile == "laptop":
+        return {"desk": True, "url_port": port, "dsh_port": port + 1}
+    return {"desk": False, "url_port": port, "dsh_port": port}
+
+
+def _free_port(start: int) -> int:
+    for candidate in range(start, start + 20):
+        if not _check_port_open("127.0.0.1", candidate):
+            return candidate
+    raise LabError(f"no free port from {start} to {start + 19}")
+
+
+def _desk_on_port(port: int) -> bool:
+    """True when ``port`` is the desk proxy, not a bare dsh."""
+    try:
+        response = httpx.get(f"http://127.0.0.1:{port}/__desk/state", timeout=1.5)
+    except httpx.HTTPError:
+        return False
+    return response.status_code == 403 and "forbidden" in response.text
 
 
 @studio_app.command("status")
@@ -414,7 +439,14 @@ def studio_main(
             "(or docs/studio.md in this repo). Launching anyway for loopback-only use."
         )
 
-    cmd = _studio.studio_web_cmd(repo_path, port=port, profile=resolved_profile, dsh_bin=dsh_bin)
+    listen = studio_listen_plan(resolved_profile, port)
+    dsh_port = int(listen["dsh_port"])
+    if listen["desk"] and not (opts.dry_run or opts.json):
+        dsh_port = _free_port(dsh_port)
+        listen = {**listen, "dsh_port": dsh_port}
+    cmd = _studio.studio_web_cmd(
+        repo_path, port=dsh_port, profile=resolved_profile, dsh_bin=dsh_bin
+    )
     studio_env = _studio.studio_env(profile=resolved_profile)
     env = {**os.environ, **studio_env}
     if opts.dry_run or opts.json:
@@ -423,6 +455,7 @@ def studio_main(
                 "repo": str(repo_path),
                 "profile": resolved_profile,
                 "dsh_profile": _sp.STUDIO_PROFILE_NAME,
+                "listen": listen,
                 "cmd": cmd,
                 "env": studio_env,
                 "dsh": {
@@ -442,7 +475,16 @@ def studio_main(
     url = f"http://127.0.0.1:{port}"
     if prep.get("degraded"):
         ui.print_warn("Team layers are not active — see `canfar lab studio --prepare`.")
+        for action in prep.get("actions") or []:
+            if "UNAVAILABLE" in action or "not installed" in action:
+                ui.print_hint(f"  {action}")
     if _check_port_open("127.0.0.1", port):
+        if listen["desk"] and not _desk_on_port(port):
+            ui.print_warn(
+                f"{url} is the previous dsh, without the sync dock. "
+                "Quit that terminal, then run this command again."
+            )
+            raise typer.Exit(1)
         ui.print_ok(f"AstroAI Studio is already running → {url}")
         if not no_open:
             _open_browser(url)
@@ -451,10 +493,30 @@ def studio_main(
     ui.print_hint(
         f"  harness profile: {_sp.STUDIO_PROFILE_NAME} — state in {prep.get('state_root')}"
     )
+    if listen["desk"]:
+        ui.print_hint("  Sync, JupyterLab, and marimo are on the top bar. Hide tucks it away.")
     ui.print_hint("  Team review: New session → preset «AstroAI Studio Team»")
     if with_team:
         ui.print_hint("  Agent Teams: ask for a team in the chat (roster + shared task board)")
     ui.print_hint(f"  {_studio.skills_onboarding_hint().splitlines()[1].strip()}")
+    if listen["desk"]:
+        ui.print_ok(f"AstroAI Studio → {url}")
+        code = serve_mod.serve_with_dock(
+            cmd=cmd,
+            cwd=repo_path,
+            env=env,
+            public_port=port,
+            backend_port=dsh_port,
+            root=repo_path,
+            settings=get_settings(),
+            dsh_bin=dsh_bin,
+            dsh_spec=dsh_version or "pin",
+            release=dsh_info,
+            opener=None if no_open else _open_browser,
+        )
+        if code:
+            raise typer.Exit(code)
+        return
     if not no_open:
         _open_browser(url)
     run(cmd, cwd=repo_path, env=env)

@@ -188,24 +188,14 @@ def test_open_tool_unknown_raises(tmp_path):
         _actions(tmp_path).open_tool({"tool": "emacs"})
 
 
-def test_open_tool_without_session(tmp_path, monkeypatch):
-    monkeypatch.setattr(actions_mod.state_mod, "studio_session", lambda ops=None, name="x": None)
-    out = _actions(tmp_path, ops_factory=None).open_tool({"tool": "marimo"})
-    assert out["ok"] is False
-    assert "No running Studio session" in out["error"]
-
-
-def test_open_tool_opens_session_url(tmp_path, monkeypatch):
-    monkeypatch.setenv("CANFAR_LAB_SESSION_BASE_URL", "https://workloads.example")
-    monkeypatch.setattr(
-        actions_mod.state_mod,
-        "studio_session",
-        lambda ops=None, name="x": {
-            "id": "abc",
-            "url": "https://workloads.example/session/contrib/abc",
-        },
-    )
+def test_open_tool_jupyter_is_local(tmp_path, monkeypatch):
     opened: list[str] = []
+
+    def launch(tool, root, *, home, opener, popen):
+        opener("http://127.0.0.1:8888/lab")
+        return {"url": "http://127.0.0.1:8888/lab", "opened": True, "started": True}
+
+    monkeypatch.setattr(actions_mod.apps, "ensure_local_app", launch)
     acts = actions_mod.DeskActions(
         root=tmp_path,
         home=tmp_path,
@@ -214,7 +204,37 @@ def test_open_tool_opens_session_url(tmp_path, monkeypatch):
     )
     out = acts.open_tool({"tool": "jupyter"})
     assert out["ok"] is True
-    assert opened == ["https://workloads.example/session/contrib/abc/jupyter/lab"]
+    assert out["local"] is True
+    assert out["url"] == "http://127.0.0.1:8888/lab"
+    assert opened == ["http://127.0.0.1:8888/lab"]
+
+
+def test_agents_setup_rejects_unknown_id(tmp_path):
+    out = _actions(tmp_path).agents_setup({"id": "emacs"})
+    assert out["ok"] is False
+    assert "Unknown agent" in out["error"]
+
+
+def test_agents_key_clears_without_echoing(tmp_path, monkeypatch):
+    seen: dict[str, str | None] = {}
+
+    def unset(home, name):
+        seen["name"] = name
+        return {"key": name, "present": False, "changed": True}
+
+    monkeypatch.setattr(actions_mod.agents_page, "unset_key", unset)
+    out = _actions(tmp_path).agents_key({"key": "OPENROUTER_API_KEY", "value": ""})
+    assert out["ok"] is True
+    assert out["present"] is False
+    assert seen["name"] == "OPENROUTER_API_KEY"
+    assert "value" not in out
+
+
+def test_open_tool_hub_still_needs_a_session(tmp_path, monkeypatch):
+    monkeypatch.setattr(actions_mod.state_mod, "studio_session", lambda ops=None, name="x": None)
+    out = _actions(tmp_path, ops_factory=None).open_tool({"tool": "hub"})
+    assert out["ok"] is False
+    assert "No running Studio session" in out["error"]
 
 
 def test_open_editor_and_terminal_delegate(tmp_path, monkeypatch):

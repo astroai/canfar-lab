@@ -37,7 +37,7 @@ StudioProfile = Literal["laptop", "canfar"]
 #: fall back to without network. Keep the string in sync with
 #: ``agent/review_bench.py``, ``studio_paths.DSH_INSTALL_HINT`` and
 #: ``data/agent/agents/dsh.yaml``.
-DSH_VERSION = "0.2.1-rc.2"
+DSH_VERSION = "0.2.1-rc.3"
 DSH_NPM = f"@deepseek-ai/dsh@{DSH_VERSION}"
 
 DEFAULT_PORT = 3080
@@ -341,7 +341,7 @@ def prepare_studio(
             "actions": [
                 "would ensure review-bench + dsh dotenv/settings + studio profile",
                 "would write " + ", ".join(str(p) for p in plan.files),
-                *([f"would run: {' '.join(plan.commands[0])}"] if plan.commands else []),
+                *(f"would run: {' '.join(command)}" for command in plan.commands),
             ],
             "profile_plan": plan.to_dict(),
             "dry_run": True,

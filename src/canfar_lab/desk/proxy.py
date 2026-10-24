@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from canfar_lab.desk.agents_page import load_agents_html
 from canfar_lab.errors import LabError
 
 DOCK_ASSET = Path(__file__).resolve().parent.parent / "data" / "desk" / "dock.html"
@@ -48,24 +49,30 @@ _HOP_HEADERS = frozenset(
 DESK_BUTTONS: list[dict[str, Any]] = [
     {
         "id": "sync",
-        "label": "Canfar sync",
+        "label": "Sync to CANFAR",
         "action": "sync_to_canfar",
         "kind": "primary",
-        "title": "Commit + push, then ask the session to pull",
+        "title": "Commit and push, then ask the session to pull",
+    },
+    {
+        "id": "agents",
+        "label": "Agents",
+        "href": "/__desk/agents",
+        "title": "Keys and coding-agent configs on this computer",
     },
     {
         "id": "marimo",
         "label": "marimo",
         "action": "open_tool",
         "payload": {"tool": "marimo"},
-        "title": "Open marimo in the session",
+        "title": "Start marimo on this computer and open it in the browser",
     },
     {
         "id": "jupyter",
         "label": "JupyterLab",
         "action": "open_tool",
         "payload": {"tool": "jupyter"},
-        "title": "Open JupyterLab in the session",
+        "title": "Start JupyterLab on this computer and open it in the browser",
     },
     {
         "id": "vscode",
@@ -161,7 +168,7 @@ class DeskProxyServer(ThreadingHTTPServer):
 
 class _DeskHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server: DeskProxyServer
+    server: DeskProxyServer  # ty: ignore[invalid-mutable-override]
 
     def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 — stdlib signature
         self.server.say("proxy: " + (format % args))
@@ -194,12 +201,27 @@ class _DeskHandler(BaseHTTPRequestHandler):
         with contextlib.suppress(ValueError):
             path = urlsplit(self.path).path
         if path.startswith("/__desk/"):
+            if path == "/__desk/agents" and self.command == "GET":
+                self._agents_page()
+                return
             self._desk(path)
             return
         if (self.headers.get("Upgrade") or "").lower() == "websocket":
             self._upgrade()
             return
         self._relay()
+
+    def _agents_page(self) -> None:
+        body = load_agents_html().encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "close")
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+        self.close_connection = True
 
     def _desk(self, path: str) -> None:
         if not self._authorized():
@@ -268,7 +290,8 @@ class _DeskHandler(BaseHTTPRequestHandler):
         headers = {
             key: value
             for key, value in self.headers.items()
-            if key.lower() not in _HOP_HEADERS and key.lower() != "content-length"
+            if key.lower() not in _HOP_HEADERS
+            and key.lower() not in ("content-length", "accept-encoding")
         }
         if body is not None:
             headers["Content-Length"] = str(len(body))

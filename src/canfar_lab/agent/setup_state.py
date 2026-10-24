@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from canfar_lab.agent.bundle_path import bundle_root
+from canfar_lab.core.pathlock import path_lock
 
 GIT_TIMEOUT_SEC = int(os.environ.get("CANFAR_LAB_AGENT_GIT_TIMEOUT", "120"))
 # Self-bootstrapping installers (hermes bootstraps its own uv/python/node and
@@ -153,10 +154,8 @@ def agent_setup_lock(
     home: Path | None = None,
     *,
     timeout: float | None = None,
-) -> Iterator[None]:
+) -> Generator[None, None, None]:
     """Exclusive lock for agent install / setup / plugin / wipe mutations."""
-    from canfar_lab.core.pathlock import path_lock
-
     home = home or Path.home()
     with path_lock(
         lock_path(home),

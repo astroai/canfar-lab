@@ -7,11 +7,16 @@ Everything is injectable so tests can pin a platform without a display.
 
 from __future__ import annotations
 
+import contextlib
+import json
 import os
 import shlex
 import shutil
+import signal
+import socket
 import subprocess
 import sys
+import time
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
@@ -172,6 +177,176 @@ def open_terminal(
     return " ".join(cmd)
 
 
+#: Laptop notebook servers. The desk opens these in the local browser.
+LOCAL_APPS: dict[str, dict[str, str | int]] = {
+    "jupyter": {"binary": "jupyter", "port": 8888},
+    "marimo": {"binary": "marimo", "port": 2718},
+}
+
+
+def local_app_command(tool: str, root: Path, port: int) -> list[str]:
+    """argv for a loopback JupyterLab or marimo server rooted at ``root``."""
+    folder = str(root)
+    if tool == "jupyter":
+        return [
+            "jupyter",
+            "lab",
+            "--ip",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--no-browser",
+            "--ServerApp.token=",
+            "--ServerApp.password=",
+            "--ServerApp.open_browser=False",
+            f"--ServerApp.root_dir={folder}",
+            f"--ServerApp.preferred_dir={folder}",
+        ]
+    if tool == "marimo":
+        return [
+            "marimo",
+            "edit",
+            "--no-token",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--skip-update-check",
+            "--headless",
+            folder,
+        ]
+    raise LabError(f"unknown local app: {tool}")
+
+
+def _local_url(tool: str, port: int) -> str:
+    if tool == "jupyter":
+        return f"http://127.0.0.1:{port}/lab"
+    return f"http://127.0.0.1:{port}/"
+
+
+def _state_path(home: Path) -> Path:
+    return home / ".astroai" / "lab" / "desk-apps.json"
+
+
+def _read_state(home: Path) -> dict:
+    path = _state_path(home)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_state(home: Path, data: dict) -> None:
+    path = _state_path(home)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+
+def _pid_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def _port_open(port: int) -> bool:
+    with socket.socket() as sock:
+        sock.settimeout(0.2)
+        return sock.connect_ex(("127.0.0.1", port)) == 0
+
+
+def _free_port(start: int) -> int:
+    for port in range(start, start + 20):
+        if not _port_open(port):
+            return port
+    raise LabError(f"No free localhost port from {start}.")
+
+
+def _wait_port(port: int, timeout: float = 20.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if _port_open(port):
+            return True
+        time.sleep(0.2)
+    return False
+
+
+def ensure_local_app(
+    tool: str,
+    root: Path,
+    *,
+    home: Path,
+    opener: Callable[[str], bool],
+    popen: Callable[..., object] = subprocess.Popen,
+    which: Callable[[str], str | None] = shutil.which,
+) -> dict[str, object]:
+    """Start JupyterLab or marimo on this computer and open it in the local browser.
+
+    A second click reuses the server already serving this folder.
+    """
+    spec = LOCAL_APPS.get(tool)
+    if spec is None:
+        raise LabError(f"unknown local app: {tool}")
+    binary = str(spec["binary"])
+    if which(binary) is None:
+        raise LabError(
+            f"{binary} is not installed on this computer.",
+            hint=f"Install {binary} in the project environment, then press the button again.",
+        )
+    folder = Path(root).expanduser().resolve()
+    state = _read_state(home)
+    raw = state.get(tool)
+    saved = raw if isinstance(raw, dict) else {}
+    saved_root = str(saved.get("root") or "")
+    try:
+        saved_port = int(saved.get("port") or 0)
+        saved_pid = int(saved.get("pid") or 0)
+    except (TypeError, ValueError):
+        saved_port = 0
+        saved_pid = 0
+    if (
+        saved_root == str(folder)
+        and saved_port
+        and _pid_alive(saved_pid)
+        and _port_open(saved_port)
+    ):
+        url = str(saved.get("url") or _local_url(tool, saved_port))
+        return {"url": url, "opened": bool(opener(url)), "started": False}
+
+    port = _free_port(int(spec["port"]))
+    cmd = local_app_command(tool, folder, port)
+    log_path = home / ".astroai" / "lab" / "logs" / f"{tool}.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log = log_path.open("ab")
+    try:
+        proc = popen(
+            cmd,
+            cwd=folder,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    finally:
+        log.close()
+    pid = int(getattr(proc, "pid", 0) or 0)
+    if not _wait_port(port):
+        if pid > 0:
+            with contextlib.suppress(OSError):
+                os.kill(pid, signal.SIGTERM)
+        raise LabError(
+            f"{binary} did not start.",
+            hint=f"See {log_path}",
+        )
+    url = _local_url(tool, port)
+    state[tool] = {"pid": pid, "port": port, "root": str(folder), "url": url}
+    _write_state(home, state)
+    return {"url": url, "opened": bool(opener(url)), "started": True}
+
+
 def open_browser(url: str) -> bool:
     try:
         return bool(webbrowser.open(url))
@@ -200,6 +375,8 @@ __all__ = [
     "TERMINAL_APPS",
     "available",
     "editor_command",
+    "ensure_local_app",
+    "local_app_command",
     "open_browser",
     "open_editor",
     "open_terminal",

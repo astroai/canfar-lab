@@ -21,6 +21,7 @@ HTML_PAGE = b"<html><body><h1>dsh</h1></body></html>"
 
 class _Backend(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
+    accept_encoding: str | None = None
 
     def log_message(self, format: str, *args: object) -> None:  # noqa: A002
         pass
@@ -35,6 +36,7 @@ class _Backend(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self) -> None:
+        _Backend.accept_encoding = self.headers.get("Accept-Encoding")
         path = urlsplit(self.path).path
         if path == "/page":
             self._send(200, "text/html; charset=utf-8", HTML_PAGE)
@@ -110,6 +112,11 @@ def _auth(origin: str | None = None) -> dict[str, str]:
 
 
 # ------------------------------------------------------------------ injection
+
+
+def test_html_request_does_not_ask_for_compression(cockpit):
+    _request(cockpit.port, "/page", headers={"Accept-Encoding": "gzip"})
+    assert _Backend.accept_encoding in (None, "identity")
 
 
 def test_html_gets_dock_injected(cockpit):
@@ -378,10 +385,21 @@ def test_inject_dock_appends_without_body():
 
 def test_desk_buttons_shape():
     ids = [button["id"] for button in proxy.DESK_BUTTONS]
-    assert ids == ["sync", "marimo", "jupyter", "vscode", "terminal", "cluster"]
+    assert ids == ["sync", "agents", "marimo", "jupyter", "vscode", "terminal", "cluster"]
     labels = {button["id"]: button["label"] for button in proxy.DESK_BUTTONS}
-    assert labels["sync"] == "Canfar sync"
+    assert labels["sync"] == "Sync to CANFAR"
+    dock = proxy.load_dock_html()
+    assert "AstroAI Studio" in dock
+    assert 'id="astroai-dock-handle"' in dock
+    assert "Hide the Studio bar" in dock
     assert labels["cluster"] == "Launch cluster"
+
+
+def test_agents_page_is_local_html(cockpit):
+    status, _headers, body = _request(cockpit.port, "/__desk/agents")
+    assert status == 200
+    assert b"AstroAI Agents" in body
+    assert TOKEN.encode() not in body
 
 
 def test_build_dock_config_overrides_buttons():

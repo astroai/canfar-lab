@@ -34,6 +34,100 @@ window.__ModuleLoader__.load({
 			return "Binaries are on scratch for this session. Config and keys stay on home.";
 		}
 
+		function Sync() {
+			const [status, setStatus] = React.useState(null);
+			const [note, setNote] = React.useState("");
+			const [busy, setBusy] = React.useState(false);
+
+			const load = React.useCallback(() => {
+				fetch("/api/astroai/sync", { headers: { accept: "application/json" } })
+					.then(readJson)
+					.then((body) => {
+						setStatus(body);
+						setBusy(false);
+					})
+					.catch((err) => {
+						setNote(String(err));
+						setBusy(false);
+					});
+			}, []);
+
+			React.useEffect(() => {
+				load();
+			}, [load]);
+
+			function push() {
+				setBusy(true);
+				setNote("");
+				fetch("/api/astroai/sync", { method: "POST" })
+					.then(readJson)
+					.then((body) => {
+						const hint = body && (body.hint || body.error);
+						const summary = body && body.published && body.published.summary;
+						const counts = summary
+							? Object.keys(summary)
+									.map((key) => summary[key] + " " + key)
+									.join(", ")
+							: "";
+						setNote(counts || hint || (body && body.ok === false ? "Sync failed." : "Sync finished."));
+						setBusy(false);
+						load();
+					})
+					.catch((err) => {
+						setNote(String(err));
+						setBusy(false);
+					});
+			}
+
+			const repos = ((status && status.repos) || []).filter(
+				(row) => row && row.exists && (row.dirty || row.ahead_origin || row.behind_upstream),
+			);
+			return jsxs("div", {
+				style: { display: "grid", gap: "0.4rem" },
+				children: [
+					jsx("button", {
+						type: "button",
+						disabled: busy,
+						onClick: push,
+						style: {
+							font: "inherit",
+							justifySelf: "start",
+							padding: "0.4rem 0.8rem",
+							borderRadius: "0.4rem",
+							border: "1px solid #4338ca",
+							background: "#4338ca",
+							color: "#fff",
+							cursor: busy ? "progress" : "pointer",
+						},
+						children: busy ? "Syncing…" : "Sync to CANFAR",
+					}),
+					jsx("p", {
+						style: { margin: 0, opacity: 0.75 },
+						children: "Sends commits from this computer. The session pulls them.",
+					}),
+					repos.length
+						? jsx("ul", {
+								style: { margin: 0, paddingLeft: "1.1rem" },
+								children: repos.map((row) =>
+									jsx(
+										"li",
+										{
+											children:
+												row.name +
+												(row.dirty ? " has uncommitted edits" : "") +
+												(row.ahead_origin ? " is " + row.ahead_origin + " commit(s) ahead" : "") +
+												(row.behind_upstream ? " can fast-forward" : ""),
+										},
+										row.name,
+									),
+								),
+							})
+						: null,
+					note ? jsx("p", { style: { margin: 0 }, children: note }) : null,
+				],
+			});
+		}
+
 		function Section() {
 			const [data, setData] = React.useState(null);
 			const [error, setError] = React.useState("");
@@ -85,6 +179,7 @@ window.__ModuleLoader__.load({
 			return jsxs("section", {
 				style: { display: "grid", gap: "0.85rem", maxWidth: "36rem" },
 				children: [
+					jsx(Sync, {}),
 					jsx("p", {
 						style: { margin: 0, opacity: 0.75 },
 						children: "Install location and which provider keys are on this machine. Model choice stays in Settings → Models.",
@@ -123,6 +218,12 @@ window.__ModuleLoader__.load({
 											})
 										: null,
 									jsx("p", { style: { margin: 0 }, children: rootCopy(data) }),
+									data.choice
+										? null
+										: jsx("p", {
+												style: { margin: 0 },
+												children: "Sync to CANFAR is on the top bar. Hide tucks that bar away.",
+											}),
 									data.bin_dir
 										? jsx("p", {
 												style: { margin: 0 },

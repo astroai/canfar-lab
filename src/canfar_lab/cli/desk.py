@@ -3,16 +3,12 @@
 The cockpit is the *latest* dsh (resolved through :mod:`canfar_lab.dsh_release`,
 default ``newest`` across npm dist-tags) served on loopback behind a small
 stdlib proxy that injects the dock: marimo, JupyterLab, VS Code, terminal,
-Launch cluster, Canfar sync — see ``docs/desk-sync.md`` §7.
+Launch cluster, Sync to CANFAR — see ``docs/desk-sync.md`` §7.
 """
 
 from __future__ import annotations
 
-import contextlib
 import os
-import secrets
-import subprocess
-import time
 from typing import Annotated
 
 import typer
@@ -20,9 +16,8 @@ import typer
 from canfar_lab import dsh_release, ui
 from canfar_lab.cli.context import merge_opts
 from canfar_lab.config.settings import get_settings
-from canfar_lab.desk import actions as actions_mod
 from canfar_lab.desk import apps as apps_mod
-from canfar_lab.desk import proxy as proxy_mod
+from canfar_lab.desk import serve as serve_mod
 from canfar_lab.desk import state as state_mod
 from canfar_lab.errors import LabError
 from canfar_lab.studio import (
@@ -40,7 +35,7 @@ desk_app = typer.Typer(
     name="desk",
     help=(
         "Local browser dsh with the Desk dock: marimo, JupyterLab, VS Code, "
-        "terminal, Launch cluster, Canfar sync.\n\n"
+        "terminal, Launch cluster, Sync to CANFAR.\n\n"
         "Examples:\n"
         "  canfar lab desk\n"
         "  canfar lab desk ~/src --dsh-version newest\n"
@@ -198,48 +193,26 @@ def desk_main(
 
     cmd = studio_web_cmd(ws_root, port=dsh_port, profile="laptop", dsh_bin=binary)
     env = {**os.environ, **studio_env(profile="laptop")}
-    proc = subprocess.Popen(cmd, cwd=ws_root, env=env)
+    url = f"http://127.0.0.1:{cockpit_port}/"
     ui.print_info(
         f"dsh {installed or release.version} → http://127.0.0.1:{dsh_port}  (root {ws_root})"
     )
-    if not proxy_mod.wait_for_port("127.0.0.1", dsh_port, timeout=120):
-        ui.print_warn("dsh has not answered yet; the cockpit will serve once it does")
-
-    token = secrets.token_urlsafe(24)
-    actions = actions_mod.DeskActions(
+    ui.print_ok(f"Desk cockpit → {url}")
+    code = serve_mod.serve_with_dock(
+        cmd=cmd,
+        cwd=ws_root,
+        env=env,
+        public_port=cockpit_port,
+        backend_port=dsh_port,
         root=ws_root,
         settings=settings,
         dsh_bin=binary,
         dsh_spec=spec,
         release=release,
-        say=lambda message: None,
+        opener=None if no_open else apps_mod.open_browser,
     )
-    dock_config = proxy_mod.build_dock_config(token=token, version=release.version)
-    server, _thread = proxy_mod.start(
-        port=cockpit_port,
-        backend_port=dsh_port,
-        token=token,
-        state_fn=actions.state,
-        action_fn=actions.dispatch,
-        dock_config=dock_config,
-        say=lambda message: None,
-    )
-    url = f"http://127.0.0.1:{cockpit_port}/"
-    ui.print_ok(f"Desk cockpit → {url}")
-    if not no_open:
-        apps_mod.open_browser(url)
-
-    try:
-        while proc.poll() is None:
-            time.sleep(0.5)
-    except KeyboardInterrupt:
-        proc.terminate()
-    finally:
-        server.shutdown()
-        with contextlib.suppress(Exception):
-            proc.terminate()
-    if proc.returncode:
-        raise typer.Exit(proc.returncode)
+    if code:
+        raise typer.Exit(code)
 
 
 __all__ = ["desk_app"]

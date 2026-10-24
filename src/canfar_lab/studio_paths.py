@@ -125,7 +125,7 @@ PROFILE_MANIFEST_FILENAME = "package.json"
 PROFILE_WORKSPACE_FILENAME = "pnpm-workspace.yaml"
 
 # Pin stays in sync with studio.DSH_VERSION / agents/dsh.yaml.
-DSH_INSTALL_HINT = "npm install -g @deepseek-ai/dsh@0.2.1-rc.2"
+DSH_INSTALL_HINT = "npm install -g @deepseek-ai/dsh@0.2.1-rc.3"
 
 
 # ---------------------------------------------------------------------------

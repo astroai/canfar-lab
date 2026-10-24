@@ -34,8 +34,8 @@ def test_resolve_none_defaults_to_pin():
 
 
 def test_resolve_tags_and_newest():
-    tags = {"latest": "0.2.0-rc.2", "next": "0.2.1-rc.2", "alpha": "0.2.1-alpha.5"}
-    assert dsh_release.resolve("newest", fetcher=lambda: tags).version == "0.2.1-rc.2"
+    tags = {"latest": "0.2.0-rc.2", "next": "0.2.1-rc.9", "alpha": "0.2.1-alpha.5"}
+    assert dsh_release.resolve("newest", fetcher=lambda: tags).version == "0.2.1-rc.9"
     assert dsh_release.resolve("alpha", fetcher=lambda: tags).version == "0.2.1-alpha.5"
     assert dsh_release.resolve("latest", fetcher=lambda: tags).version == "0.2.0-rc.2"
 

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AstroAI Agents</title>
+<style>
+  body { margin: 0; background: #0b1026; color: #dfe4ff; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 28px 20px 48px; }
+  h1 { font-size: 20px; margin: 0 0 6px; }
+  h2 { font-size: 15px; margin: 28px 0 8px; }
+  p { margin: 0 0 12px; color: #a3acd6; }
+  a { color: #79c0ff; }
+  .row { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid rgba(129,140,248,.22); }
+  .name { font-weight: 600; color: #fff; }
+  .meta { color: #a3acd6; font-size: 12px; }
+  button, input { font: inherit; }
+  button { border: 1px solid rgba(129,140,248,.5); background: rgba(99,102,241,.25); color: #fff; border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+  button.ghost { background: none; color: #c8cff5; }
+  button:disabled { opacity: .5; cursor: progress; }
+  input { background: #10173a; color: #fff; border: 1px solid rgba(129,140,248,.35); border-radius: 8px; padding: 6px 8px; width: 14rem; }
+  .ok { color: #7ee787; } .miss { color: #e3b341; }
+  #note { min-height: 1.2em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Agents</h1>
+  <p>One set of keys for the assistant, marimo, and the coding CLIs. A saved key is never shown again. The assistant’s model is chosen in Studio under Settings → Models.</p>
+  <p id="gate" hidden>Open this page from the Agents button on the Studio bar.</p>
+  <p id="note"></p>
+  <h2>Keys</h2>
+  <div id="keys">Loading…</div>
+  <h2>Coding agents</h2>
+  <p>Set up writes that agent’s config in your home directory. It does not download the program. If it is not installed, use <code>canfar lab agent install &lt;id&gt;</code>.</p>
+  <div id="agents">Loading…</div>
+</main>
+<script>
+(function () {
+  var token = (location.hash || "").slice(1);
+  if (token) history.replaceState(null, "", location.pathname);
+  var gate = document.getElementById("gate");
+  var note = document.getElementById("note");
+  if (!token) {
+    gate.hidden = false;
+    document.getElementById("keys").textContent = "";
+    document.getElementById("agents").textContent = "";
+    return;
+  }
+  function api(action, body) {
+    return fetch("/__desk/action/" + action, {
+      method: "POST",
+      headers: { "X-Desk-Token": token, "Content-Type": "application/json" },
+      body: JSON.stringify(body || {})
+    }).then(function (resp) {
+      return resp.json().then(function (data) {
+        if (!resp.ok || data.ok === false) throw new Error(data.error || ("HTTP " + resp.status));
+        return data;
+      });
+    });
+  }
+  function say(text) { note.textContent = text || ""; }
+  function el(tag, text, className) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text) node.textContent = text;
+    return node;
+  }
+  function row() {
+    var node = document.createElement("div");
+    node.className = "row";
+    return node;
+  }
+  function renderKeys(keys) {
+    var root = document.getElementById("keys");
+    root.textContent = "";
+    keys.forEach(function (item) {
+      var line = row();
+      var left = document.createElement("div");
+      left.appendChild(el("div", item.label || item.key, "name"));
+      var meta = item.key + (item.present ? "" : " · not set");
+      if (item.used_by && item.used_by.length) meta += " · " + item.used_by.slice(0, 3).join(", ");
+      left.appendChild(el("div", meta, "meta"));
+      var right = document.createElement("div");
+      var input = document.createElement("input");
+      input.type = "password";
+      input.autocomplete = "off";
+      input.placeholder = item.present ? "Replace" : "Paste key";
+      var save = el("button", item.present ? "Replace" : "Save");
+      save.style.marginLeft = "6px";
+      save.addEventListener("click", function () {
+        save.disabled = true;
+        api("agents_key", { key: item.key, value: input.value }).then(function () {
+          input.value = "";
+          say(item.label + " saved.");
+          return load();
+        }).catch(function (err) { say(err.message); }).finally(function () { save.disabled = false; });
+      });
+      right.appendChild(input);
+      right.appendChild(save);
+      if (item.present) {
+        var clear = el("button", "Clear", "ghost");
+        clear.style.marginLeft = "6px";
+        clear.addEventListener("click", function () {
+          clear.disabled = true;
+          api("agents_key", { key: item.key, value: "" }).then(function () {
+            say(item.label + " cleared.");
+            return load();
+          }).catch(function (err) { say(err.message); }).finally(function () { clear.disabled = false; });
+        });
+        right.appendChild(clear);
+      }
+      line.appendChild(left);
+      line.appendChild(right);
+      root.appendChild(line);
+    });
+  }
+  function renderAgents(agents) {
+    var root = document.getElementById("agents");
+    root.textContent = "";
+    agents.forEach(function (item) {
+      var line = row();
+      var left = document.createElement("div");
+      left.appendChild(el("div", item.name, "name"));
+      var state = item.installed ? "installed" : "not installed";
+      if (item.installed) state += item.config_ok ? " · config ready" : " · config missing";
+      var meta = el("div", item.binary + " · " + state, "meta");
+      left.appendChild(meta);
+      if (item.summary) left.appendChild(el("div", item.summary, "meta"));
+      line.appendChild(left);
+      if (item.setup) {
+        var button = el("button", "Set up", "ghost");
+        button.disabled = !item.installed;
+        button.title = item.installed ? "Write this agent's config" : "Install the program first";
+        button.addEventListener("click", function () {
+          button.disabled = true;
+          api("agents_setup", { id: item.id }).then(function (data) {
+            say(data.note || (item.name + " configured."));
+            return load();
+          }).catch(function (err) { say(err.message); button.disabled = false; });
+        });
+        line.appendChild(button);
+      } else {
+        line.appendChild(el("span", "Studio", "ok"));
+      }
+      root.appendChild(line);
+    });
+  }
+  function load() {
+    return api("agents_state").then(function (data) {
+      renderKeys(data.keys || []);
+      renderAgents(data.agents || []);
+    }).catch(function (err) { say(err.message); });
+  }
+  load();
+})();
+</script>
+</body>
+</html>

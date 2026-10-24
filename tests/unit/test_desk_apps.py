@@ -148,6 +148,58 @@ def test_open_browser_swallows_webbrowser_errors(monkeypatch):
     assert apps.open_browser("http://127.0.0.1:5080/") is False
 
 
+def test_local_app_command_is_loopback(tmp_path):
+    jupyter = apps.local_app_command("jupyter", tmp_path, 8888)
+    marimo = apps.local_app_command("marimo", tmp_path, 2718)
+    assert jupyter[:3] == ["jupyter", "lab", "--ip"]
+    assert "127.0.0.1" in jupyter
+    assert "--no-browser" in jupyter
+    assert "--headless" in marimo
+    assert "--no-token" in marimo
+    assert str(tmp_path) in marimo
+
+
+def test_local_app_missing_binary(tmp_path):
+    with pytest.raises(LabError, match="not installed"):
+        apps.ensure_local_app(
+            "jupyter",
+            tmp_path,
+            home=tmp_path,
+            opener=lambda url: True,
+            which=lambda name: None,
+        )
+
+
+def test_local_app_reuses_a_live_server(tmp_path, monkeypatch):
+    folder = tmp_path.resolve()
+    state = {
+        "marimo": {
+            "pid": 7,
+            "port": 2718,
+            "root": str(folder),
+            "url": "http://127.0.0.1:2718/",
+        }
+    }
+    apps._write_state(tmp_path, state)
+    monkeypatch.setattr(apps, "_pid_alive", lambda pid: True)
+    monkeypatch.setattr(apps, "_port_open", lambda port: True)
+    opened: list[str] = []
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("restarted")
+
+    out = apps.ensure_local_app(
+        "marimo",
+        tmp_path,
+        home=tmp_path,
+        opener=lambda url: opened.append(url) or True,
+        popen=refuse,
+        which=lambda name: "/usr/bin/marimo",
+    )
+    assert out["started"] is False
+    assert opened == ["http://127.0.0.1:2718/"]
+
+
 def test_available_reports_state(monkeypatch):
     monkeypatch.setattr(apps, "editor_command", lambda path, editor: ["code"])
     monkeypatch.setattr(apps, "terminal_command", lambda path, terminal: ["kitty"])
