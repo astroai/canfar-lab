@@ -28,6 +28,7 @@ from typing import Any, Literal
 
 from canfar_lab import studio_profile as sp
 from canfar_lab.errors import LabError
+from canfar_lab.studio_skills import ensure_platform_skills
 
 StudioProfile = Literal["laptop", "canfar"]
 
@@ -395,6 +396,8 @@ def prepare_studio(
     seeded = rb.ensure_default_model(home)
     if seeded:
         actions.append(f"default model: {seeded}")
+    if profile == "canfar":
+        actions.extend(ensure_platform_skills(home))
     actions.append(f"MCP row: {' '.join(plan.mcp_command)}")
 
     return {
@@ -533,8 +536,9 @@ def studio_env(*, profile: StudioProfile | None = None, home: Path | None = None
 
 def skills_onboarding_hint() -> str:
     return (
-        "Skill packs use agentskills.io SKILL.md via skills.sh:\n"
-        "  npx skills add astroai/canfar-skills\n"
+        "A CANFAR session prepare installs the platform skills into ~/.agents/skills,\n"
+        "which the Studio assistant reads. By hand:\n"
+        "  npx skills add opencadc/canfar --skill canfar\n"
         f"Studio also loads {sp.managed_bench_dir(Path.home()) / 'skills'} "
         "(review-panel, canfar-session, astroai-team-charter)."
     )

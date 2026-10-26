@@ -432,7 +432,10 @@ def doctor(
                 f"{_skill_count(bench_skills)} managed + "
                 f"{_skill_count(agents_skills)} user skill(s)"
             ),
-            hint="`npx skills add astroai/canfar-skills` installs the CANFAR platform skills",
+            hint=(
+                "On a CANFAR session, `canfar lab studio --prepare` installs the "
+                "canfar and canfar-session skills into ~/.agents/skills"
+            ),
         )
     )
 

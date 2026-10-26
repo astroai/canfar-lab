@@ -31,6 +31,7 @@ names = set(zipfile.ZipFile(sys.argv[1]).namelist())
 need = (
     "canfar_lab/data/desk/dock.html",
     "canfar_lab/data/agent/agents/dsh.yaml",
+    "canfar_lab/data/agent/skills/canfar-session/SKILL.md",
 )
 missing = [name for name in need if name not in names]
 if missing:
