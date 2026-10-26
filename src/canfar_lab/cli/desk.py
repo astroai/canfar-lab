@@ -2,8 +2,8 @@
 
 The cockpit is the *latest* dsh (resolved through :mod:`canfar_lab.dsh_release`,
 default ``newest`` across npm dist-tags) served on loopback behind a small
-stdlib proxy that injects the dock: marimo, JupyterLab, VS Code, terminal,
-Launch cluster, Sync to CANFAR — see ``docs/desk-sync.md`` §7.
+stdlib proxy. The floating desk is off until ``CANFAR_LAB_DESK=1``; then it
+shows Sync to CANFAR and Launch Studio. See ``docs/desk-sync.md`` §7.
 """
 
 from __future__ import annotations
@@ -34,8 +34,8 @@ from canfar_lab.utils.subprocess import run_cmd
 desk_app = typer.Typer(
     name="desk",
     help=(
-        "Local browser dsh with the Desk dock: marimo, JupyterLab, VS Code, "
-        "terminal, Launch cluster, Sync to CANFAR.\n\n"
+        "Local browser dsh. The floating desk stays off unless CANFAR_LAB_DESK=1, "
+        "then it shows Sync to CANFAR and Launch Studio.\n\n"
         "Examples:\n"
         "  canfar lab desk\n"
         "  canfar lab desk ~/src --dsh-version newest\n"

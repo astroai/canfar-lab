@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -186,6 +187,63 @@ def test_state_survives_collect_crash(tmp_path, monkeypatch):
 def test_open_tool_unknown_raises(tmp_path):
     with pytest.raises(LabError):
         _actions(tmp_path).open_tool({"tool": "emacs"})
+
+
+def test_launch_studio_opens_a_running_match(tmp_path):
+    calls: list[list[str]] = []
+    image = "images.canfar.net/astroai/studio:latest"
+
+    def run(args: list[str]) -> tuple[int, str, str]:
+        calls.append(args)
+        if args[0] == "ps":
+            body = json.dumps(
+                [
+                    {"id": "abc", "image": image, "status": "Running"},
+                    {"id": "no", "image": "other", "status": "Running"},
+                ]
+            )
+            return 0, body, ""
+        return 0, "", ""
+
+    acts = actions_mod.DeskActions(
+        root=tmp_path,
+        home=tmp_path,
+        settings=_settings(tmp_path, session_image=image),
+        canfar_run=run,
+    )
+    out = acts.launch_studio({})
+    assert out["ok"] is True
+    assert out["id"] == "abc"
+    assert out["created"] is False
+    assert calls == [
+        ["ps", "--kind", "contributed", "--output", "json"],
+        ["open", "abc"],
+    ]
+
+
+def test_launch_studio_creates_when_none_match(tmp_path):
+    calls: list[list[str]] = []
+    image = "images.canfar.net/astroai/studio:latest"
+
+    def run(args: list[str]) -> tuple[int, str, str]:
+        calls.append(args)
+        if args[0] == "ps":
+            return 0, "[]", ""
+        if args[0] == "create":
+            return 0, '["new1"]', ""
+        return 0, "", ""
+
+    acts = actions_mod.DeskActions(
+        root=tmp_path,
+        home=tmp_path,
+        settings=_settings(tmp_path, session_image=image, session_name="studio"),
+        canfar_run=run,
+    )
+    out = acts.launch_studio({})
+    assert out["ok"] is True
+    assert out["id"] == "new1"
+    assert out["created"] is True
+    assert calls[1] == ["create", "--name", "studio", "--output", "json", "contributed", image]
 
 
 def test_open_tool_jupyter_is_local(tmp_path, monkeypatch):

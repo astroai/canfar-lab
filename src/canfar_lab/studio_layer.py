@@ -399,7 +399,7 @@ def plugin_switches(text: str | None) -> list[tuple[str, bool]]:
 # dsh 0.1.7+ persists Models and the welcome acknowledgement in the active
 # profile patch. A leftover settings.yaml is imported once and renamed.
 # --prepare rewrites this file, so those rows are copied forward.
-PRESERVED_CONFIG_IDS = ("llm-pi-ai", "ui-settings-general")
+PRESERVED_CONFIG_IDS = ("llm-pi-ai", "ui-settings-general", "agent-default-model")
 
 
 def _split_patch(text: str) -> tuple[str, list[str]]:
@@ -470,6 +470,26 @@ def settings_yaml_imported(home: Path) -> bool:
 
 def studio_patch_path(home: Path) -> Path:
     return profile_dir(home) / PROFILE_PATCH_FILENAME
+
+
+def config_row(path: Path, row_id: str) -> dict[str, Any] | None:
+    """The ``config`` mapping of one patch row, or None when the row is absent."""
+    if not path.is_file():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    _, blocks = _split_patch(text)
+    for block in blocks:
+        if _block_id(block) != row_id:
+            continue
+        row = _load_block(block)
+        if not row:
+            return None
+        raw = row.get("config")
+        return dict(raw) if isinstance(raw, dict) else {}
+    return None
 
 
 def merge_llm_provider(path: Path, provider_id: str, entry: dict[str, Any] | None) -> bool:

@@ -52,6 +52,9 @@ class LabSettings(BaseSettings):
     apps_terminal: str = "auto"
     session_name: str = "astroai-studio"
     session_image: str = "images.canfar.net/astroai/studio:latest"
+    # Floating AstroAI desk. Off until asked, on a laptop and on a session.
+    # ``CANFAR_LAB_DESK=1`` (also ``true`` / ``yes``) shows it.
+    desk: bool = False
 
     def resolve_work_dir(self) -> Path:
         scratch = self.resolve_scratch_dir()

@@ -81,6 +81,7 @@ def test_ensure_settings_never_writes_model(
     ensured = rb.ensure_dsh_settings(tmp_path, dry_run=False)
     assert set(ensured) == {
         "opencode-go",
+        "opencode-zen",
         "deepseek-official",
         "google",
         "openai",

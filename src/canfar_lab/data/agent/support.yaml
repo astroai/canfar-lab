@@ -1,7 +1,7 @@
 # AstroAI-supported LLM routers and agents (panel + agent CLI).
-# Routers are a key catalog only: id <-> env key mapping for credential
-# discovery. astroai never presets providers or models — the user chooses
-# those in dsh Settings → Models (`~/.dsh/settings.yaml`).
+# Routers are a key catalog: id <-> env key mapping for credential discovery.
+# The user chooses a provider and model in dsh Settings → Models. When that
+# choice is still empty, studio --prepare selects the free OpenCode Zen model.
 #
 # `dsh_route` is the provider id written into ~/.dsh/settings.yaml, which is not
 # always `id`: dsh resolves routes from its installed provider catalog
@@ -9,9 +9,9 @@
 # `openai-official` has to be written as `openai`. A route the catalog does not
 # ship (`opencode-go`) is hand-declared and must state `api` and `base_url`.
 # Its models catalog is fetched live at prepare (`GET {base_url}/models`); the
-# yaml `models` list is an offline fallback only. That catalog is not a
-# default: astroai never writes `agent-default-model`; the user still picks
-# provider/model in Settings.
+# yaml `models` list is an offline fallback only. `canfar lab studio --prepare`
+# writes `agent-default-model` to the free OpenCode Zen model only when that
+# row has no provider and model yet. A choice already saved in Settings stays.
 
 routers:
   - id: opencode-go
@@ -31,6 +31,21 @@ routers:
       - deepseek-v4-pro
       - muse-spark-1.3-contributor
     notes: "OpenCode Go (OpenAI-compatible). Add the key in the Studio hub (Agents & keys) or with `canfar-lab agent keys set OPENCODE_API_KEY`. Studio also installs dsh-opencode-session so chats send x-opencode-session."
+
+  - id: opencode-zen
+    label: OpenCode Zen
+    signup_url: https://opencode.ai/auth
+    key: OPENCODE_API_KEY
+    dsh_route: opencode-zen
+    api: openai-completions
+    # Chat-completions Zen host. The Go gateway above stays on zen/go/v1.
+    base_url: https://opencode.ai/zen/v1
+    # Offline fallback. deepseek-v4.1-flash-free is the zero-retention default.
+    # big-pickle is used only when a live /models list lacks the DeepSeek id.
+    models:
+      - deepseek-v4.1-flash-free
+      - big-pickle
+    notes: "Free OpenCode Zen models. The call still needs OPENCODE_API_KEY; the price is zero. deepseek-v4.1-flash-free is zero-retention. big-pickle is the fallback and its free period may use prompts for training."
 
   - id: deepseek-official
     label: DeepSeek

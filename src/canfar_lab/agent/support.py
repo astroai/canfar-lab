@@ -99,15 +99,21 @@ class SupportCatalog:
 
     @property
     def dsh_keys(self) -> tuple[str, ...]:
-        return tuple(r.key for r in self.routers)
+        return tuple(dict.fromkeys(r.key for r in self.routers))
 
     def key_to_route(self) -> dict[str, str]:
-        """``KEY → panel route id`` (no model; astroai does not choose models)."""
-        return {r.key: r.id for r in self.routers}
+        """``KEY → panel route id``. The first router for a shared key wins."""
+        found: dict[str, str] = {}
+        for router in self.routers:
+            found.setdefault(router.key, router.id)
+        return found
 
     def key_to_dsh_route(self) -> dict[str, str]:
-        """``KEY → dsh provider id`` — the settings-side twin."""
-        return {r.key: r.provider_id for r in self.routers}
+        """``KEY → dsh provider id``. The first router for a shared key wins."""
+        found: dict[str, str] = {}
+        for router in self.routers:
+            found.setdefault(router.key, router.provider_id)
+        return found
 
     def unserviceable_routes(self) -> tuple[Router, ...]:
         """Hand-declared routes missing the fields dsh requires."""

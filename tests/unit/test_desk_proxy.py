@@ -86,7 +86,7 @@ def cockpit(backend):
         token=TOKEN,
         state_fn=state_fn,
         action_fn=action_fn,
-        dock_config=proxy.build_dock_config(token=TOKEN, version="1.2.3"),
+        dock_config=proxy.build_dock_config(token=TOKEN, version="1.2.3", enabled=True),
         dock_html="<script>window.__dock_loaded = true;</script>",
     )
     yield SimpleNamespace(port=server.server_address[1], server=server, calls=calls, state=state)
@@ -385,14 +385,32 @@ def test_inject_dock_appends_without_body():
 
 def test_desk_buttons_shape():
     ids = [button["id"] for button in proxy.DESK_BUTTONS]
-    assert ids == ["sync", "agents", "marimo", "jupyter", "vscode", "terminal", "cluster"]
+    assert ids == ["sync", "launch-studio"]
     labels = {button["id"]: button["label"] for button in proxy.DESK_BUTTONS}
     assert labels["sync"] == "Sync to CANFAR"
+    assert labels["launch-studio"] == "Launch Studio"
     dock = proxy.load_dock_html()
     assert "AstroAI Studio" in dock
     assert 'id="astroai-dock-handle"' in dock
-    assert "Hide the Studio bar" in dock
-    assert labels["cluster"] == "Launch cluster"
+
+
+def test_html_skips_dock_when_disabled(backend):
+    server, _thread = proxy.start(
+        port=0,
+        backend_port=backend,
+        token=TOKEN,
+        state_fn=dict,
+        action_fn=lambda name, payload: {"ok": True},
+        dock_config=proxy.build_dock_config(token=TOKEN),
+        dock_html="<b>dock</b>",
+    )
+    try:
+        status, _headers, body = _request(server.server_address[1], "/page")
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert status == 200
+    assert b"astroai-dock-config" not in body
 
 
 def test_agents_page_is_local_html(cockpit):

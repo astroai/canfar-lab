@@ -25,6 +25,14 @@ def test_yaml_config_loaded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     assert settings.clone_from_env == "ml-base"
 
 
+def test_desk_is_off_unless_asked(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CANFAR_LAB_DESK", raising=False)
+    assert get_settings().desk is False
+    get_settings.cache_clear()
+    monkeypatch.setenv("CANFAR_LAB_DESK", "yes")
+    assert get_settings().desk is True
+
+
 def test_lab_error_hint() -> None:
     err = LabError("missing tool", hint="astroai doctor")
     assert "missing tool" in str(err)

@@ -13,6 +13,7 @@ from canfar_lab import studio as studio_mod
 from canfar_lab import studio_profile as sp
 from canfar_lab.cli.main import app
 from canfar_lab.errors import LabError
+from canfar_lab.studio_layer import config_row, merge_patch_field
 
 runner = CliRunner()
 
@@ -56,6 +57,10 @@ def _stub_bench(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("canfar_lab.agent.review_bench.ensure_review_bench", lambda *a, **k: False)
     monkeypatch.setattr("canfar_lab.agent.review_bench.ensure_dsh_dotenv", lambda *a, **k: {})
     monkeypatch.setattr("canfar_lab.agent.review_bench.ensure_dsh_settings", lambda *a, **k: [])
+    monkeypatch.setattr(
+        "canfar_lab.agent.support.fetch_openai_compat_model_ids",
+        lambda *_args, **_kwargs: (),
+    )
 
 
 def test_prepare_studio_writes_profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -99,6 +104,27 @@ def test_prepare_studio_writes_profile(tmp_path: Path, monkeypatch: pytest.Monke
     assert patch_text2.count("- id: bash-sandbox") == 1
     assert "timeoutMs: 300000" in patch_text2
     assert "timeoutMs: 600000" not in patch_text2
+    profile_patch = sp.profile_dir(home) / "cordis.patch.yml"
+    assert "deepseek-v4.1-flash-free" in profile_patch.read_text(encoding="utf-8")
+
+
+def test_prepare_keeps_a_chosen_default_model(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("DSH_HOME", raising=False)
+    _stub_bench(monkeypatch)
+    studio_mod.prepare_studio(home=home, profile="laptop", install_bundles=False)
+    patch = sp.profile_dir(home) / "cordis.patch.yml"
+    merge_patch_field(patch, "agent-default-model", "provider", "google")
+    merge_patch_field(patch, "agent-default-model", "model", "custom-1")
+    studio_mod.prepare_studio(home=home, profile="laptop", install_bundles=False)
+    assert config_row(patch, "agent-default-model") == {
+        "provider": "google",
+        "model": "custom-1",
+    }
 
 
 def test_studio_web_cmd_requires_a_real_dsh(

@@ -494,7 +494,7 @@ def studio_main(
         f"  harness profile: {_sp.STUDIO_PROFILE_NAME} — state in {prep.get('state_root')}"
     )
     if listen["desk"]:
-        ui.print_hint("  Sync, JupyterLab, and marimo are on the top bar. Hide tucks it away.")
+        ui.print_hint("  Set CANFAR_LAB_DESK=1 to show Sync to CANFAR and Launch Studio.")
     ui.print_hint("  Team review: New session → preset «AstroAI Studio Team»")
     if with_team:
         ui.print_hint("  Agent Teams: ask for a team in the chat (roster + shared task board)")

@@ -52,46 +52,13 @@ DESK_BUTTONS: list[dict[str, Any]] = [
         "label": "Sync to CANFAR",
         "action": "sync_to_canfar",
         "kind": "primary",
-        "title": "Commit and push, then ask the session to pull",
+        "title": "Commit and push, then ring the session through canfar data",
     },
     {
-        "id": "agents",
-        "label": "Agents",
-        "href": "/__desk/agents",
-        "title": "Keys and coding-agent configs on this computer",
-    },
-    {
-        "id": "marimo",
-        "label": "marimo",
-        "action": "open_tool",
-        "payload": {"tool": "marimo"},
-        "title": "Start marimo on this computer and open it in the browser",
-    },
-    {
-        "id": "jupyter",
-        "label": "JupyterLab",
-        "action": "open_tool",
-        "payload": {"tool": "jupyter"},
-        "title": "Start JupyterLab on this computer and open it in the browser",
-    },
-    {
-        "id": "vscode",
-        "label": "VS Code",
-        "action": "open_editor",
-        "title": "Open the desktop editor on this workspace",
-    },
-    {
-        "id": "terminal",
-        "label": "Terminal",
-        "action": "open_terminal",
-        "title": "Open a local terminal here",
-    },
-    {
-        "id": "cluster",
-        "label": "Launch cluster",
-        "action": "cluster",
-        "payload": {"mode": "start"},
-        "title": "Start the CANFAR Ray cluster (never local)",
+        "id": "launch-studio",
+        "label": "Launch Studio",
+        "action": "launch_studio",
+        "title": "Open a running AstroAI Studio session, or create one",
     },
 ]
 
@@ -119,6 +86,7 @@ def build_dock_config(
     action_url: str = "/__desk/action",
     version: str | None = None,
     buttons: list[dict[str, Any]] | None = None,
+    enabled: bool = False,
 ) -> dict[str, Any]:
     return {
         "mode": mode,
@@ -126,6 +94,7 @@ def build_dock_config(
         "state_url": state_url,
         "action_url": action_url,
         "version": version,
+        "enabled": enabled,
         "buttons": DESK_BUTTONS if buttons is None else buttons,
     }
 
@@ -312,7 +281,7 @@ class _DeskHandler(BaseHTTPRequestHandler):
         injectable = (
             "text/html" in ctype and encoding in ("", "identity") and self.command != "HEAD"
         )
-        if injectable:
+        if injectable and self.server.dock_config.get("enabled"):
             charset = "utf-8"
             if "charset=" in ctype:
                 charset = ctype.split("charset=", 1)[1].split(";")[0].strip() or "utf-8"

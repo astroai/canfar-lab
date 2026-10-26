@@ -1,6 +1,6 @@
 [project]
 name = "canfar-lab"
-version = "0.7.0"
+version = "0.8.0"
 description = "In-session workbench and workload CLI extensions for the CANFAR Science Platform"
 readme = "README.md"
 requires-python = ">=3.10"
