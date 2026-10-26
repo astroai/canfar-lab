@@ -8,6 +8,7 @@ input.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -33,6 +34,21 @@ TOOL_SUFFIXES = {"marimo": "/marimo/", "jupyter": "/jupyter/lab", "hub": "/hub/"
 STATE_CACHE_SECONDS = 5.0
 
 
+def _run_canfar(args: list[str]) -> tuple[int, str, str]:
+    """Run ``canfar`` and return ``(code, stdout, stderr)``."""
+    try:
+        proc = subprocess.run(
+            ["canfar", *args],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return 1, "", str(exc)
+    return proc.returncode, proc.stdout or "", proc.stderr or ""
+
+
 class DeskActions:
     def __init__(
         self,
@@ -44,6 +60,7 @@ class DeskActions:
         ops_factory=None,  # noqa: ANN001 — callable → CanfarOps
         engine_factory=None,  # noqa: ANN001 — callable(SyncEngine)
         popen: Callable[..., object] = subprocess.Popen,
+        canfar_run: Callable[[list[str]], tuple[int, str, str]] | None = None,
         dsh_bin: str | None = None,
         dsh_spec: str | None = None,
         release=None,  # noqa: ANN001 — dsh_release.Release
@@ -56,6 +73,7 @@ class DeskActions:
         self._ops_factory = ops_factory or state_mod.canfar_ops
         self._engine_factory = engine_factory
         self._popen = popen
+        self._canfar_run = canfar_run or _run_canfar
         self.dsh_bin = dsh_bin
         self.dsh_spec = dsh_spec
         self.release = release
@@ -109,6 +127,7 @@ class DeskActions:
         handlers = {
             "state": self.state,
             "sync_to_canfar": self.sync_to_canfar,
+            "launch_studio": self.launch_studio,
             "open_tool": self.open_tool,
             "open_editor": self.open_editor,
             "open_terminal": self.open_terminal,
@@ -175,6 +194,73 @@ class DeskActions:
                 )
             )
         return result
+
+    def launch_studio(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Open a running Studio session for this image, or create one."""
+        del payload
+        image = str(getattr(self.settings, "session_image", "") or "")
+        name = str(getattr(self.settings, "session_name", "") or "astroai-studio")
+        if not image:
+            raise LabError("session_image is empty", hint="Set session_image in lab config.")
+        code, stdout, stderr = self._canfar_run(["ps", "--kind", "contributed", "--output", "json"])
+        if code != 0:
+            return {"ok": False, "action": "launch_studio", "error": (stderr or stdout).strip()}
+        try:
+            sessions = json.loads(stdout or "[]")
+        except json.JSONDecodeError:
+            return {
+                "ok": False,
+                "action": "launch_studio",
+                "error": "canfar ps did not return JSON",
+            }
+        if not isinstance(sessions, list):
+            sessions = []
+        for item in sessions:
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("image") or "") != image:
+                continue
+            if str(item.get("status") or "") not in ("Running", "Pending"):
+                continue
+            sid = str(item.get("id") or "")
+            if not sid:
+                continue
+            opened, _out, err = self._canfar_run(["open", sid])
+            return {
+                "ok": opened == 0,
+                "action": "launch_studio",
+                "id": sid,
+                "created": False,
+                "error": "" if opened == 0 else err.strip(),
+            }
+        code, stdout, stderr = self._canfar_run(
+            ["create", "--name", name, "--output", "json", "contributed", image]
+        )
+        if code != 0:
+            return {"ok": False, "action": "launch_studio", "error": (stderr or stdout).strip()}
+        try:
+            created = json.loads(stdout or "[]")
+        except json.JSONDecodeError:
+            return {
+                "ok": False,
+                "action": "launch_studio",
+                "error": "canfar create did not return JSON",
+            }
+        if not isinstance(created, list) or not created:
+            return {
+                "ok": False,
+                "action": "launch_studio",
+                "error": "canfar create returned no session id",
+            }
+        sid = str(created[0])
+        opened, _out, err = self._canfar_run(["open", sid])
+        return {
+            "ok": opened == 0,
+            "action": "launch_studio",
+            "id": sid,
+            "created": True,
+            "error": "" if opened == 0 else err.strip(),
+        }
 
     def open_tool(self, payload: dict[str, Any]) -> dict[str, Any]:
         tool = str(payload.get("tool") or "")

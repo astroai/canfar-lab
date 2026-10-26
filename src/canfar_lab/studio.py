@@ -392,6 +392,9 @@ def prepare_studio(
     applied = sp.apply_studio_profile(plan, install_bundles=install_bundles, force=force)
     actions.extend(applied["actions"])
     degraded = bool(applied["degraded"])
+    seeded = rb.ensure_default_model(home)
+    if seeded:
+        actions.append(f"default model: {seeded}")
     actions.append(f"MCP row: {' '.join(plan.mcp_command)}")
 
     return {

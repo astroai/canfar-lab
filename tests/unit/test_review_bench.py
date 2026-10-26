@@ -94,6 +94,7 @@ def test_ensure_settings_never_touches_user_model(
     assert "opencode-go" in ensured
     assert set(ensured) == {
         "opencode-go",
+        "opencode-zen",
         "deepseek-official",
         "google",
         "openai",
@@ -239,6 +240,7 @@ def test_no_keys_still_seeds_provider_refs(tmp_path: Path, monkeypatch: pytest.M
     ensured = rb.ensure_dsh_settings(tmp_path, dry_run=False)
     assert set(ensured) == {
         "opencode-go",
+        "opencode-zen",
         "deepseek-official",
         "google",
         "openai",
@@ -274,3 +276,44 @@ def test_native_deepseek_route_is_removed_from_llm_pi_ai(tmp_path: Path) -> None
     assert after["llm-pi-ai"]["providers"]["my-gateway"]["apiKeyEnv"] == "X_KEY"
     assert after["agent-default-model"] == doc["agent-default-model"]
     assert settings.with_suffix(".yaml.pre-astroai.bak").is_file()
+
+
+def test_choose_free_zen_model_prefers_deepseek() -> None:
+    assert rb.choose_free_zen_model(None) == "deepseek-v4.1-flash-free"
+    assert rb.choose_free_zen_model(("big-pickle", "other")) == "big-pickle"
+    both = ("deepseek-v4.1-flash-free", "big-pickle")
+    assert rb.choose_free_zen_model(both) == "deepseek-v4.1-flash-free"
+
+
+def test_ensure_default_model_seeds_when_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "canfar_lab.agent.support.fetch_openai_compat_model_ids",
+        lambda *_args, **_kwargs: (),
+    )
+    assert rb.ensure_default_model(tmp_path) == "opencode-zen/deepseek-v4.1-flash-free"
+    doc = yaml.safe_load((tmp_path / ".dsh" / "settings.yaml").read_text(encoding="utf-8"))
+    assert doc["agent-default-model"] == {
+        "provider": "opencode-zen",
+        "model": "deepseek-v4.1-flash-free",
+    }
+    assert rb.ensure_default_model(tmp_path) is None
+
+
+def test_ensure_default_model_keeps_a_saved_choice(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "canfar_lab.agent.support.fetch_openai_compat_model_ids",
+        lambda *_args, **_kwargs: ("big-pickle",),
+    )
+    settings = tmp_path / ".dsh" / "settings.yaml"
+    settings.parent.mkdir(parents=True)
+    settings.write_text(
+        yaml.safe_dump({"agent-default-model": {"provider": "google", "model": "custom-1"}}),
+        encoding="utf-8",
+    )
+    assert rb.ensure_default_model(tmp_path) is None
+    doc = yaml.safe_load(settings.read_text(encoding="utf-8"))
+    assert doc["agent-default-model"] == {"provider": "google", "model": "custom-1"}

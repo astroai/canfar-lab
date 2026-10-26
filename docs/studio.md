@@ -137,11 +137,12 @@ npx skills add astroai/canfar-skills    # 23 CANFAR platform skills
 [`support.yaml`](https://github.com/astroai/canfar-lab/blob/main/src/canfar_lab/data/agent/support.yaml)
 into `$DSH_HOME/settings.yaml`: the DeepSeek route and the catalog routes
 (`openai`, `anthropic`, `google`) as credential references, and any route dsh's
-installed catalog does not ship — currently OpenCode Go — as a hand-declared
-provider (protocol + Go endpoint). The models catalog is fetched live from
+installed catalog does not ship — OpenCode Go and OpenCode Zen — as hand-declared
+providers (protocol + endpoint). The models catalog is fetched live from
 ``GET {base_url}/models`` at ``--prepare`` time (yaml keeps a small offline
-fallback only). Provider/model *choice* stays yours in Settings → Models;
-`canfar lab` never writes `agent-default-model`.
+fallback only). When Settings has no default yet, ``--prepare`` selects
+``deepseek-v4.1-flash-free`` on OpenCode Zen. A provider and model you already
+saved in Settings → Models are left as they are.
 
 Keys are **not** required before the session starts. Prepare only writes
 `apiKeyEnv` names (and the Go endpoint/models); the secret itself comes later

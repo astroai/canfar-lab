@@ -54,7 +54,11 @@ def serve_with_dock(
         token=token,
         state_fn=actions.state,
         action_fn=actions.dispatch,
-        dock_config=proxy_mod.build_dock_config(token=token, version=version),
+        dock_config=proxy_mod.build_dock_config(
+            token=token,
+            version=version,
+            enabled=bool(getattr(settings, "desk", False)),
+        ),
         say=lambda message: None,
     )
     if opener is not None:

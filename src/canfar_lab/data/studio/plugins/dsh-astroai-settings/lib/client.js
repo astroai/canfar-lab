@@ -222,7 +222,7 @@ window.__ModuleLoader__.load({
 										? null
 										: jsx("p", {
 												style: { margin: 0 },
-												children: "Sync to CANFAR is on the top bar. Hide tucks that bar away.",
+												children: "The AstroAI desk is off until CANFAR_LAB_DESK=1. Then it can sync and launch Studio.",
 											}),
 									data.bin_dir
 										? jsx("p", {
