@@ -61,6 +61,10 @@ def _stub_bench(monkeypatch: pytest.MonkeyPatch) -> None:
         "canfar_lab.agent.support.fetch_openai_compat_model_ids",
         lambda *_args, **_kwargs: (),
     )
+    monkeypatch.setattr(
+        "canfar_lab.studio_skills.fetch_canfar_skill_files",
+        lambda **_kwargs: None,
+    )
 
 
 def test_prepare_studio_writes_profile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -105,7 +109,11 @@ def test_prepare_studio_writes_profile(tmp_path: Path, monkeypatch: pytest.Monke
     assert "timeoutMs: 300000" in patch_text2
     assert "timeoutMs: 600000" not in patch_text2
     profile_patch = sp.profile_dir(home) / "cordis.patch.yml"
-    assert "deepseek-v4.1-flash-free" in profile_patch.read_text(encoding="utf-8")
+    patch_body = profile_patch.read_text(encoding="utf-8")
+    assert "deepseek-v4.1-flash-free" in patch_body
+    assert "canfar-session" in patch_body
+    session_skill = home / ".agents" / "skills" / "canfar-session" / "SKILL.md"
+    assert "images.canfar.net/astroai" in session_skill.read_text(encoding="utf-8")
 
 
 def test_prepare_keeps_a_chosen_default_model(
@@ -211,7 +219,7 @@ def test_cli_studio_skills() -> None:
     result = runner.invoke(app, ["studio", "--skills"])
     assert result.exit_code == 0
     assert "skills add" in result.stdout
-    assert "canfar-skills" in result.stdout
+    assert "opencadc/canfar" in result.stdout
 
 
 def test_cli_studio_doctor_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

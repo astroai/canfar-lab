@@ -322,7 +322,13 @@ def studio_layer_yaml(
         "- id: system-prompt",
         "  config:",
         '    personaPrefix: "You are a coding agent powered by the {{model}} model."',
-        '    personaSuffix: "Your working directory is {{cwd}}."',
+        "    personaSuffix: "
+        + (
+            '"Your working directory is {{cwd}}. Before launching a job, moving data, '
+            'or choosing a path, read the canfar and canfar-session skills."'
+            if profile == "canfar"
+            else '"Your working directory is {{cwd}}."'
+        ),
         "",
         "# ── session storage ────────────────────────────────────────────────────",
         "# Session logs and the full-text index are append-heavy and unbounded, so",

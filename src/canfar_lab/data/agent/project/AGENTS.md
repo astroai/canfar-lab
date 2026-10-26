@@ -10,7 +10,8 @@ AstroAI is the product; CANFAR is the Science Platform.
 
 ```bash
 canfar lab agent setup                    # on /arc — MCP + Cursor rules
-npx skills add astroai/canfar-skills   # CANFAR platform skills
+# CANFAR session prepare already installs these into ~/.agents/skills.
+# By hand: npx skills add opencadc/canfar --skill canfar
 canfar lab agent install kilo             # or goose, cline, opencode, codex, cursor, …
 canfar lab agent install cursor           # Cursor Agent CLI onto $SCRATCH
 gh auth login
