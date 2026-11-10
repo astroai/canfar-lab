@@ -250,6 +250,32 @@ bootstrap + fast-forward. The mailbox is only a doorbell — GitHub is the sync
 protocol; when it is laptop-local the desk says so and the session can still
 pull manually.
 
+### `canfar lab web`
+
+The Lab tab of the `astroai/dsh` image: coding agents (install, update,
+remove, CANFAR MCP + skills, API keys by presence only), save/restore of
+`$SCRATCH/src` and the assistant's history to `/arc`, and the Ray cluster.
+The page opens on a short checklist that tells a new user what to install
+and a returning user what to bring back. Loopback only; every request needs
+the per-process bearer token (`$CANFAR_LAB_WEB_TOKEN`, or generated and
+written to `--token-file`). The image proxy sends it for you.
+
+| Flag | What it does |
+|------|----------------|
+| `--port N` | Loopback port (default: 4792) |
+| `--host ADDR` | `127.0.0.1` or `::1` |
+| `--token-file PATH` | Where to write the token, mode 0600 (default: session runtime dir) |
+| `--restore` | At start, reinstall the agents used in earlier sessions |
+| `--restore-code` | At start, restore the latest snapshot when `$SCRATCH/src` is empty |
+
+```bash
+canfar lab web --restore --restore-code    # what the dsh image runs
+```
+
+Snapshots go to `~/.astroai/lab/snapshots` unless `CANFAR_LAB_SNAPSHOT_DIR`
+is set. They exclude `.pixi`, `.venv` and tool caches (rebuilt from lockfiles).
+On a laptop, open the `?token=` URL printed at start once; it sets a cookie.
+
 ### `canfar lab sync`
 
 Fetch/refresh the workspace catalog (default command), plus the Desk exchange

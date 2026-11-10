@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AstroAI Lab</title>
+<style>
+  :root {
+    --bg: #0b1026; --panel: #121a3d; --panel-2: #0f1634; --line: rgba(129,140,248,.22);
+    --text: #e3e7ff; --muted: #9aa4d2; --accent: #818cf8; --accent-bg: rgba(99,102,241,.22);
+    --ok: #6fdc8c; --warn: #e8b84a; --bad: #ff7b72; --code-bg: rgba(255,255,255,.06);
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f6f7fb; --panel: #ffffff; --panel-2: #f0f2fa; --line: rgba(60,70,140,.16);
+      --text: #1b2045; --muted: #5a6290; --accent: #4f46e5; --accent-bg: rgba(79,70,229,.1);
+      --ok: #1a7f37; --warn: #9a6700; --bad: #cf222e; --code-bg: rgba(20,30,80,.06);
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 120px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  p { margin: 0 0 10px; }
+  a { color: var(--accent); }
+  code { background: var(--code-bg); padding: 1px 6px; border-radius: 5px; font-size: 13px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 0 0 16px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .grow { flex: 1 1 auto; min-width: 0; }
+  button { font: inherit; border: 1px solid var(--accent); background: var(--accent-bg); color: var(--text);
+           border-radius: 999px; padding: 5px 14px; cursor: pointer; white-space: nowrap; }
+  button.primary { background: var(--accent); color: #fff; }
+  button.ghost { border-color: var(--line); background: none; }
+  button.danger { border-color: var(--bad); background: none; color: var(--bad); }
+  button:disabled { opacity: .45; cursor: default; }
+  input[type=text], input[type=password] { font: inherit; background: var(--panel-2); color: var(--text);
+           border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; width: 16rem; max-width: 100%; }
+  label.check { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+  nav.tabs { display: flex; gap: 4px; margin: 0 0 12px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  nav.tabs button { border: none; background: none; border-radius: 0; padding: 8px 12px; color: var(--muted);
+           border-bottom: 2px solid transparent; }
+  nav.tabs button[aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); }
+  .pill { display: inline-block; font-size: 12px; border-radius: 999px; padding: 0 8px; border: 1px solid var(--line); color: var(--muted); }
+  .pill.ok { color: var(--ok); border-color: var(--ok); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .pill.bad { color: var(--bad); border-color: var(--bad); }
+  /* onboarding */
+  #welcome h1 { margin-bottom: 12px; }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .step { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: start;
+          padding: 10px 12px; border-radius: 10px; background: var(--panel-2); }
+  .dot { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 13px;
+         border: 2px solid var(--line); color: var(--muted); }
+  .step.done .dot { border-color: var(--ok); color: var(--ok); }
+  .step.todo .dot { border-color: var(--accent); color: var(--accent); }
+  .step.running .dot { border-color: var(--warn); border-top-color: transparent; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .step .title { font-weight: 600; }
+  .step .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .copy { cursor: pointer; }
+  /* lists */
+  .list { display: grid; gap: 8px; }
+  .item { padding: 10px 12px; border-radius: 10px; background: var(--panel-2); }
+  .item .name { font-weight: 600; }
+  .item.focus { outline: 2px solid var(--accent); }
+  /* job bar */
+  #jobbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); }
+  #jobbar .head { max-width: 980px; margin: 0 auto; padding: 8px 16px; display: flex; gap: 10px; align-items: center; }
+  #log { display: none; max-width: 980px; margin: 0 auto; padding: 0 16px 10px; }
+  #log pre { margin: 0; max-height: 40vh; overflow: auto; background: var(--panel-2); border-radius: 8px; padding: 8px 10px;
+             font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+  #jobbar.open #log { display: block; }
+  #toast { position: fixed; top: 12px; right: 12px; max-width: 360px; display: none; z-index: 5; }
+  #toast.show { display: block; }
+  @media (max-width: 620px) {
+    .step { grid-template-columns: 28px 1fr; }
+    .step .acts { grid-column: 2; justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <section id="welcome" class="card" aria-live="polite">
+    <h1 id="headline">Loading…</h1>
+    <ol class="steps" id="steps"></ol>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="agents" aria-selected="true">Agents</button>
+    <button role="tab" data-tab="keys" aria-selected="false">API keys</button>
+    <button role="tab" data-tab="save" aria-selected="false">Save &amp; restore</button>
+    <button role="tab" data-tab="cluster" aria-selected="false">Cluster</button>
+  </nav>
+
+  <section class="card" data-panel="agents">
+    <h2>Coding agents</h2>
+    <p class="muted small">Agents run in the Agent tab's terminal. Programs live on $SCRATCH and are
+      reinstalled for you in every new session; settings, CANFAR tools and skills stay in your home.</p>
+    <div class="list" id="agents"></div>
+  </section>
+
+  <section class="card" data-panel="keys" hidden>
+    <h2>API keys</h2>
+    <p class="muted small">Optional if you sign in from the terminal. Keys are stored in your home and shared by
+      every agent that reads them. They are never shown again here, only whether one is set.</p>
+    <div class="list" id="keys"></div>
+  </section>
+
+  <section class="card" data-panel="save" hidden>
+    <h2>Save &amp; restore</h2>
+    <p class="muted small" id="save-intro"></p>
+    <div class="row" style="margin: 4px 0 14px">
+      <input type="text" id="snap-name" placeholder="name (optional)" aria-label="Snapshot name">
+      <label class="check"><input type="checkbox" id="snap-dsh" checked> include assistant history</label>
+      <label class="check"><input type="checkbox" id="snap-envs"> include .pixi/.venv</label>
+      <button class="primary" data-op="save_snapshot">Save now</button>
+    </div>
+    <div class="list" id="snapshots"></div>
+  </section>
+
+  <section class="card" data-panel="cluster" hidden>
+    <h2>Ray cluster</h2>
+    <div id="cluster" class="muted">Checking…</div>
+  </section>
+</main>
+
+<div id="toast" class="card"></div>
+
+<div id="jobbar" hidden>
+  <div class="head">
+    <span id="job-pill" class="pill"></span>
+    <span id="job-label" class="grow"></span>
+    <button class="ghost" id="job-toggle">Show log</button>
+  </div>
+  <div id="log"><pre id="log-pre"></pre></div>
+</div>
+
+<script>
+"use strict";
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+// `text` with `backticks` rendered as code.
+const rich = (v) => esc(v).replace(/`([^`]+)`/g, '<code class="copy" title="Click to copy">$1</code>');
+let state = null, streaming = null, clusterTimer = null;
+
+async function api(method, path, body) {
+  const opts = { method, headers: { "X-Canfar-Lab": "1" } };
+  if (body !== undefined) { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+  const res = await fetch("api/" + path, opts);
+  let data = {};
+  try { data = await res.json(); } catch (_) { /* empty body */ }
+  if (!res.ok || data.ok === false) {
+    const err = new Error(data.error || res.statusText);
+    err.hint = data.hint; throw err;
+  }
+  return data;
+}
+
+function toast(msg, hint) {
+  const t = $("#toast");
+  t.innerHTML = `<div>${rich(msg)}</div>` + (hint ? `<div class="muted small">${rich(hint)}</div>` : "");
+  t.classList.add("show");
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 6000);
+}
+
+// ---- actions --------------------------------------------------------------
+
+async function run(op, data = {}) {
+  try {
+    let reply;
+    if (op === "restore_agents") reply = await api("POST", "agents/restore");
+    else if (op === "install_agent") reply = await api("POST", `agents/${data.agent}/install`);
+    else if (op === "agent") reply = await api("POST", `agents/${data.agent}/${data.verb}`);
+    else if (op === "save_snapshot") reply = await api("POST", "snapshots", {
+      name: $("#snap-name").value.trim() || undefined,
+      include_dsh: $("#snap-dsh").checked, include_envs: $("#snap-envs").checked });
+    else if (op === "restore_snapshot") reply = await api("POST", `snapshots/${encodeURIComponent(data.name)}/restore`,
+      { overwrite: !!data.overwrite });
+    else if (op === "delete_snapshot") {
+      if (!confirm(`Delete snapshot “${data.name}” from /arc? This cannot be undone.`)) return;
+      await api("DELETE", `snapshots/${encodeURIComponent(data.name)}`); toast("Deleted."); return refresh();
+    }
+    else if (op === "cluster_start" || op === "cluster_stop") reply = await api("POST", `cluster/${op.slice(8)}`);
+    if (reply && reply.job) follow(reply.job);
+  } catch (e) { toast(e.message, e.hint); }
+  refresh();
+}
+
+function focus(tab, id) {
+  selectTab(tab);
+  if (tab === "keys" && id && state) {  // an agent id: jump to its first missing key
+    const agent = state.agents.find((a) => a.id === id);
+    const key = agent && (agent.keys.find((k) => !k.present) || agent.keys[0]);
+    id = key ? key.key : null;
+  }
+  if (id) {
+    const el = document.querySelector(`[data-item="${CSS.escape(id)}"]`);
+    if (el) {
+      el.classList.add("focus"); el.scrollIntoView({ block: "center" });
+      $("input", el)?.focus();
+      setTimeout(() => el.classList.remove("focus"), 2500);
+    }
+  }
+}
+
+document.addEventListener("click", (ev) => {
+  const code = ev.target.closest("code.copy");
+  if (code) { navigator.clipboard?.writeText(code.textContent).then(() => toast(`Copied \`${code.textContent}\`. Paste it in the Agent tab terminal.`)); return; }
+  const b = ev.target.closest("button[data-op], button[data-focus]");
+  if (!b) return;
+  if (b.dataset.focus) return focus(b.dataset.focus, b.dataset.agent);
+  if (b.dataset.op === "agent" && b.dataset.verb === "remove" && !confirm(`Remove ${b.dataset.label}? Its settings stay in your home.`)) return;
+  run(b.dataset.op, { ...b.dataset });
+});
+
+// ---- rendering ------------------------------------------------------------
+
+function actionButton(a, primary) {
+  if (!a) return "";
+  const attrs = Object.entries(a).filter(([k]) => k !== "label")
+    .map(([k, v]) => `data-${esc(k)}="${esc(v)}"`).join(" ");
+  return `<button class="${primary ? "primary" : "ghost"}" ${attrs}>${esc(a.label)}</button>`;
+}
+
+function renderWelcome(o, busy) {
+  $("#headline").textContent = o.headline;
+  const icon = { done: "✓", todo: "•", optional: "○", running: "" };
+  $("#steps").innerHTML = o.steps.map((s) => `
+    <li class="step ${esc(s.status)}">
+      <span class="dot" aria-hidden="true">${icon[s.status] ?? ""}</span>
+      <div><div class="title">${esc(s.title)}</div><div class="muted">${rich(s.detail)}</div></div>
+      <div class="acts">${s.status === "running" ? "" :
+        actionButton(s.action, s.status === "todo" && s.id === o.next)
+        + actionButton(s.more, false)}</div>
+    </li>`).join("");
+  document.querySelectorAll("#steps button[data-op]").forEach((b) => (b.disabled = busy));
+  $("#welcome").dataset.ready = o.ready;
+}
+
+function keyPills(keys) {
+  return keys.map((k) => `<span class="pill ${k.present ? "ok" : ""}">${esc(k.key)}${k.present ? " ✓" : ""}</span>`).join(" ");
+}
+
+function renderAgents(agents, busy) {
+  $("#agents").innerHTML = agents.map((a) => {
+    let status = a.installed ? (a.ready ? '<span class="pill ok">ready</span>' : '<span class="pill warn">sign in</span>')
+      : a.needs_restore ? '<span class="pill warn">reinstall</span>' : '<span class="pill">not installed</span>';
+    const signin = a.installed && !a.ready
+      ? `<div class="small">Run <code class="copy">${esc(a.login)}</code> in the Agent tab terminal, or add a key.</div>` : "";
+    const b = (verb, label, cls = "ghost") =>
+      `<button class="${cls}" data-op="agent" data-agent="${esc(a.id)}" data-verb="${verb}" data-label="${esc(a.label)}" ${busy ? "disabled" : ""}>${label}</button>`;
+    const acts = a.installed ? b("update", "Update") + b("setup", "Re-apply CANFAR tools") + b("remove", "Remove", "danger")
+      : b("install", a.needs_restore ? "Reinstall" : "Install", "primary");
+    return `<div class="item" data-item="${esc(a.id)}">
+      <div class="row"><span class="name">${esc(a.label)}</span>${status}
+        <span class="grow"></span>${acts}</div>
+      <div class="muted small">${esc(a.summary)} · <a href="${esc(a.homepage)}" target="_blank" rel="noopener">docs</a></div>
+      ${signin}<div class="small" style="margin-top:4px">${keyPills(a.keys)}</div></div>`;
+  }).join("");
+}
+
+function renderKeys(keys) {
+  $("#keys").innerHTML = keys.map((k) => `
+    <div class="item" data-item="${esc(k.key)}">
+      <div class="row"><span class="name">${esc(k.label)}</span><code>${esc(k.key)}</code>
+        ${k.present ? '<span class="pill ok">set</span>' : '<span class="pill">not set</span>'}
+        <span class="grow"></span>
+        <form class="row" data-key="${esc(k.key)}">
+          <input type="password" autocomplete="off" placeholder="${k.present ? "replace key" : "paste key"}" aria-label="${esc(k.key)}">
+          <button class="primary" type="submit">Save</button>
+          ${k.present ? `<button class="ghost" type="button" data-clear="${esc(k.key)}">Clear</button>` : ""}
+        </form></div>
+      <div class="muted small">Used by ${esc(k.used_by.join(", "))}${k.signup_url ? ` · <a href="${esc(k.signup_url)}" target="_blank" rel="noopener">get a key</a>` : ""}
+        ${k.sources.includes("environment") ? " · also set in the environment" : ""}</div>
+    </div>`).join("");
+}
+
+document.addEventListener("submit", async (ev) => {
+  const form = ev.target.closest("form[data-key]");
+  if (!form) return;
+  ev.preventDefault();
+  const input = $("input", form), value = input.value.trim();
+  if (!value) return;
+  try { await api("POST", `keys/${form.dataset.key}`, { value }); input.value = ""; toast("Key saved."); }
+  catch (e) { toast(e.message, e.hint); }
+  refresh();
+});
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button[data-clear]");
+  if (!b) return;
+  try { await api("DELETE", `keys/${b.dataset.clear}`); toast("Key cleared."); } catch (e) { toast(e.message, e.hint); }
+  refresh();
+});
+
+function size(n) { return n > 1e9 ? (n / 1e9).toFixed(1) + " GB" : n > 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " kB"; }
+
+function renderSave(st, busy) {
+  const code = st.code;
+  $("#save-intro").innerHTML = (code.entries.length
+    ? `${code.entries.length} project(s) in <code>${esc(code.src)}</code>, which is wiped when the session ends. `
+    : `Nothing in <code>${esc(code.src || "$SCRATCH/src")}</code> yet. `)
+    + `Snapshots keep your code, including uncommitted work, in <code>${esc(st.snapshot_root)}</code>. Environments are rebuilt from lockfiles.`;
+  document.querySelectorAll('[data-op="save_snapshot"]').forEach((b) => (b.disabled = busy || !code.entries.length));
+  $("#snapshots").innerHTML = st.snapshots.length ? st.snapshots.map((s) => {
+    const repos = (s.repos || []).map((r) => `${esc(r.path)}${r.branch ? "@" + esc(r.branch) : ""}${r.dirty ? ` <span class="pill warn">${r.dirty} changed</span>` : ""}`).join(", ");
+    return `<div class="item"><div class="row"><span class="name">${esc(s.name)}</span>
+        <span class="muted small">${esc(s.created_at)} · ${size((s.src_bytes || 0) + (s.dsh_bytes || 0))}</span>
+        <span class="grow"></span>
+        <button class="primary" data-op="restore_snapshot" data-name="${esc(s.name)}" ${busy ? "disabled" : ""}>Restore</button>
+        <button class="danger" data-op="delete_snapshot" data-name="${esc(s.name)}" ${busy ? "disabled" : ""}>Delete</button></div>
+      <div class="muted small">${repos || "no git repos"}${s.dsh_state ? " · assistant history" : ""}</div></div>`;
+  }).join("") : '<p class="muted">No snapshots yet.</p>';
+}
+
+async function refreshCluster() {
+  const el = $("#cluster");
+  try {
+    const c = await api("GET", "cluster"), busy = !!(state && state.job && state.job.state === "running");
+    if (!c.running) {
+      el.innerHTML = `<p>No cluster running. Starting one creates an autoscaling Ray head; workers are added
+        when jobs need them and removed when idle.</p>
+        <button class="primary" data-op="cluster_start" ${busy ? "disabled" : ""}>Start cluster</button>
+        <p class="muted small" style="margin-top:8px">${esc(c.detail || "")}</p>`;
+      return;
+    }
+    const jobs = c.jobs.length ? c.jobs.map((j) => `<div class="item small"><div class="row"><code>${esc(j.id)}</code>
+        <span class="pill ${j.status === "succeeded" ? "ok" : j.status === "failed" ? "bad" : ""}">${esc(j.status)}</span>
+        <span class="grow muted">${esc(j.entrypoint)}</span></div></div>`).join("") : '<p class="muted small">No jobs yet. Submit with <code class="copy">canfar lab run script.py</code>.</p>';
+    el.innerHTML = `<div class="row" style="margin-bottom:10px"><span class="pill ok">${esc(c.phase)}</span>
+        <span>${esc(c.workers_joined ?? 0)} worker(s) · ${esc(c.nodes_alive ?? "?")} node(s)</span>
+        ${c.authenticated ? "" : '<span class="pill warn">CANFAR login missing</span>'}
+        <span class="grow"></span>
+        ${c.dashboard_url ? `<a href="${esc(c.dashboard_url)}" target="_blank" rel="noopener">Ray dashboard ↗</a>` : ""}
+        <button class="danger" data-op="cluster_stop" ${busy ? "disabled" : ""}>Stop</button></div>
+      <h2>Recent jobs</h2><div class="list">${jobs}</div>`;
+  } catch (e) { el.textContent = e.message; }
+}
+
+// ---- job bar + SSE --------------------------------------------------------
+
+function renderJob(job) {
+  const bar = $("#jobbar");
+  if (!job) { bar.hidden = true; return; }
+  bar.hidden = false;
+  const pill = $("#job-pill");
+  pill.className = "pill " + (job.state === "ok" ? "ok" : job.state === "failed" ? "bad" : "warn");
+  pill.textContent = job.state === "running" ? "running" : job.state === "ok" ? "done" : "failed";
+  $("#job-label").innerHTML = esc(job.label) + (job.error ? ` — <span style="color:var(--bad)">${rich(job.error)}</span>` : "")
+    + (job.hint ? ` <span class="muted small">${rich(job.hint)}</span>` : "") + resultNote(job);
+}
+
+function resultNote(job) {
+  const r = job.result || {};
+  if (job.kind === "snapshot_restore" && job.state === "ok") {
+    let s = r.skipped && r.skipped.length ? ` <span class="muted small">Kept your current ${esc(r.skipped.join(", "))}.</span>
+      <button class="ghost" data-op="restore_snapshot" data-name="${esc(r.name)}" data-overwrite="1">Replace them</button>` : "";
+    if (r.dsh && r.dsh.restart_required) s += ' <span class="muted small">Reload the Agent tab to see restored history.</span>';
+    return s;
+  }
+  if (job.kind === "agent:install" && job.state === "ok") return ' <span class="muted small">Sign in from the Agent tab terminal.</span>';
+  return "";
+}
+
+function follow(job) {
+  renderJob(job);
+  if (streaming && streaming.id === job.id) return;
+  if (streaming) streaming.es.close();
+  const pre = $("#log-pre");
+  pre.textContent = "";
+  const es = new EventSource(`api/jobs/${job.id}/events`);
+  streaming = { id: job.id, es };
+  es.addEventListener("line", (ev) => {
+    const stick = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 4;
+    pre.textContent += JSON.parse(ev.data) + "\n";
+    if (stick) pre.scrollTop = pre.scrollHeight;
+  });
+  es.addEventListener("done", (ev) => {
+    es.close(); streaming = null;
+    const done = JSON.parse(ev.data);
+    renderJob(done);
+    if (done.state === "failed") $("#jobbar").classList.add("open");
+    refresh();
+  });
+  es.onerror = () => { es.close(); if (streaming && streaming.es === es) streaming = null; };
+}
+
+$("#job-toggle").addEventListener("click", () => {
+  const bar = $("#jobbar");
+  bar.classList.toggle("open");
+  $("#job-toggle").textContent = bar.classList.contains("open") ? "Hide log" : "Show log";
+});
+
+// ---- tabs + refresh ---------------------------------------------------------
+
+function selectTab(tab) {
+  document.querySelectorAll("nav.tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === tab));
+  document.querySelectorAll("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== tab));
+  try { localStorage.setItem("lab.tab", tab); } catch (_) { /* storage unavailable */ }
+  clearInterval(clusterTimer);
+  if (tab === "cluster") { refreshCluster(); clusterTimer = setInterval(refreshCluster, 10000); }
+}
+document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
+
+async function refresh() {
+  try {
+    state = await api("GET", "state");
+  } catch (e) { $("#headline").textContent = "The Lab service is not answering: " + e.message; return; }
+  const busy = !!(state.job && state.job.state === "running");
+  renderWelcome(state.onboarding, busy);
+  renderAgents(state.agents, busy);
+  renderKeys(state.keys);
+  renderSave(state, busy);
+  if (state.job) (state.job.state === "running" ? follow(state.job) : (!streaming && renderJob(state.job)));
+}
+
+let saved = "agents";
+try { saved = localStorage.getItem("lab.tab") || "agents"; } catch (_) { /* storage unavailable */ }
+selectTab(saved);
+refresh();
+setInterval(() => { if (!document.hidden && !streaming) refresh(); }, 15000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+</script>
+</body>
+</html>

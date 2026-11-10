@@ -1,0 +1,41 @@
+# Agents offered in the dsh image's Lab tab (astroai/dsh).
+#
+# Each id must exist in agents/*.yaml (install/config/verify live there).
+# This file only says which agents the Lab shows, in what order, and which
+# keys (presence only) are worth surfacing next to each one. OAuth logins
+# happen in the dsh terminal, so `login` is the command to type there.
+#
+# `keys` must be names from the key catalog (`canfar-lab agent keys list`).
+# `auth_files`: files a finished OAuth login leaves behind (any one present =
+# signed in). `{data}` is $XDG_DATA_HOME or ~/.local/share. Leave it out when
+# the CLI keeps its login somewhere the Lab cannot see (keyring).
+agents:
+  - id: claude
+    label: Claude Code
+    keys: [ANTHROPIC_API_KEY]
+    login: claude
+    auth_files: [~/.claude/.credentials.json]
+  - id: codex
+    label: Codex
+    keys: [OPENAI_API_KEY, OPENROUTER_API_KEY]
+    login: codex login
+    auth_files: [~/.codex/auth.json]
+  - id: agy
+    label: Antigravity
+    keys: [GEMINI_API_KEY]
+    login: agy
+    auth_files: [~/.gemini/antigravity-cli/antigravity-oauth-token]
+  - id: opencode
+    label: OpenCode
+    keys: [OPENCODE_API_KEY, OPENROUTER_API_KEY]
+    login: opencode auth login
+    auth_files: ["{data}/opencode/auth.json"]
+  - id: pi
+    label: Pi
+    keys: [OPENROUTER_API_KEY, ANTHROPIC_API_KEY]
+    login: pi
+    auth_files: [~/.pi/agent/auth.json]
+  - id: omp
+    label: Oh My Pi
+    keys: [OPENROUTER_API_KEY]
+    login: omp

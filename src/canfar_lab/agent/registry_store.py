@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from typing import Any
 
@@ -46,13 +47,30 @@ def _validate(data: dict[str, Any], source: Path) -> dict[str, Any]:
     return data
 
 
+#: Parsed registries keyed by (dir, files with mtimes): the Lab page asks for
+#: agent status every few seconds, and parsing ~25 YAML files per lookup made
+#: each request take over a second.
+_CACHE: dict[tuple[str, tuple[tuple[str, int], ...]], list[dict[str, Any]]] = {}
+
+
 def load_registry(root: Path | None = None) -> list[dict[str, Any]]:
     """Load + validate every ``agents/*.yaml`` entry, sorted by id."""
     d = _agents_dir(root)
     if not d.is_dir():
         return []
+    paths = sorted(d.glob("*.yaml"))
+    key = (str(d), tuple((p.name, p.stat().st_mtime_ns) for p in paths))
+    cached = _CACHE.get(key)
+    if cached is None:
+        cached = _parse(paths)
+        _CACHE.clear()
+        _CACHE[key] = cached
+    return copy.deepcopy(cached)
+
+
+def _parse(paths: list[Path]) -> list[dict[str, Any]]:
     agents: list[dict[str, Any]] = []
-    for path in sorted(d.glob("*.yaml")):
+    for path in paths:
         try:
             raw = yaml.safe_load(path.read_text(encoding="utf-8"))
         except yaml.YAMLError as exc:
