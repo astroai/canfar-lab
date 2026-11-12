@@ -1,6 +1,6 @@
 <!-- AstroAI Desk dock — single source asset (canfar-lab src/canfar_lab/data/desk/dock.html).
      Vendored into canfar-containers via scripts/sync-desk-assets.sh; keep both proxies stdlib-only. -->
-<meta name="astroai-dock-revision" content="4">
+<meta name="astroai-dock-revision" content="6">
 <style>
   #astroai-dock.ad-bar {
     position: fixed; top: 0; left: 0; right: 0; z-index: 2147483000; height: 44px;
@@ -44,13 +44,13 @@
   }
 </style>
 <div id="astroai-dock" class="ad-bar">
-  <span class="ad-title">AstroAI Studio</span>
+  <span class="ad-title">AstroAI Desk</span>
   <div class="ad-buttons" id="ad-buttons"></div>
   <span class="ad-chips" id="ad-chips"></span>
-  <button class="ad-toggle" id="ad-toggle" type="button" title="Hide the Studio bar">Hide</button>
+  <button class="ad-toggle" id="ad-toggle" type="button" title="Hide the Desk bar">Hide</button>
   <div class="ad-drawer" id="ad-drawer" hidden></div>
 </div>
-<button id="astroai-dock-handle" type="button" hidden>Studio</button>
+<button id="astroai-dock-handle" type="button" hidden title="Show Sync to CANFAR and Launch Studio">Desk</button>
 <script>
 (function () {
   if (window.__astroaiDockLoaded) { return; }
@@ -64,7 +64,6 @@
   var handle = document.getElementById("astroai-dock-handle");
   if (!root) { return; }
   root.hidden = false;
-  document.title = "AstroAI Studio";
   var chipsEl = document.getElementById("ad-chips");
   var buttonsEl = document.getElementById("ad-buttons");
   var drawerEl = document.getElementById("ad-drawer");
@@ -90,8 +89,14 @@
     try { localStorage.setItem("astroai-dock-hidden", hidden ? "1" : "0"); } catch (err) {}
   }
 
-  var hidden = false;
-  try { hidden = localStorage.getItem("astroai-dock-hidden") === "1"; } catch (err) { hidden = false; }
+  // Prefer the user's last Hide/Show. Otherwise start collapsed when the
+  // process launched with desk off (CANFAR_LAB_DESK unset) — the Desk
+  // handle turns the bar on without a restart.
+  var hidden = cfg.enabled === false;
+  try {
+    var stored = localStorage.getItem("astroai-dock-hidden");
+    if (stored === "1" || stored === "0") { hidden = stored === "1"; }
+  } catch (err) {}
   applyHidden(hidden);
   document.getElementById("ad-toggle").addEventListener("click", function () { applyHidden(true); });
   if (handle) { handle.addEventListener("click", function () { applyHidden(false); }); }

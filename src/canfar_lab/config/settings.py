@@ -52,8 +52,8 @@ class LabSettings(BaseSettings):
     apps_terminal: str = "auto"
     session_name: str = "astroai-studio"
     session_image: str = "images.canfar.net/astroai/studio:latest"
-    # Floating AstroAI desk. Off until asked, on a laptop and on a session.
-    # ``CANFAR_LAB_DESK=1`` (also ``true`` / ``yes``) shows it.
+    # Floating AstroAI desk. The bar is always injectable; this flag only
+    # opens it at boot. ``CANFAR_LAB_DESK=1`` (also ``true`` / ``yes``).
     desk: bool = False
 
     def resolve_work_dir(self) -> Path:

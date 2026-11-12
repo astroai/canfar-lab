@@ -390,18 +390,22 @@ def test_desk_buttons_shape():
     assert labels["sync"] == "Sync to CANFAR"
     assert labels["launch-studio"] == "Launch Studio"
     dock = proxy.load_dock_html()
-    assert "AstroAI Studio" in dock
+    assert "AstroAI Desk" in dock
     assert 'id="astroai-dock-handle"' in dock
+    assert ">Desk</button>" in dock
 
 
-def test_html_skips_dock_when_disabled(backend):
+def test_html_injects_dock_when_disabled(backend):
+    """Desk off still injects the handle so the user can open the bar live."""
+    config = proxy.build_dock_config(token=TOKEN)
+    assert config["enabled"] is False
     server, _thread = proxy.start(
         port=0,
         backend_port=backend,
         token=TOKEN,
         state_fn=dict,
         action_fn=lambda name, payload: {"ok": True},
-        dock_config=proxy.build_dock_config(token=TOKEN),
+        dock_config=config,
         dock_html="<b>dock</b>",
     )
     try:
@@ -410,7 +414,10 @@ def test_html_skips_dock_when_disabled(backend):
         server.shutdown()
         server.server_close()
     assert status == 200
-    assert b"astroai-dock-config" not in body
+    text = body.decode("utf-8")
+    assert "astroai-dock-config" in text
+    assert '"enabled": false' in text
+    assert "<b>dock</b>" in text
 
 
 def test_agents_page_is_local_html(cockpit):

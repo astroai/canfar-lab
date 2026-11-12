@@ -225,9 +225,10 @@ seeding, and the CANFAR proxy.
 
 Browser cockpit for a laptop: the **latest dsh** (resolved through npm
 dist-tags, default spec `newest`; offline falls back to the repo pin) served on
-loopback behind a small stdlib proxy. The floating AstroAI desk is off
-until `CANFAR_LAB_DESK=1` (or `desk: true`); then it shows Sync to CANFAR and
-Launch Studio. Design and protocol: [desk-sync.md](desk-sync.md).
+loopback behind a small stdlib proxy. The desk bar starts collapsed; click
+**Desk** (top right) for Sync to CANFAR and Launch Studio, or set
+`CANFAR_LAB_DESK=1` (or `desk: true`) to open it at boot. Design and protocol:
+[desk-sync.md](desk-sync.md).
 
 | Flag | What it does |
 |------|----------------|
@@ -248,6 +249,32 @@ drops a request in the shared mailbox; the session watcher answers with
 bootstrap + fast-forward. The mailbox is only a doorbell — GitHub is the sync
 protocol; when it is laptop-local the desk says so and the session can still
 pull manually.
+
+### `canfar lab web`
+
+The Lab tab of the `astroai/dsh` image: coding agents (install, update,
+remove, CANFAR MCP + skills, API keys by presence only), save/restore of
+`$SCRATCH/src` and the assistant's history to `/arc`, and the Ray cluster.
+The page opens on a short checklist that tells a new user what to install
+and a returning user what to bring back. Loopback only; every request needs
+the per-process bearer token (`$CANFAR_LAB_WEB_TOKEN`, or generated and
+written to `--token-file`). The image proxy sends it for you.
+
+| Flag | What it does |
+|------|----------------|
+| `--port N` | Loopback port (default: 4792) |
+| `--host ADDR` | `127.0.0.1` or `::1` |
+| `--token-file PATH` | Where to write the token, mode 0600 (default: session runtime dir) |
+| `--restore` | At start, reinstall the agents used in earlier sessions |
+| `--restore-code` | At start, restore the latest snapshot when `$SCRATCH/src` is empty |
+
+```bash
+canfar lab web --restore --restore-code    # what the dsh image runs
+```
+
+Snapshots go to `~/.astroai/lab/snapshots` unless `CANFAR_LAB_SNAPSHOT_DIR`
+is set. They exclude `.pixi`, `.venv` and tool caches (rebuilt from lockfiles).
+On a laptop, open the `?token=` URL printed at start once; it sets a cookie.
 
 ### `canfar lab sync`
 

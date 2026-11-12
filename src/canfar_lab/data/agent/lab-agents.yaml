@@ -1,0 +1,50 @@
+# Agents offered in the dsh image's Lab tab (astroai/dsh).
+#
+# Each id must exist in agents/*.yaml (install/config/verify live there).
+# This file only says which agents the Lab shows, in what order, and which
+# keys (presence only) are worth surfacing next to each one. OAuth logins
+# happen in the dsh terminal, so `login` is the command to type there.
+#
+# `keys` must be names from the key catalog (`canfar-lab agent keys list`).
+# `auth_files`: files a finished OAuth login leaves behind (any one present =
+# signed in). `{data}` is $XDG_DATA_HOME or ~/.local/share. Leave it out when
+# the CLI keeps its login somewhere the Lab cannot see (keyring).
+# `home_installs`: program copies a self-update or a manual install can leave
+# in $HOME. The Lab's copy lives on $SCRATCH; these only shadow it and fill the
+# slow /arc home. Programs only: never a config, login or history path.
+agents:
+  - id: claude
+    label: Claude Code
+    keys: [ANTHROPIC_API_KEY]
+    login: claude
+    auth_files: [~/.claude/.credentials.json]
+    home_installs: [~/.local/bin/claude, ~/.local/share/claude/versions, ~/.claude/local]
+  - id: codex
+    label: Codex
+    keys: [OPENAI_API_KEY, OPENROUTER_API_KEY]
+    login: codex login
+    auth_files: [~/.codex/auth.json]
+    home_installs: [~/.local/bin/codex, ~/.npm-global/bin/codex, ~/.npm-global/lib/node_modules/@openai/codex]
+  - id: agy
+    label: Antigravity
+    keys: [GEMINI_API_KEY]
+    login: agy
+    auth_files: [~/.gemini/antigravity-cli/antigravity-oauth-token]
+    home_installs: [~/.local/bin/agy, ~/.agy/bin]
+  - id: opencode
+    label: OpenCode
+    keys: [OPENCODE_API_KEY, OPENROUTER_API_KEY]
+    login: opencode auth login
+    auth_files: ["{data}/opencode/auth.json"]
+    home_installs: [~/.local/bin/opencode, ~/.opencode/bin]
+  - id: pi
+    label: Pi
+    keys: [OPENROUTER_API_KEY, ANTHROPIC_API_KEY]
+    login: pi
+    auth_files: [~/.pi/agent/auth.json]
+    home_installs: [~/.local/bin/pi, ~/.npm-global/bin/pi, ~/.npm-global/lib/node_modules/@earendil-works/pi-coding-agent]
+  - id: omp
+    label: Oh My Pi
+    keys: [OPENROUTER_API_KEY]
+    login: omp
+    home_installs: [~/.local/bin/omp, ~/.omp/bin, ~/.bun/bin/omp]

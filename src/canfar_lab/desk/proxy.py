@@ -281,7 +281,9 @@ class _DeskHandler(BaseHTTPRequestHandler):
         injectable = (
             "text/html" in ctype and encoding in ("", "identity") and self.command != "HEAD"
         )
-        if injectable and self.server.dock_config.get("enabled"):
+        # Always inject: ``enabled`` only sets the initial Hide/Show state in
+        # dock.html. The Studio handle turns the bar on without a restart.
+        if injectable:
             charset = "utf-8"
             if "charset=" in ctype:
                 charset = ctype.split("charset=", 1)[1].split(";")[0].strip() or "utf-8"

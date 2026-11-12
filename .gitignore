@@ -17,4 +17,5 @@ uv.lock
 .freebuff/
 .agents/
 .codex/
+.dsh/
 

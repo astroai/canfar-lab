@@ -21,7 +21,7 @@ Environment variables override YAML:
 | `CANFAR_LAB_SAVE_DIR` | `save_dir` |
 | `CANFAR_LAB_DEFAULT_PM` | `default_pm` |
 | `CANFAR_LAB_CLONE_FROM_ENV` | `clone_from_env` |
-| `CANFAR_LAB_DESK` | `desk` (`1`, `true`, or `yes` shows the floating desk) |
+| `CANFAR_LAB_DESK` | `desk` (`1`/`true`/`yes` opens the desk bar at boot; otherwise click Desk) |
 
 Inspect current settings:
 

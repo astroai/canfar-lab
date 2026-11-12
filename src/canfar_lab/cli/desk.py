@@ -34,8 +34,8 @@ from canfar_lab.utils.subprocess import run_cmd
 desk_app = typer.Typer(
     name="desk",
     help=(
-        "Local browser dsh. The floating desk stays off unless CANFAR_LAB_DESK=1, "
-        "then it shows Sync to CANFAR and Launch Studio.\n\n"
+        "Local browser dsh. The desk bar starts collapsed; click Desk for Sync "
+        "to CANFAR and Launch Studio, or set CANFAR_LAB_DESK=1 to open it.\n\n"
         "Examples:\n"
         "  canfar lab desk\n"
         "  canfar lab desk ~/src --dsh-version newest\n"
