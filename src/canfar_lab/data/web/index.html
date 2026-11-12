@@ -6,147 +6,229 @@
 <title>AstroAI Lab</title>
 <style>
   :root {
-    --bg: #0b1026; --panel: #121a3d; --panel-2: #0f1634; --line: rgba(129,140,248,.22);
-    --text: #e3e7ff; --muted: #9aa4d2; --accent: #818cf8; --accent-bg: rgba(99,102,241,.22);
-    --ok: #6fdc8c; --warn: #e8b84a; --bad: #ff7b72; --code-bg: rgba(255,255,255,.06);
+    --bg: #0b1026; --panel: #121a3d; --panel-2: #0f1634; --line: rgba(129,140,248,.2);
+    --text: #e3e7ff; --muted: #9aa4d2; --accent: #818cf8; --accent-strong: #6366f1; --accent-bg: rgba(99,102,241,.18);
+    --ok: #6fdc8c; --ok-bg: rgba(111,220,140,.12); --warn: #e8b84a; --warn-bg: rgba(232,184,74,.12);
+    --bad: #ff7b72; --bad-bg: rgba(255,123,114,.12); --code-bg: rgba(255,255,255,.07);
+    --radius: 12px; color-scheme: dark;
   }
   @media (prefers-color-scheme: light) {
     :root {
-      --bg: #f6f7fb; --panel: #ffffff; --panel-2: #f0f2fa; --line: rgba(60,70,140,.16);
-      --text: #1b2045; --muted: #5a6290; --accent: #4f46e5; --accent-bg: rgba(79,70,229,.1);
-      --ok: #1a7f37; --warn: #9a6700; --bad: #cf222e; --code-bg: rgba(20,30,80,.06);
+      --bg: #f5f6fb; --panel: #ffffff; --panel-2: #f2f3fa; --line: rgba(60,70,140,.15);
+      --text: #1b2045; --muted: #5a6290; --accent: #4f46e5; --accent-strong: #4338ca; --accent-bg: rgba(79,70,229,.09);
+      --ok: #1a7f37; --ok-bg: rgba(26,127,55,.08); --warn: #9a6700; --warn-bg: rgba(154,103,0,.08);
+      --bad: #cf222e; --bad-bg: rgba(207,34,46,.07); --code-bg: rgba(20,30,80,.06); color-scheme: light;
     }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text);
          font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 120px; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  h2 { font-size: 15px; margin: 0 0 12px; }
+  main { max-width: 960px; margin: 0 auto; padding: 20px 16px 96px; }
+  h1 { font-size: 20px; line-height: 1.3; margin: 0; }
+  h2 { font-size: 15px; margin: 0 0 4px; }
+  h3 { font-size: 13px; margin: 18px 0 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
   p { margin: 0 0 10px; }
   a { color: var(--accent); }
-  code { background: var(--code-bg); padding: 1px 6px; border-radius: 5px; font-size: 13px; }
+  code { background: var(--code-bg); padding: 1px 6px; border-radius: 5px; font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  code.copy { cursor: pointer; }
+  code.copy:hover { outline: 1px solid var(--accent); }
   .muted { color: var(--muted); }
-  .small { font-size: 12px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 0 0 16px; }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .small { font-size: 12.5px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin: 0 0 16px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .grow { flex: 1 1 auto; min-width: 0; }
-  button { font: inherit; border: 1px solid var(--accent); background: var(--accent-bg); color: var(--text);
-           border-radius: 999px; padding: 5px 14px; cursor: pointer; white-space: nowrap; }
-  button.primary { background: var(--accent); color: #fff; }
-  button.ghost { border-color: var(--line); background: none; }
-  button.danger { border-color: var(--bad); background: none; color: var(--bad); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  button { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+           border-radius: 8px; padding: 5px 12px; cursor: pointer; white-space: nowrap; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
+  button.primary:hover:not(:disabled) { background: var(--accent); }
+  button.link { border: none; background: none; padding: 5px 6px; color: var(--muted); }
+  button.link:hover:not(:disabled) { color: var(--text); text-decoration: underline; }
+  button.link.danger:hover:not(:disabled) { color: var(--bad); }
   button:disabled { opacity: .45; cursor: default; }
   input[type=text], input[type=password] { font: inherit; background: var(--panel-2); color: var(--text);
-           border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; width: 16rem; max-width: 100%; }
-  label.check { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
-  nav.tabs { display: flex; gap: 4px; margin: 0 0 12px; border-bottom: 1px solid var(--line); overflow-x: auto; }
-  nav.tabs button { border: none; background: none; border-radius: 0; padding: 8px 12px; color: var(--muted);
-           border-bottom: 2px solid transparent; }
-  nav.tabs button[aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); }
-  .pill { display: inline-block; font-size: 12px; border-radius: 999px; padding: 0 8px; border: 1px solid var(--line); color: var(--muted); }
-  .pill.ok { color: var(--ok); border-color: var(--ok); }
-  .pill.warn { color: var(--warn); border-color: var(--warn); }
-  .pill.bad { color: var(--bad); border-color: var(--bad); }
-  /* onboarding */
-  #welcome h1 { margin-bottom: 12px; }
-  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-  .step { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: start;
+           border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; min-width: 0; }
+  label.check { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
+
+  .pill { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; line-height: 18px; border-radius: 999px;
+          padding: 0 8px; background: var(--code-bg); color: var(--muted); white-space: nowrap; }
+  .pill.ok { color: var(--ok); background: var(--ok-bg); }
+  .pill.warn { color: var(--warn); background: var(--warn-bg); }
+  .pill.bad { color: var(--bad); background: var(--bad-bg); }
+  .pill.run { color: var(--accent); background: var(--accent-bg); }
+
+  /* header */
+  header.top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 0 14px; }
+  header.top .meta { color: var(--muted); font-size: 12.5px; }
+
+  /* status / checklist */
+  #status h2 { font-size: 17px; margin: 0 0 12px; }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .step { display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center;
           padding: 10px 12px; border-radius: 10px; background: var(--panel-2); }
-  .dot { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 13px;
-         border: 2px solid var(--line); color: var(--muted); }
-  .step.done .dot { border-color: var(--ok); color: var(--ok); }
-  .step.todo .dot { border-color: var(--accent); color: var(--accent); }
-  .step.running .dot { border-color: var(--warn); border-top-color: transparent; animation: spin 1s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  .step .text { min-width: 0; }
   .step .title { font-weight: 600; }
+  .mark { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px;
+          border: 2px solid var(--line); color: var(--muted); }
+  .step.done .mark { border-color: var(--ok); background: var(--ok); color: var(--panel); }
+  .step.todo .mark { border-color: var(--accent); color: var(--accent); }
+  .step.running .mark { border-color: var(--accent); border-top-color: transparent; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .step .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-  .copy { cursor: pointer; }
+  #status.compact { padding: 12px 16px; }
+  #status.compact h2 { font-size: 15px; margin-bottom: 6px; }
+  #status.compact .steps { gap: 2px; }
+  #status.compact .step { background: none; padding: 4px 0; }
+  #status.compact .step .title { display: inline; }
+  #status.compact .step .title::after { content: " — "; color: var(--muted); font-weight: 400; }
+  #status.compact .step .detail { display: inline; }
+
+  /* tabs */
+  nav.tabs { display: flex; gap: 2px; margin: 0 0 12px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+  nav.tabs button { border: none; background: none; border-radius: 0; padding: 9px 14px; color: var(--muted); font-size: 14px;
+                    border-bottom: 2px solid transparent; display: inline-flex; gap: 6px; align-items: center; }
+  nav.tabs button:hover:not(:disabled) { color: var(--text); }
+  nav.tabs button[aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); }
+  nav.tabs .attn { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); display: none; }
+  nav.tabs .attn.on { display: inline-block; }
+  .intro { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+
   /* lists */
   .list { display: grid; gap: 8px; }
-  .item { padding: 10px 12px; border-radius: 10px; background: var(--panel-2); }
+  .item { padding: 12px 14px; border-radius: 10px; background: var(--panel-2); }
+  .item-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .item .name { font-weight: 600; }
+  .item .acts { margin-left: auto; display: flex; gap: 4px; align-items: center; }
   .item.focus { outline: 2px solid var(--accent); }
-  /* job bar */
-  #jobbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); }
-  #jobbar .head { max-width: 980px; margin: 0 auto; padding: 8px 16px; display: flex; gap: 10px; align-items: center; }
-  #log { display: none; max-width: 980px; margin: 0 auto; padding: 0 16px 10px; }
-  #log pre { margin: 0; max-height: 40vh; overflow: auto; background: var(--panel-2); border-radius: 8px; padding: 8px 10px;
+  .callout { margin-top: 8px; padding: 8px 10px; border-radius: 8px; font-size: 13px; display: flex; gap: 10px;
+             align-items: center; flex-wrap: wrap; }
+  .callout.warn { background: var(--warn-bg); }
+  .callout.info { background: var(--accent-bg); }
+  .callout .grow { flex-basis: 260px; }
+  .empty { padding: 14px; border-radius: 10px; border: 1px dashed var(--line); color: var(--muted); }
+
+  /* keys */
+  .key-form { display: flex; gap: 6px; margin-left: auto; }
+  .key-form input { width: 15rem; }
+
+  /* code */
+  table.projects { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.projects th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; padding: 0 10px 6px; }
+  table.projects td { padding: 7px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+  table.projects td.name { font-weight: 600; }
+  .save-bar { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap; padding: 12px 14px; border-radius: 10px;
+              background: var(--panel-2); margin-top: 12px; }
+  .save-bar input[type=text] { width: 12rem; }
+
+  /* cluster */
+  .stats { display: flex; gap: 18px; flex-wrap: wrap; margin: 4px 0 12px; }
+  .stat .v { font-size: 18px; font-weight: 600; }
+  .stat .k { color: var(--muted); font-size: 12px; }
+
+  /* activity bar */
+  #activity { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line);
+              box-shadow: 0 -6px 18px rgba(0,0,0,.18); z-index: 4; }
+  #activity .head { max-width: 960px; margin: 0 auto; padding: 8px 16px; display: flex; gap: 10px; align-items: center; }
+  #activity .label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #activity.open .label { white-space: normal; }
+  #log { display: none; max-width: 960px; margin: 0 auto; padding: 0 16px 12px; }
+  #activity.open #log { display: block; }
+  #log pre { margin: 0; height: min(40vh, 360px); overflow: auto; background: var(--panel-2); border-radius: 8px; padding: 8px 10px;
              font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
-  #jobbar.open #log { display: block; }
-  #toast { position: fixed; top: 12px; right: 12px; max-width: 360px; display: none; z-index: 5; }
+  #toast { position: fixed; top: 12px; right: 12px; max-width: 380px; z-index: 6; display: none;
+           box-shadow: 0 8px 24px rgba(0,0,0,.25); }
   #toast.show { display: block; }
-  @media (max-width: 620px) {
-    .step { grid-template-columns: 28px 1fr; }
+
+  @media (max-width: 640px) {
+    .step { grid-template-columns: 26px 1fr; }
     .step .acts { grid-column: 2; justify-content: flex-start; }
+    .item .acts { margin-left: 0; width: 100%; }
+    .key-form { margin-left: 0; width: 100%; }
+    .key-form input { flex: 1 1 auto; width: auto; }
+    table.projects th:nth-child(2), table.projects td:nth-child(2) { display: none; }
   }
 </style>
 </head>
 <body>
 <main>
-  <section id="welcome" class="card" aria-live="polite">
-    <h1 id="headline">Loading…</h1>
+  <header class="top">
+    <h1>Lab</h1>
+    <span class="meta" id="session-meta"></span>
+  </header>
+
+  <section id="status" class="card" aria-live="polite">
+    <h2 id="headline">Loading…</h2>
     <ol class="steps" id="steps"></ol>
   </section>
 
-  <nav class="tabs" role="tablist">
-    <button role="tab" data-tab="agents" aria-selected="true">Agents</button>
-    <button role="tab" data-tab="keys" aria-selected="false">API keys</button>
-    <button role="tab" data-tab="save" aria-selected="false">Save &amp; restore</button>
-    <button role="tab" data-tab="cluster" aria-selected="false">Cluster</button>
+  <nav class="tabs" role="tablist" aria-label="Lab sections">
+    <button role="tab" id="tab-agents" data-tab="agents" aria-selected="true">Agents<span class="attn" id="attn-agents"></span></button>
+    <button role="tab" id="tab-keys" data-tab="keys" aria-selected="false">Keys</button>
+    <button role="tab" id="tab-code" data-tab="code" aria-selected="false">Code<span class="attn" id="attn-code"></span></button>
+    <button role="tab" id="tab-cluster" data-tab="cluster" aria-selected="false">Cluster</button>
   </nav>
 
-  <section class="card" data-panel="agents">
-    <h2>Coding agents</h2>
-    <p class="muted small">Agents run in the Agent tab's terminal. Programs live on $SCRATCH and are
-      reinstalled for you in every new session; settings, CANFAR tools and skills stay in your home.</p>
+  <section data-panel="agents" role="tabpanel" aria-labelledby="tab-agents">
+    <p class="intro">Coding agents run in the Terminal tab. Their programs live on <code>$SCRATCH</code> and the newest
+      version is installed for you at every session start. Logins and settings stay in your home.</p>
     <div class="list" id="agents"></div>
   </section>
 
-  <section class="card" data-panel="keys" hidden>
-    <h2>API keys</h2>
-    <p class="muted small">Optional if you sign in from the terminal. Keys are stored in your home and shared by
-      every agent that reads them. They are never shown again here, only whether one is set.</p>
+  <section data-panel="keys" role="tabpanel" aria-labelledby="tab-keys" hidden>
+    <p class="intro">Only needed if you do not sign in from the terminal. A key is stored in your home and used by
+      every agent that reads it. Saved keys are never shown again, only whether one is set.</p>
     <div class="list" id="keys"></div>
   </section>
 
-  <section class="card" data-panel="save" hidden>
-    <h2>Save &amp; restore</h2>
-    <p class="muted small" id="save-intro"></p>
-    <div class="row" style="margin: 4px 0 14px">
-      <input type="text" id="snap-name" placeholder="name (optional)" aria-label="Snapshot name">
-      <label class="check"><input type="checkbox" id="snap-dsh" checked> include assistant history</label>
-      <label class="check"><input type="checkbox" id="snap-envs"> include .pixi/.venv</label>
-      <button class="primary" data-op="save_snapshot">Save now</button>
+  <section data-panel="code" role="tabpanel" aria-labelledby="tab-code" hidden>
+    <p class="intro" id="code-intro"></p>
+    <div id="projects"></div>
+    <div class="save-bar">
+      <input type="text" id="snap-name" placeholder="Snapshot name (optional)" aria-label="Snapshot name">
+      <label class="check"><input type="checkbox" id="snap-dsh" checked> assistant history</label>
+      <label class="check" title="Usually rebuilt from lockfiles; including them makes snapshots much larger">
+        <input type="checkbox" id="snap-envs"> .pixi / .venv</label>
+      <span class="grow"></span>
+      <button class="primary" data-op="save_snapshot">Save to /arc</button>
     </div>
+    <h3>Saved snapshots</h3>
     <div class="list" id="snapshots"></div>
   </section>
 
-  <section class="card" data-panel="cluster" hidden>
-    <h2>Ray cluster</h2>
+  <section data-panel="cluster" role="tabpanel" aria-labelledby="tab-cluster" hidden>
     <div id="cluster" class="muted">Checking…</div>
   </section>
 </main>
 
-<div id="toast" class="card"></div>
+<div id="toast" class="card" role="status" aria-live="polite"></div>
 
-<div id="jobbar" hidden>
+<div id="activity" hidden>
   <div class="head">
     <span id="job-pill" class="pill"></span>
-    <span id="job-label" class="grow"></span>
-    <button class="ghost" id="job-toggle">Show log</button>
+    <span id="job-label" class="label grow"></span>
+    <span id="job-time" class="muted small"></span>
+    <button class="link" id="job-toggle" aria-expanded="false" aria-controls="log">Show log</button>
+    <button class="link" id="job-close" aria-label="Hide">✕</button>
   </div>
-  <div id="log"><pre id="log-pre"></pre></div>
+  <div id="log"><pre id="log-pre" tabindex="0"></pre></div>
 </div>
 
 <script>
 "use strict";
 const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-// `text` with `backticks` rendered as code.
+// `text` with `backticks` rendered as click-to-copy code.
 const rich = (v) => esc(v).replace(/`([^`]+)`/g, '<code class="copy" title="Click to copy">$1</code>');
-let state = null, streaming = null, clusterTimer = null;
+let state = null, streaming = null, clusterTimer = null, dismissed = null, logOpen = false;
+
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch (_) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (_) { /* storage unavailable */ } },
+};
 
 async function api(method, path, body) {
   const opts = { method, headers: { "X-Canfar-Lab": "1" } };
@@ -155,7 +237,7 @@ async function api(method, path, body) {
   let data = {};
   try { data = await res.json(); } catch (_) { /* empty body */ }
   if (!res.ok || data.ok === false) {
-    const err = new Error(data.error || res.statusText);
+    const err = new Error(data.error || res.statusText || "Request failed");
     err.hint = data.hint; throw err;
   }
   return data;
@@ -167,6 +249,26 @@ function toast(msg, hint) {
   t.classList.add("show");
   clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove("show"), 6000);
 }
+
+function size(n) {
+  if (n == null) return "";
+  return n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : n >= 1e6 ? (n / 1e6).toFixed(0) + " MB" : Math.max(1, Math.round(n / 1e3)) + " kB";
+}
+function ago(t) {
+  const ms = typeof t === "number" ? t * 1000 : Date.parse(t);
+  if (!ms) return "";
+  const s = Math.max(0, (Date.now() - ms) / 1000);
+  if (s < 45) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  const d = Math.round(s / 86400);
+  return d === 1 ? "yesterday" : `${d} days ago`;
+}
+function stamp(t) {
+  const ms = typeof t === "number" ? t * 1000 : Date.parse(t);
+  return ms ? new Date(ms).toLocaleString() : "";
+}
+function plural(n, word) { return `${n} ${word}${n === 1 ? "" : "s"}`; }
 
 // ---- actions --------------------------------------------------------------
 
@@ -183,10 +285,10 @@ async function run(op, data = {}) {
       { overwrite: !!data.overwrite });
     else if (op === "delete_snapshot") {
       if (!confirm(`Delete snapshot “${data.name}” from /arc? This cannot be undone.`)) return;
-      await api("DELETE", `snapshots/${encodeURIComponent(data.name)}`); toast("Deleted."); return refresh();
+      await api("DELETE", `snapshots/${encodeURIComponent(data.name)}`); toast("Snapshot deleted."); return refresh();
     }
     else if (op === "cluster_start" || op === "cluster_stop") reply = await api("POST", `cluster/${op.slice(8)}`);
-    if (reply && reply.job) follow(reply.job);
+    if (reply && reply.job) { dismissed = null; follow(reply.job); }
   } catch (e) { toast(e.message, e.hint); }
   refresh();
 }
@@ -198,85 +300,121 @@ function focus(tab, id) {
     const key = agent && (agent.keys.find((k) => !k.present) || agent.keys[0]);
     id = key ? key.key : null;
   }
-  if (id) {
-    const el = document.querySelector(`[data-item="${CSS.escape(id)}"]`);
-    if (el) {
-      el.classList.add("focus"); el.scrollIntoView({ block: "center" });
-      $("input", el)?.focus();
-      setTimeout(() => el.classList.remove("focus"), 2500);
-    }
+  const el = id && document.querySelector(`[data-item="${CSS.escape(id)}"]`);
+  if (el) {
+    el.classList.add("focus"); el.scrollIntoView({ block: "center", behavior: "smooth" });
+    $("input", el)?.focus();
+    setTimeout(() => el.classList.remove("focus"), 2500);
   }
 }
 
 document.addEventListener("click", (ev) => {
   const code = ev.target.closest("code.copy");
-  if (code) { navigator.clipboard?.writeText(code.textContent).then(() => toast(`Copied \`${code.textContent}\`. Paste it in the Agent tab terminal.`)); return; }
+  if (code) {
+    navigator.clipboard?.writeText(code.textContent)
+      .then(() => toast(`Copied \`${code.textContent}\`. Paste it in the Terminal tab.`))
+      .catch(() => toast("Select the text and copy it by hand."));
+    return;
+  }
   const b = ev.target.closest("button[data-op], button[data-focus]");
-  if (!b) return;
+  if (!b || b.disabled) return;
   if (b.dataset.focus) return focus(b.dataset.focus, b.dataset.agent);
-  if (b.dataset.op === "agent" && b.dataset.verb === "remove" && !confirm(`Remove ${b.dataset.label}? Its settings stay in your home.`)) return;
-  run(b.dataset.op, { ...b.dataset });
+  const d = b.dataset;
+  if (d.op === "agent" && d.verb === "remove" && !confirm(`Remove ${d.label} from this session? Your login and settings stay in your home.`)) return;
+  if (d.op === "agent" && (d.verb === "clean-home" || d.verb === "rehome") && !confirm(`Delete these ${d.label} program copies from your home?\n\n${d.paths}\n\nYour login, settings and history are not touched.`)) return;
+  if (d.op === "cluster_stop" && !confirm("Stop the cluster? Running jobs are cancelled.")) return;
+  run(d.op, { ...d });
 });
 
 // ---- rendering ------------------------------------------------------------
 
-function actionButton(a, primary) {
+function actionButton(a, primary, busy) {
   if (!a) return "";
   const attrs = Object.entries(a).filter(([k]) => k !== "label")
     .map(([k, v]) => `data-${esc(k)}="${esc(v)}"`).join(" ");
-  return `<button class="${primary ? "primary" : "ghost"}" ${attrs}>${esc(a.label)}</button>`;
+  const off = busy && a.op ? " disabled" : "";
+  return `<button class="${primary ? "primary" : ""}" ${attrs}${off}>${esc(a.label)}</button>`;
 }
 
-function renderWelcome(o, busy) {
+function renderHeader(st) {
+  const s = st.session || {};
+  const bits = [];
+  if (st.user) bits.push(esc(st.user));
+  if (s.id) bits.push(`session <code>${esc(s.id)}</code>`);
+  if (s.scratch_free != null) bits.push(`${esc(size(s.scratch_free))} free on <code>${esc(s.scratch || "$SCRATCH")}</code>`);
+  if (st.version) bits.push(`canfar-lab ${esc(st.version)}`);
+  $("#session-meta").innerHTML = bits.join(" · ");
+}
+
+function renderStatus(o, busy) {
+  const card = $("#status");
+  card.classList.toggle("compact", !!o.ready);
   $("#headline").textContent = o.headline;
-  const icon = { done: "✓", todo: "•", optional: "○", running: "" };
+  const mark = { done: "✓", todo: "", optional: "", running: "" };
   $("#steps").innerHTML = o.steps.map((s) => `
     <li class="step ${esc(s.status)}">
-      <span class="dot" aria-hidden="true">${icon[s.status] ?? ""}</span>
-      <div><div class="title">${esc(s.title)}</div><div class="muted">${rich(s.detail)}</div></div>
+      <span class="mark" aria-hidden="true">${mark[s.status] ?? ""}</span>
+      <div class="text"><span class="title">${esc(s.title)}</span>
+        <span class="detail muted">${rich(s.detail)}</span></div>
       <div class="acts">${s.status === "running" ? "" :
-        actionButton(s.action, s.status === "todo" && s.id === o.next)
-        + actionButton(s.more, false)}</div>
+        actionButton(s.action, s.status === "todo" && s.id === o.next, busy) + actionButton(s.more, false, busy)}</div>
     </li>`).join("");
-  document.querySelectorAll("#steps button[data-op]").forEach((b) => (b.disabled = busy));
-  $("#welcome").dataset.ready = o.ready;
+  if (!o.ready) $$("#steps .detail").forEach((d) => (d.style.display = "block"));
 }
 
-function keyPills(keys) {
-  return keys.map((k) => `<span class="pill ${k.present ? "ok" : ""}">${esc(k.key)}${k.present ? " ✓" : ""}</span>`).join(" ");
+function agentStatus(a) {
+  if (a.installed) return a.ready ? '<span class="pill ok">Ready</span>' : '<span class="pill warn">Sign in</span>';
+  if (a.needs_restore) return '<span class="pill warn">Not reinstalled yet</span>';
+  return '<span class="pill">Not installed</span>';
 }
 
 function renderAgents(agents, busy) {
+  const dis = busy ? " disabled" : "";
   $("#agents").innerHTML = agents.map((a) => {
-    let status = a.installed ? (a.ready ? '<span class="pill ok">ready</span>' : '<span class="pill warn">sign in</span>')
-      : a.needs_restore ? '<span class="pill warn">reinstall</span>' : '<span class="pill">not installed</span>';
-    const signin = a.installed && !a.ready
-      ? `<div class="small">Run <code class="copy">${esc(a.login)}</code> in the Agent tab terminal, or add a key.</div>` : "";
-    const b = (verb, label, cls = "ghost") =>
-      `<button class="${cls}" data-op="agent" data-agent="${esc(a.id)}" data-verb="${verb}" data-label="${esc(a.label)}" ${busy ? "disabled" : ""}>${label}</button>`;
-    const acts = a.installed ? b("update", "Update") + b("setup", "Re-apply CANFAR tools") + b("remove", "Remove", "danger")
-      : b("install", a.needs_restore ? "Reinstall" : "Install", "primary");
+    const btn = (verb, label, cls = "") =>
+      `<button class="${cls}" data-op="agent" data-agent="${esc(a.id)}" data-verb="${verb}" data-label="${esc(a.label)}"${dis}>${label}</button>`;
+    const copies = a.home_copies || [];
+    const total = copies.reduce((n, c) => n + (c.bytes || 0), 0);
+    // Not installed but copies in home: the installer refuses until they are gone,
+    // so the one action is "move": remove them and install on $SCRATCH.
+    const acts = a.installed ? btn("update", "Update") + btn("remove", "Remove", "link danger")
+      : copies.length ? "" : btn("install", a.needs_restore ? "Reinstall" : "Install", "primary");
+    const keyNames = a.keys.map((k) => `<code>${esc(k.key)}</code>`).join(" or ");
+    const signin = a.installed && !a.ready ? `
+      <div class="callout info"><span class="grow">Run <code class="copy" title="Click to copy">${esc(a.login)}</code>
+        in the Terminal tab and follow the sign-in link${a.keys.length ? `, or add ${keyNames}` : ""}.</span>
+        ${a.keys.length ? `<button data-focus="keys" data-agent="${esc(a.id)}">Add a key</button>` : ""}</div>` : "";
+    const paths = copies.map((c) => `<code>${esc(c.path)}</code>`).join(", ");
+    const home = !copies.length ? "" : a.installed ? `
+      <div class="callout warn"><span class="grow">Older copies in your home${total ? ` (${esc(size(total))})` : ""}:
+        ${paths}. They come from self-updates or manual installs, can shadow the Lab's copy, and slow your home.</span>
+        <button data-op="agent" data-agent="${esc(a.id)}" data-verb="clean-home" data-label="${esc(a.label)}"
+          data-paths="${esc(copies.map((c) => c.path).join("\n"))}"${dis}>Remove them</button></div>` : `
+      <div class="callout warn"><span class="grow">Found in your home${total ? ` (${esc(size(total))})` : ""}: ${paths}.
+        In this image agents run from <code>$SCRATCH</code>, which is fast and reinstalled every session; copies in your
+        home are slow and are not used.</span>
+        <button class="primary" data-op="agent" data-agent="${esc(a.id)}" data-verb="rehome" data-label="${esc(a.label)}"
+          data-paths="${esc(copies.map((c) => c.path).join("\n"))}"${dis}>Move to $SCRATCH</button></div>`;
     return `<div class="item" data-item="${esc(a.id)}">
-      <div class="row"><span class="name">${esc(a.label)}</span>${status}
-        <span class="grow"></span>${acts}</div>
-      <div class="muted small">${esc(a.summary)} · <a href="${esc(a.homepage)}" target="_blank" rel="noopener">docs</a></div>
-      ${signin}<div class="small" style="margin-top:4px">${keyPills(a.keys)}</div></div>`;
+      <div class="item-head"><span class="name">${esc(a.label)}</span>${agentStatus(a)}
+        <span class="acts">${acts}</span></div>
+      <div class="muted small">${esc(a.summary)}${a.homepage ? ` · <a href="${esc(a.homepage)}" target="_blank" rel="noopener">docs ↗</a>` : ""}</div>
+      ${signin}${home}</div>`;
   }).join("");
+  $("#attn-agents").classList.toggle("on", agents.some((a) => (a.installed && !a.ready) || a.needs_restore || (a.home_copies || []).length));
 }
 
 function renderKeys(keys) {
   $("#keys").innerHTML = keys.map((k) => `
     <div class="item" data-item="${esc(k.key)}">
-      <div class="row"><span class="name">${esc(k.label)}</span><code>${esc(k.key)}</code>
-        ${k.present ? '<span class="pill ok">set</span>' : '<span class="pill">not set</span>'}
-        <span class="grow"></span>
-        <form class="row" data-key="${esc(k.key)}">
-          <input type="password" autocomplete="off" placeholder="${k.present ? "replace key" : "paste key"}" aria-label="${esc(k.key)}">
+      <div class="item-head"><span class="name">${esc(k.label)}</span>
+        ${k.present ? '<span class="pill ok">Set</span>' : '<span class="pill">Not set</span>'}
+        <form class="key-form" data-key="${esc(k.key)}">
+          <input type="password" autocomplete="off" placeholder="${k.present ? "Paste a new key to replace" : "Paste key"}" aria-label="${esc(k.key)}">
           <button class="primary" type="submit">Save</button>
-          ${k.present ? `<button class="ghost" type="button" data-clear="${esc(k.key)}">Clear</button>` : ""}
+          ${k.present ? `<button class="link danger" type="button" data-clear="${esc(k.key)}">Clear</button>` : ""}
         </form></div>
-      <div class="muted small">Used by ${esc(k.used_by.join(", "))}${k.signup_url ? ` · <a href="${esc(k.signup_url)}" target="_blank" rel="noopener">get a key</a>` : ""}
-        ${k.sources.includes("environment") ? " · also set in the environment" : ""}</div>
+      <div class="muted small"><code>${esc(k.key)}</code> · used by ${esc(k.used_by.join(", "))}${k.signup_url ? ` · <a href="${esc(k.signup_url)}" target="_blank" rel="noopener">get a key ↗</a>` : ""}${k.sources.includes("environment") ? " · also set in the environment" : ""}</div>
     </div>`).join("");
 }
 
@@ -285,7 +423,7 @@ document.addEventListener("submit", async (ev) => {
   if (!form) return;
   ev.preventDefault();
   const input = $("input", form), value = input.value.trim();
-  if (!value) return;
+  if (!value) return input.focus();
   try { await api("POST", `keys/${form.dataset.key}`, { value }); input.value = ""; toast("Key saved."); }
   catch (e) { toast(e.message, e.hint); }
   refresh();
@@ -293,85 +431,137 @@ document.addEventListener("submit", async (ev) => {
 document.addEventListener("click", async (ev) => {
   const b = ev.target.closest("button[data-clear]");
   if (!b) return;
+  if (!confirm(`Clear ${b.dataset.clear}?`)) return;
   try { await api("DELETE", `keys/${b.dataset.clear}`); toast("Key cleared."); } catch (e) { toast(e.message, e.hint); }
   refresh();
 });
 
-function size(n) { return n > 1e9 ? (n / 1e9).toFixed(1) + " GB" : n > 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " kB"; }
+function projectState(p) {
+  if (!p.git) return '<span class="muted">not a git repository</span>';
+  const bits = [];
+  if (p.dirty) bits.push(`<span class="pill warn">${plural(p.dirty, "uncommitted change")}</span>`);
+  if (p.ahead) bits.push(`<span class="pill warn">${plural(p.ahead, "unpushed commit")}</span>`);
+  if (p.ahead == null && p.branch) bits.push('<span class="pill">not pushed anywhere</span>');
+  return bits.length ? bits.join(" ") : '<span class="pill ok">clean</span>';
+}
 
-function renderSave(st, busy) {
-  const code = st.code;
-  $("#save-intro").innerHTML = (code.entries.length
-    ? `${code.entries.length} project(s) in <code>${esc(code.src)}</code>, which is wiped when the session ends. `
-    : `Nothing in <code>${esc(code.src || "$SCRATCH/src")}</code> yet. `)
-    + `Snapshots keep your code, including uncommitted work, in <code>${esc(st.snapshot_root)}</code>. Environments are rebuilt from lockfiles.`;
-  document.querySelectorAll('[data-op="save_snapshot"]').forEach((b) => (b.disabled = busy || !code.entries.length));
+function renderCode(st, busy) {
+  const code = st.code, projects = code.projects || [];
+  const src = esc(code.src || "$SCRATCH/src");
+  $("#code-intro").innerHTML = `Your code lives in <code>${src}</code>, which is wiped when the session ends.
+    A snapshot saves all of it, including uncommitted work, to <code>${esc(st.snapshot_root)}</code>.`;
+  $("#projects").innerHTML = projects.length ? `
+    <table class="projects"><thead><tr><th>Project</th><th>Branch</th><th>State</th></tr></thead><tbody>
+    ${projects.map((p) => `<tr><td class="name">${esc(p.name)}</td>
+      <td>${p.git ? `${esc(p.branch || "detached")} <span class="muted">${esc(p.head || "")}</span>` : ""}</td>
+      <td>${projectState(p)}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="empty">Nothing in <code>${src}</code> yet. In the Terminal tab, run
+       <code class="copy" title="Click to copy">canfar lab clone OWNER/REPO</code> or
+       <code class="copy" title="Click to copy">canfar lab init NAME</code>.</div>`;
+  $$('[data-op="save_snapshot"]').forEach((b) => (b.disabled = busy || !projects.length));
   $("#snapshots").innerHTML = st.snapshots.length ? st.snapshots.map((s) => {
-    const repos = (s.repos || []).map((r) => `${esc(r.path)}${r.branch ? "@" + esc(r.branch) : ""}${r.dirty ? ` <span class="pill warn">${r.dirty} changed</span>` : ""}`).join(", ");
-    return `<div class="item"><div class="row"><span class="name">${esc(s.name)}</span>
-        <span class="muted small">${esc(s.created_at)} · ${size((s.src_bytes || 0) + (s.dsh_bytes || 0))}</span>
-        <span class="grow"></span>
-        <button class="primary" data-op="restore_snapshot" data-name="${esc(s.name)}" ${busy ? "disabled" : ""}>Restore</button>
-        <button class="danger" data-op="delete_snapshot" data-name="${esc(s.name)}" ${busy ? "disabled" : ""}>Delete</button></div>
-      <div class="muted small">${repos || "no git repos"}${s.dsh_state ? " · assistant history" : ""}</div></div>`;
-  }).join("") : '<p class="muted">No snapshots yet.</p>';
+    const repos = (s.repos || []).map((r) => esc(r.path) + (r.dirty ? ` <span class="pill warn">${r.dirty} uncommitted</span>` : "")).join(", ");
+    return `<div class="item"><div class="item-head"><span class="name">${esc(s.name)}</span>
+        <span class="muted small" title="${esc(stamp(s.created_at))}">saved ${esc(ago(s.created_at))} · ${esc(size((s.src_bytes || 0) + (s.dsh_bytes || 0)))}</span>
+        <span class="acts">
+          <button data-op="restore_snapshot" data-name="${esc(s.name)}"${busy ? " disabled" : ""}>Restore</button>
+          <button class="link danger" data-op="delete_snapshot" data-name="${esc(s.name)}"${busy ? " disabled" : ""}>Delete</button></span></div>
+      <div class="muted small">${repos || "no git repositories"}${s.dsh_state ? " · assistant history" : ""}</div></div>`;
+  }).join("") : '<div class="empty">No snapshots yet. Save one before you leave the session.</div>';
+  const step = (st.onboarding.steps || []).find((s) => s.id === "code");
+  $("#attn-code").classList.toggle("on", !!(step && step.status !== "done" && projects.length));
 }
 
 async function refreshCluster() {
   const el = $("#cluster");
   try {
     const c = await api("GET", "cluster"), busy = !!(state && state.job && state.job.state === "running");
+    const dis = busy ? " disabled" : "";
     if (!c.running) {
-      el.innerHTML = `<p>No cluster running. Starting one creates an autoscaling Ray head; workers are added
-        when jobs need them and removed when idle.</p>
-        <button class="primary" data-op="cluster_start" ${busy ? "disabled" : ""}>Start cluster</button>
-        <p class="muted small" style="margin-top:8px">${esc(c.detail || "")}</p>`;
+      const why = c.state === "starting" || c.state === "unreachable"
+        ? `<p>${esc(c.message)}</p>
+           <div class="row"><button class="link danger" data-op="cluster_stop"${dis}>Stop it</button></div>`
+        : `<p>No cluster is running. Starting one creates a Ray head in its own CANFAR session; workers are added
+           when your jobs need them and removed when idle.</p>
+           <div class="row"><button class="primary" data-op="cluster_start"${dis}>Start a cluster</button></div>`;
+      el.innerHTML = `<div class="card"><h2>Ray cluster</h2>${why}
+        ${c.detail && c.state !== "none" ? `<details class="small muted" style="margin-top:10px"><summary>Details</summary>${esc(c.detail)}</details>` : ""}</div>`;
       return;
     }
-    const jobs = c.jobs.length ? c.jobs.map((j) => `<div class="item small"><div class="row"><code>${esc(j.id)}</code>
-        <span class="pill ${j.status === "succeeded" ? "ok" : j.status === "failed" ? "bad" : ""}">${esc(j.status)}</span>
-        <span class="grow muted">${esc(j.entrypoint)}</span></div></div>`).join("") : '<p class="muted small">No jobs yet. Submit with <code class="copy">canfar lab run script.py</code>.</p>';
-    el.innerHTML = `<div class="row" style="margin-bottom:10px"><span class="pill ok">${esc(c.phase)}</span>
-        <span>${esc(c.workers_joined ?? 0)} worker(s) · ${esc(c.nodes_alive ?? "?")} node(s)</span>
+    const jobs = c.jobs.length ? c.jobs.map((j) => `<div class="item small"><div class="item-head"><code>${esc(j.id)}</code>
+        <span class="pill ${j.status === "SUCCEEDED" || j.status === "succeeded" ? "ok" : /fail/i.test(j.status) ? "bad" : "run"}">${esc(String(j.status).toLowerCase())}</span>
+        <span class="grow muted">${esc(j.entrypoint)}</span>
+        ${j.start_time ? `<span class="muted">${esc(ago(j.start_time / 1000))}</span>` : ""}</div></div>`).join("")
+      : '<div class="empty">No jobs yet. Submit one from the Terminal tab with <code class="copy" title="Click to copy">canfar lab run script.py</code>.</div>';
+    el.innerHTML = `<div class="card"><div class="item-head"><h2>Ray cluster</h2><span class="pill ok">${esc(c.phase)}</span>
         ${c.authenticated ? "" : '<span class="pill warn">CANFAR login missing</span>'}
-        <span class="grow"></span>
-        ${c.dashboard_url ? `<a href="${esc(c.dashboard_url)}" target="_blank" rel="noopener">Ray dashboard ↗</a>` : ""}
-        <button class="danger" data-op="cluster_stop" ${busy ? "disabled" : ""}>Stop</button></div>
-      <h2>Recent jobs</h2><div class="list">${jobs}</div>`;
-  } catch (e) { el.textContent = e.message; }
+        <span class="acts">${c.dashboard_url ? `<a href="${esc(c.dashboard_url)}" target="_blank" rel="noopener">Ray dashboard ↗</a>` : ""}
+          <button class="link danger" data-op="cluster_stop"${dis}>Stop</button></span></div>
+      <div class="stats">
+        <div class="stat"><div class="v">${esc(c.workers_joined ?? 0)}</div><div class="k">workers</div></div>
+        <div class="stat"><div class="v">${esc(c.nodes_alive ?? "–")}</div><div class="k">Ray nodes</div></div>
+      </div>
+      <h3>Recent jobs</h3><div class="list">${jobs}</div></div>`;
+  } catch (e) { el.innerHTML = `<div class="card"><h2>Ray cluster</h2><p>Could not check the cluster: ${esc(e.message)}</p></div>`; }
 }
 
-// ---- job bar + SSE --------------------------------------------------------
+// ---- activity bar + log -----------------------------------------------------
+
+function jobVisible(job) {
+  if (!job || dismissed === job.id) return false;
+  if (job.state === "running" || job.state === "failed" || logOpen) return true;
+  return job.ended && Date.now() / 1000 - job.ended < 120;  // a fresh success, briefly
+}
 
 function renderJob(job) {
-  const bar = $("#jobbar");
-  if (!job) { bar.hidden = true; return; }
-  bar.hidden = false;
+  const bar = $("#activity");
+  bar.hidden = !jobVisible(job);
+  if (bar.hidden) return;
   const pill = $("#job-pill");
-  pill.className = "pill " + (job.state === "ok" ? "ok" : job.state === "failed" ? "bad" : "warn");
+  pill.className = "pill " + (job.state === "ok" ? "ok" : job.state === "failed" ? "bad" : "run");
   pill.textContent = job.state === "running" ? "running" : job.state === "ok" ? "done" : "failed";
   $("#job-label").innerHTML = esc(job.label) + (job.error ? ` — <span style="color:var(--bad)">${rich(job.error)}</span>` : "")
     + (job.hint ? ` <span class="muted small">${rich(job.hint)}</span>` : "") + resultNote(job);
+  $("#job-time").textContent = job.state === "running" ? `started ${ago(job.started)}` : job.ended ? ago(job.ended) : "";
+  const pre = $("#log-pre");
+  if (!streaming && !pre.dataset.job && job.tail && job.tail.length) {  // finished before this page opened
+    pre.textContent = job.tail.join("\n"); pre.dataset.job = job.id;
+  }
 }
 
 function resultNote(job) {
   const r = job.result || {};
   if (job.kind === "snapshot_restore" && job.state === "ok") {
     let s = r.skipped && r.skipped.length ? ` <span class="muted small">Kept your current ${esc(r.skipped.join(", "))}.</span>
-      <button class="ghost" data-op="restore_snapshot" data-name="${esc(r.name)}" data-overwrite="1">Replace them</button>` : "";
-    if (r.dsh && r.dsh.restart_required) s += ' <span class="muted small">Reload the Agent tab to see restored history.</span>';
+      <button data-op="restore_snapshot" data-name="${esc(r.name)}" data-overwrite="1">Replace them</button>` : "";
+    if (r.dsh && r.dsh.restart_required) s += ' <span class="muted small">Reload the Agent tab to see the restored history.</span>';
     return s;
   }
-  if (job.kind === "agent:install" && job.state === "ok") return ' <span class="muted small">Sign in from the Agent tab terminal.</span>';
+  if (job.kind === "agent:install" && job.state === "ok") return ' <span class="muted small">Next: sign in from the Terminal tab.</span>';
+  if ((job.kind === "agent:clean-home" || job.kind === "agent:rehome") && job.state === "ok" && r.freed)
+    return ` <span class="muted small">Freed ${esc(size(r.freed))} in your home.</span>`;
   return "";
+}
+
+async function loadLog(job) {
+  const pre = $("#log-pre");
+  if (streaming && streaming.id === job.id) return;
+  try {
+    const data = await api("GET", `jobs/${job.id}`);
+    const lines = data.job.tail || [];
+    pre.textContent = lines.length ? lines.join("\n") : "(no output)";
+    pre.dataset.job = job.id;
+    pre.scrollTop = pre.scrollHeight;
+  } catch (e) { pre.textContent = "Could not load the log: " + e.message; }
 }
 
 function follow(job) {
   renderJob(job);
+  if (job.state !== "running") return;
   if (streaming && streaming.id === job.id) return;
   if (streaming) streaming.es.close();
   const pre = $("#log-pre");
-  pre.textContent = "";
+  pre.textContent = ""; pre.dataset.job = job.id;
   const es = new EventSource(`api/jobs/${job.id}/events`);
   streaming = { id: job.id, es };
   es.addEventListener("line", (ev) => {
@@ -382,45 +572,63 @@ function follow(job) {
   es.addEventListener("done", (ev) => {
     es.close(); streaming = null;
     const done = JSON.parse(ev.data);
+    if (done.state === "failed") setLog(true);
     renderJob(done);
-    if (done.state === "failed") $("#jobbar").classList.add("open");
     refresh();
   });
+  // Dropped (proxy restart, network): the next refresh re-follows a running job.
   es.onerror = () => { es.close(); if (streaming && streaming.es === es) streaming = null; };
 }
 
+function setLog(open) {
+  logOpen = open;
+  $("#activity").classList.toggle("open", open);
+  $("#job-toggle").textContent = open ? "Hide log" : "Show log";
+  $("#job-toggle").setAttribute("aria-expanded", String(open));
+}
 $("#job-toggle").addEventListener("click", () => {
-  const bar = $("#jobbar");
-  bar.classList.toggle("open");
-  $("#job-toggle").textContent = bar.classList.contains("open") ? "Hide log" : "Show log";
+  setLog(!logOpen);
+  if (logOpen && state && state.job) loadLog(state.job);
+});
+$("#job-close").addEventListener("click", () => {
+  if (state && state.job) dismissed = state.job.id;
+  setLog(false); $("#activity").hidden = true;
 });
 
 // ---- tabs + refresh ---------------------------------------------------------
 
 function selectTab(tab) {
-  document.querySelectorAll("nav.tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === tab));
-  document.querySelectorAll("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== tab));
-  try { localStorage.setItem("lab.tab", tab); } catch (_) { /* storage unavailable */ }
+  $$("nav.tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+  $$("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== tab));
+  store.set("lab.tab", tab);
   clearInterval(clusterTimer);
   if (tab === "cluster") { refreshCluster(); clusterTimer = setInterval(refreshCluster, 10000); }
 }
-document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
+$$("nav.tabs button").forEach((b) => b.addEventListener("click", () => selectTab(b.dataset.tab)));
+$("nav.tabs").addEventListener("keydown", (ev) => {  // arrow keys move between tabs
+  if (ev.key !== "ArrowRight" && ev.key !== "ArrowLeft") return;
+  const tabs = $$("nav.tabs button"), i = tabs.indexOf(document.activeElement);
+  if (i < 0) return;
+  const next = tabs[(i + (ev.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+  next.focus(); selectTab(next.dataset.tab);
+});
 
 async function refresh() {
   try {
     state = await api("GET", "state");
-  } catch (e) { $("#headline").textContent = "The Lab service is not answering: " + e.message; return; }
+  } catch (e) { $("#headline").textContent = "The Lab is not answering: " + e.message; return; }
   const busy = !!(state.job && state.job.state === "running");
-  renderWelcome(state.onboarding, busy);
+  renderHeader(state);
+  renderStatus(state.onboarding, busy);
   renderAgents(state.agents, busy);
   renderKeys(state.keys);
-  renderSave(state, busy);
-  if (state.job) (state.job.state === "running" ? follow(state.job) : (!streaming && renderJob(state.job)));
+  renderCode(state, busy);
+  if (state.job) follow(state.job); else $("#activity").hidden = true;
 }
 
-let saved = "agents";
-try { saved = localStorage.getItem("lab.tab") || "agents"; } catch (_) { /* storage unavailable */ }
-selectTab(saved);
+let saved = store.get("lab.tab", "agents");
+if (saved === "save") saved = "code";  // renamed tab
+selectTab(["agents", "keys", "code", "cluster"].includes(saved) ? saved : "agents");
 refresh();
 setInterval(() => { if (!document.hidden && !streaming) refresh(); }, 15000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });

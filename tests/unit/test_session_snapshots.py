@@ -57,6 +57,7 @@ def test_save_and_restore_round_trip(scratch: Path) -> None:
             "head": saved["repos"][0]["head"],
             "remote": "",
             "dirty": 1,
+            "ahead": None,
         }
     ]
     assert [r["name"] for r in snapshots.list_snapshots()] == ["s1"]

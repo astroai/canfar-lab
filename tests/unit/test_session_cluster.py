@@ -18,13 +18,71 @@ def test_status_not_running_when_no_manager(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr(wl, "cluster_status_payload", _no_address)
     monkeypatch.setattr(wl, "dashboard_url_payload", _no_address)
+    monkeypatch.setattr(cluster, "_live_manager", lambda: (None, False, None))
+    for name in ("CANFAR_RAY_JOBS_ADDRESS", "RAY_DASHBOARD_URL"):
+        monkeypatch.delenv(name, raising=False)
     result = cluster.status()
     assert result == {
         "ok": True,
         "running": False,
+        "state": "none",
+        "message": "No cluster is running.",
         "detail": "No Ray manager address.",
         "dashboard_url": None,
     }
+
+
+def test_stale_exported_address_is_forgotten(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Session start exported a dead manager's URL: say "none", not a raw 404."""
+    dead = "https://workloads.canfar.net/session/contrib/old123/dashboard"
+    monkeypatch.setenv("CANFAR_RAY_JOBS_ADDRESS", dead)
+    cleared: list[bool] = []
+
+    def _gone(address: str | None = None) -> dict[str, Any]:
+        raise RuntimeError("Client error '404 Not Found' for url '.../api/v1/status'")
+
+    monkeypatch.setattr(wl, "cluster_status_payload", _gone)
+    monkeypatch.setattr(cluster, "_live_manager", lambda: (None, False, None))
+    import canfar_workload.dashboard as dash
+
+    monkeypatch.setattr(dash, "clear_persisted_connect_urls", lambda: cleared.append(True) or 1)
+    result = cluster.status()
+    assert result["state"] == "none" and result["message"] == "No cluster is running."
+    assert "CANFAR_RAY_JOBS_ADDRESS" not in __import__("os").environ
+    assert cleared == [True]
+
+
+def test_stale_exported_address_falls_back_to_live_manager(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CANFAR_RAY_JOBS_ADDRESS", "https://x/session/contrib/old/dashboard")
+    live = "https://x/session/contrib/new/dashboard"
+    payload = {"cluster": {"phase": "Ready"}, "joined_workers": 1, "auth": {"authenticated": True}}
+
+    def _status(address: str | None = None) -> dict[str, Any]:
+        if address != live:
+            raise RuntimeError("404")
+        return payload
+
+    monkeypatch.setattr(wl, "cluster_status_payload", _status)
+    monkeypatch.setattr(wl, "dashboard_url_payload", lambda address=None: address)
+    monkeypatch.setattr(cluster, "_live_manager", lambda: (live, True, "new"))
+    result = cluster.status()
+    assert result["state"] == "running" and result["address"] == live
+    assert result["dashboard_url"] == live
+
+
+def test_manager_without_address_is_starting(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("CANFAR_RAY_JOBS_ADDRESS", "RAY_DASHBOARD_URL"):
+        monkeypatch.delenv(name, raising=False)
+
+    def _none(address: str | None = None) -> dict[str, Any]:
+        raise typer.BadParameter("No Ray manager address.")
+
+    monkeypatch.setattr(wl, "cluster_status_payload", _none)
+    monkeypatch.setattr(cluster, "_live_manager", lambda: (None, True, "pend1"))
+    result = cluster.status()
+    assert result["state"] == "starting" and result["manager_id"] == "pend1"
 
 
 def test_status_running(monkeypatch: pytest.MonkeyPatch) -> None:

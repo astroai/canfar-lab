@@ -53,7 +53,7 @@ COOKIE = "lab_token"
 WRITE_HEADER = "X-Canfar-Lab"
 MAX_BODY = 64 * 1024
 SSE_HEARTBEAT_SEC = 15.0
-AGENT_VERBS = ("install", "update", "remove", "setup")
+AGENT_VERBS = ("install", "update", "remove", "setup", "clean-home", "rehome")
 LOOPBACK = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 
 
@@ -62,7 +62,27 @@ LOOPBACK = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 # --------------------------------------------------------------------------
 
 
-def code_state() -> dict[str, Any]:
+def session_info() -> dict[str, Any]:
+    """Session id, $SCRATCH and its free space, for the page header."""
+    import shutil
+
+    from canfar_lab.session import snapshots
+
+    scratch = snapshots.scratch_dir()
+    free = None
+    if scratch is not None:
+        with contextlib.suppress(OSError):
+            free = shutil.disk_usage(scratch).free
+    return {
+        "id": (os.environ.get("skaha_sessionid") or "").strip() or None,  # noqa: SIM112
+        "scratch": str(scratch) if scratch else None,
+        "scratch_free": free,
+        "home": str(Path.home()),
+    }
+
+
+def code_state(*, with_repos: bool = True) -> dict[str, Any]:
+    """What is in ``$SCRATCH/src``. *with_repos* adds git state per project (slower)."""
     from canfar_lab.session import snapshots
 
     scratch = snapshots.scratch_dir()
@@ -70,10 +90,16 @@ def code_state() -> dict[str, Any]:
     entries: list[str] = []
     if src is not None and src.is_dir():
         entries = sorted(p.name for p in src.iterdir() if not p.name.startswith("."))
+    repos = snapshots.repo_summary(src) if with_repos and src is not None and src.is_dir() else []
+    by_path = {r["path"]: r for r in repos}
+    projects = [
+        {"name": name, "git": name in by_path, **(by_path.get(name) or {})} for name in entries
+    ]
     return {
         "src": str(src) if src else None,
         "entries": entries,
-        "repos": snapshots.repo_summary(src) if src is not None and src.is_dir() else [],
+        "repos": repos,
+        "projects": projects,
     }
 
 
@@ -90,6 +116,7 @@ def lab_state(
     returning: bool | None = None,
     started_at: float | None = None,
     restore_code: bool = True,
+    with_repos: bool = True,
 ) -> dict[str, Any]:
     from canfar_lab.session import agents
     from canfar_lab.session import snapshots as snap_mod
@@ -97,13 +124,14 @@ def lab_state(
 
     agent_state = agents.status()
     snaps = snapshot_rows()
-    code = code_state()
+    code = code_state(with_repos=with_repos)
     latest = runner.latest()
     job = latest.to_dict(tail=40) if latest else None
     return {
         "ok": True,
         "version": display_version(),
         "user": os.environ.get("USER", ""),
+        "session": session_info(),
         "snapshot_root": str(snap_mod.snapshot_root()),
         "agents": agent_state["agents"],
         "keys": agent_state["keys"],
@@ -141,7 +169,7 @@ def cluster_state() -> dict[str, Any]:
 
     status = cluster.status()
     status.pop("raw", None)
-    jobs = cluster.jobs(limit=10) if status.get("running") else {"jobs": []}
+    jobs = cluster.jobs(status.get("address"), limit=10) if status.get("running") else {"jobs": []}
     return {**status, "jobs": jobs.get("jobs") or []}
 
 
@@ -198,10 +226,18 @@ def start_action(runner: JobRunner, op: str, **kw: Any) -> Job:
             "update": agents.update,
             "remove": agents.remove,
             "setup": agents.setup,
+            "clean-home": agents.remove_home_copies,
+            "rehome": agents.rehome,
         }[verb]
-        return runner.start(
-            f"agent:{verb}", f"{verb.title()} {spec.label}", lambda _j: fn(agent_id)
-        )
+        label = {
+            "install": f"Install {spec.label}",
+            "update": f"Update {spec.label}",
+            "remove": f"Remove {spec.label}",
+            "setup": f"Set up {spec.label} for CANFAR",
+            "clean-home": f"Remove {spec.label} copies from your home",
+            "rehome": f"Move {spec.label} to $SCRATCH",
+        }[verb]
+        return runner.start(f"agent:{verb}", label, lambda _j: fn(agent_id))
     if op == "save_snapshot":
         name = kw.get("name") or None
         if name is not None:
@@ -254,12 +290,13 @@ class LabServer(ThreadingHTTPServer):
         #: Whether the startup job restores code (``--restore-code``).
         self.restore_code = False
 
-    def state(self) -> dict[str, Any]:
+    def state(self, *, with_repos: bool = True) -> dict[str, Any]:
         return lab_state(
             self.runner,
             returning=self.returning,
             started_at=self.started_at,
             restore_code=self.restore_code,
+            with_repos=with_repos,
         )
 
 
@@ -273,7 +310,7 @@ _ROUTES: list[tuple[str, re.Pattern[str], str]] = [
     ("GET", re.compile(r"/api/jobs/(?P<job>\d+)"), "job"),
     ("GET", re.compile(r"/api/jobs/(?P<job>\d+)/events"), "events"),
     ("POST", re.compile(r"/api/agents/restore"), "agents_restore"),
-    ("POST", re.compile(r"/api/agents/(?P<agent>[a-z0-9-]+)/(?P<verb>[a-z]+)"), "agent"),
+    ("POST", re.compile(r"/api/agents/(?P<agent>[a-z0-9-]+)/(?P<verb>[a-z-]+)"), "agent"),
     ("POST", re.compile(r"/api/keys/(?P<key>[A-Z][A-Z0-9_]+)"), "key_set"),
     ("DELETE", re.compile(r"/api/keys/(?P<key>[A-Z][A-Z0-9_]+)"), "key_unset"),
     ("POST", re.compile(r"/api/snapshots"), "snapshot_save"),
@@ -452,7 +489,7 @@ class LabHandler(BaseHTTPRequestHandler):
         self._json(HTTPStatus.OK, self.lab.state())
 
     def _r_onboarding(self, *, query: dict[str, list[str]]) -> None:
-        state = self.lab.state()["onboarding"]
+        state = self.lab.state(with_repos=False)["onboarding"]
         self._json(HTTPStatus.OK, {"ok": True, **{k: v for k, v in state.items() if k != "steps"}})
 
     def _r_cluster(self, *, query: dict[str, list[str]]) -> None:

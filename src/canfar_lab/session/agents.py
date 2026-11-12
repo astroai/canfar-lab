@@ -10,7 +10,9 @@ them at the next session start. Key values never leave
 
 from __future__ import annotations
 
+import contextlib
 import os
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,7 @@ class LabAgent:
     keys: tuple[str, ...]
     login: str
     auth_files: tuple[str, ...] = ()
+    home_installs: tuple[str, ...] = ()
 
 
 def _auth_path(raw: str, home: Path) -> Path:
@@ -45,6 +48,89 @@ def signed_in(agent: LabAgent, home: Path) -> bool | None:
     if not agent.auth_files:
         return None
     return any(_auth_path(raw, home).exists() for raw in agent.auth_files)
+
+
+def _tree_bytes(path: Path) -> int:
+    if path.is_symlink() or path.is_file():
+        try:
+            return path.lstat().st_size
+        except OSError:
+            return 0
+    total = 0
+    for root, _dirs, files in os.walk(path):
+        for name in files:
+            with contextlib.suppress(OSError):
+                total += (Path(root) / name).lstat().st_size
+    return total
+
+
+def home_copies(agent: LabAgent, home: Path | None = None) -> list[dict[str, Any]]:
+    """Program copies of *agent* under $HOME (not the Lab's $SCRATCH one).
+
+    Only in a session with ``$SCRATCH``: on a laptop the home *is* where the
+    Lab installs, so nothing there is a stray copy.
+    """
+    home = _home(home)
+    scratch = scratch_root()
+    if scratch is None:
+        return []
+    rows: list[dict[str, Any]] = []
+    for raw in agent.home_installs:
+        if not raw.startswith("~/"):
+            continue
+        path = home / raw[2:]
+        if not (path.exists() or path.is_symlink()):
+            continue
+        if path.is_symlink() and scratch is not None:
+            # A link into the Lab's own copy is how some installers expose it.
+            with contextlib.suppress(OSError):
+                if path.resolve().is_relative_to(scratch):
+                    continue
+        rows.append({"path": raw, "bytes": _tree_bytes(path)})
+    return rows
+
+
+def remove_home_copies(agent_id: str, home: Path | None = None) -> dict[str, Any]:
+    """Delete *agent_id*'s program copies from $HOME. Config and logins stay."""
+    agent = get_lab_agent(agent_id)
+    home = _home(home)
+    removed: list[str] = []
+    errors: list[str] = []
+    freed = 0
+    for row in home_copies(agent, home):
+        path = home / row["path"][2:]
+        print(f"Removing {row['path']}", flush=True)
+        try:
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+        except OSError as exc:
+            errors.append(f"{row['path']}: {exc}")
+            continue
+        removed.append(row["path"])
+        freed += int(row["bytes"])
+    return {
+        "ok": not errors,
+        "agent": agent_id,
+        "removed": removed,
+        "freed": freed,
+        "errors": errors,
+    }
+
+
+def rehome(agent_id: str, home: Path | None = None) -> dict[str, Any]:
+    """Remove *agent_id*'s home copies, then install it on $SCRATCH (one job)."""
+    cleaned = remove_home_copies(agent_id, home)
+    if not cleaned["ok"]:
+        return cleaned
+    result = install(agent_id)
+    return {**result, "removed": cleaned["removed"], "freed": cleaned["freed"]}
+
+
+def scratch_root() -> Path | None:
+    raw = os.environ.get("SCRATCH", "").strip()
+    return Path(raw).resolve() if raw and Path(raw).is_dir() else None
 
 
 def lab_agents(root: Path | None = None) -> list[LabAgent]:
@@ -80,6 +166,7 @@ def lab_agents(root: Path | None = None) -> list[LabAgent]:
                 keys=keys,
                 login=str(entry.get("login") or ""),
                 auth_files=tuple(str(p) for p in entry.get("auth_files") or ()),
+                home_installs=tuple(str(p) for p in entry.get("home_installs") or ()),
             )
         )
     if len({a.id for a in agents}) != len(agents):
@@ -148,13 +235,17 @@ def status(home: Path | None = None, *, probe_version: bool = False) -> dict[str
         ]
         login_ok = signed_in(agent, home)
         has_key = any(k["present"] for k in agent_keys)
+        copies = home_copies(agent, home)
+        # A copy the Lab flags as stray (home, off PATH in the image) does not
+        # count: the Lab installs its own on $SCRATCH.
+        installed = bool(probe["binary_ok"]) and not (copies and not probe["managed"])
         rows.append(
             {
                 "id": agent.id,
                 "label": agent.label,
                 "summary": probe["summary"],
                 "homepage": reg.get("homepage") or "",
-                "installed": bool(probe["binary_ok"]),
+                "installed": installed,
                 "binary": probe["binary"],
                 "binary_path": probe["binary_path"],
                 "managed": probe["managed"],
@@ -163,14 +254,14 @@ def status(home: Path | None = None, *, probe_version: bool = False) -> dict[str
                 "config_ok": bool(probe["config_ok"]),
                 "version": probe["version"],
                 "remembered": agent.id in remembered,
-                "needs_restore": agent.id in remembered and not probe["binary_ok"],
+                "needs_restore": agent.id in remembered and not installed,
                 "login": agent.login,
+                "home_copies": copies,
                 "signed_in": login_ok,
                 "keys": agent_keys,
                 # Installed and able to call a model: a login file or a key.
                 # When the login is undetectable (keyring), trust an install.
-                "ready": bool(probe["binary_ok"])
-                and (has_key or login_ok is True or login_ok is None),
+                "ready": installed and (has_key or login_ok is True or login_ok is None),
             }
         )
     return {"ok": True, "agents": rows, "keys": lab_keys(home)}

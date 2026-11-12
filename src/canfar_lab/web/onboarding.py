@@ -30,6 +30,15 @@ def _names(rows: list[dict[str, Any]]) -> str:
     return ", ".join(labels[:-1]) + f" and {labels[-1]}"
 
 
+def _list(names: list[str], limit: int = 4) -> str:
+    """``a``, ``a and b``, ``a, b and c``, ``a, b, c, d and 3 more``."""
+    if len(names) > limit:
+        return ", ".join(names[:limit]) + f" and {len(names) - limit} more"
+    if len(names) <= 2:
+        return " and ".join(names)
+    return ", ".join(names[:-1]) + f" and {names[-1]}"
+
+
 def _job_kind(job: dict[str, Any] | None) -> str:
     if job and job.get("state") == "running":
         return str(job.get("kind") or "")
@@ -64,7 +73,7 @@ def _agents_step(agents: list[dict[str, Any]], running: str) -> dict[str, Any]:
     return {
         **step,
         "status": "todo",
-        "detail": "Install a coding agent to use from the Agent tab terminal. "
+        "detail": "Install a coding agent to run in the Terminal tab. "
         f"Not sure? {suggested['label']} is a good start.",
         "action": {
             "label": f"Install {suggested['label']}",
@@ -85,7 +94,7 @@ def _signin_step(agents: list[dict[str, Any]]) -> dict[str, Any] | None:
         return {**step, "status": "done", "detail": f"{_names(installed)} can reach a model."}
     first = waiting[0]
     keys = [k["key"] for k in first["keys"]]
-    detail = f"In the Agent tab terminal, run `{first['login']}` and follow the sign-in link"
+    detail = f"Run `{first['login']}` in the Terminal tab and follow the sign-in link"
     detail += f", or paste an API key ({' or '.join(keys)})." if keys else "."
     return {
         **step,
@@ -126,8 +135,7 @@ def _code_step(
     if running == "snapshot_save":
         return {**step, "status": "running", "detail": "Saving to /arc…"}
     if code["entries"]:
-        n = len(code["entries"])
-        where = f"{n} project{'s' if n != 1 else ''} in {code['src']}"
+        where = f"{_list(code['entries'])} in {code['src']}"
         saved = _saved_since(latest, started_at)
         if saved and latest:
             when = latest.get("created_at", "?")

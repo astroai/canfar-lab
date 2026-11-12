@@ -142,6 +142,7 @@ def repo_summary(src: Path) -> list[dict[str, Any]]:
         if not (path / ".git").exists():
             continue
         porcelain = _git(path, "status", "--porcelain")
+        ahead = _git(path, "rev-list", "--count", "@{upstream}..HEAD")
         repos.append(
             {
                 "path": "." if path == src else path.name,
@@ -149,6 +150,8 @@ def repo_summary(src: Path) -> list[dict[str, Any]]:
                 "head": _git(path, "rev-parse", "--short", "HEAD"),
                 "remote": _git(path, "remote", "get-url", "origin"),
                 "dirty": len([line for line in porcelain.splitlines() if line.strip()]),
+                # Commits not on the remote; None when the branch tracks nothing.
+                "ahead": int(ahead) if ahead.isdigit() else None,
             }
         )
     return repos

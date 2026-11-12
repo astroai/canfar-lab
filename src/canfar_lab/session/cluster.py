@@ -8,6 +8,8 @@ Start/stop raise :class:`LabError` with the manager's message on failure.
 
 from __future__ import annotations
 
+import contextlib
+import os
 from typing import Any
 
 from canfar_lab.errors import LabError
@@ -46,18 +48,93 @@ def dashboard_url(address: str | None = None) -> str | None:
         return None
 
 
+_ADDRESS_ENV = ("CANFAR_RAY_JOBS_ADDRESS", "RAY_DASHBOARD_URL")
+
+
+def _live_manager() -> tuple[str | None, bool, str | None]:
+    """(jobs address, manager session visible, manager session id) from CANFAR."""
+    from canfar_workload.dashboard import _live_manager_connect, jobs_url_from_connect
+
+    connect, visible, manager_id = _live_manager_connect()
+    return (jobs_url_from_connect(connect) if connect else None), visible, manager_id
+
+
+def _forget_stale_address() -> None:
+    """The boot-time export pointed at a manager that is gone: drop it everywhere."""
+    from canfar_workload.dashboard import clear_persisted_connect_urls
+
+    for name in _ADDRESS_ENV:
+        os.environ.pop(name, None)
+    with contextlib.suppress(Exception):
+        clear_persisted_connect_urls()
+
+
+def _not_running(state: str, message: str, detail: str = "", **extra: Any) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "running": False,
+        "state": state,
+        "message": message,
+        "detail": detail,
+        "dashboard_url": None,
+        **extra,
+    }
+
+
 def status(address: str | None = None) -> dict[str, Any]:
-    """Manager phase, workers and dashboard URL; ``running: False`` when none is up."""
+    """Manager phase, workers and dashboard URL; ``running: False`` when none is up.
+
+    ``state`` is ``running``, ``none``, ``starting`` (a manager session exists
+    but has no address yet) or ``unreachable`` (it exists but does not answer).
+    A Jobs address exported at session start can name a manager that has
+    since gone; then the live CANFAR listing decides, and the stale address
+    is forgotten.
+    """
     from canfar_workload.cli import cluster_status_payload
 
     try:
         payload = cluster_status_payload(address)
     except _errors() as exc:
-        return {"ok": True, "running": False, "detail": _message(exc), "dashboard_url": None}
+        detail = _message(exc)
+        exported = address is None and any(os.environ.get(n) for n in _ADDRESS_ENV)
+        # An explicit address that fails is just down; with none, ask CANFAR.
+        live, visible, manager_id = _live_manager() if address is None else (None, False, None)
+        if exported and live:
+            try:
+                payload = cluster_status_payload(live)
+            except _errors() as retry_exc:
+                detail = _message(retry_exc)
+            else:
+                os.environ["CANFAR_RAY_JOBS_ADDRESS"] = live
+                return _running(payload, live)
+        if exported and not visible:
+            _forget_stale_address()
+        if visible and not live:
+            return _not_running(
+                "starting",
+                "A cluster is starting. This usually takes a minute or two.",
+                detail,
+                manager_id=manager_id,
+            )
+        if visible:
+            return _not_running(
+                "unreachable",
+                "A cluster session exists but is not answering. It may still be starting; "
+                "if this lasts, stop it and start a new one.",
+                detail,
+                manager_id=manager_id,
+            )
+        return _not_running("none", "No cluster is running.", detail)
+    return _running(payload, address)
+
+
+def _running(payload: dict[str, Any], address: str | None) -> dict[str, Any]:
     cluster = payload.get("cluster") or {}
     return {
         "ok": True,
         "running": True,
+        "state": "running",
+        "address": address,
         "phase": cluster.get("phase") or "Idle",
         "ray_address": payload.get("ray_address"),
         "nodes_alive": payload.get("ray_nodes_alive"),
@@ -65,6 +142,7 @@ def status(address: str | None = None) -> dict[str, Any]:
         "workers": payload.get("workers") or [],
         "authenticated": bool((payload.get("auth") or {}).get("authenticated")),
         "dashboard_url": dashboard_url(address),
+        "max_workers": cluster.get("max_workers"),
         "raw": payload,
     }
 

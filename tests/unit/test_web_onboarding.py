@@ -147,3 +147,11 @@ def test_startup_without_restore_code_does_not_claim_a_restore() -> None:
         restore_code=False,
     )
     assert _step(result, "code")["status"] == "todo"
+
+
+def test_code_step_names_the_projects() -> None:
+    code = {"src": "/scratch/src", "entries": ["torchfits", "zensus", "pensus"], "repos": []}
+    detail = _step(_build(code=code), "code")["detail"]
+    assert detail.startswith("torchfits, zensus and pensus in /scratch/src")
+    many = {**code, "entries": [f"p{i}" for i in range(7)]}
+    assert "p0, p1, p2, p3 and 3 more" in _step(_build(code=many), "code")["detail"]

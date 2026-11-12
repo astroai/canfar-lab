@@ -184,3 +184,66 @@ def test_signed_in_from_login_files(
     assert {r["id"]: r for r in agents.status(home)["agents"]}["opencode"]["ready"]
     # omp keeps its login where the Lab cannot see it: trust the install.
     assert rows["omp"]["signed_in"] is None and rows["omp"]["ready"]
+
+
+def test_home_copies_found_and_removed_without_touching_config(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    scratch = tmp_path / "scratch"
+    (scratch / ".local" / "bin").mkdir(parents=True)
+    monkeypatch.setenv("SCRATCH", str(scratch))
+    claude = agents.get_lab_agent("claude")
+    # A self-update's binary and versions, plus the login that must stay.
+    (home / ".local" / "bin").mkdir(parents=True)
+    (home / ".local" / "bin" / "claude").write_bytes(b"x" * 100)
+    versions = home / ".local" / "share" / "claude" / "versions"
+    versions.mkdir(parents=True)
+    (versions / "2.1.0").write_bytes(b"y" * 1000)
+    (home / ".claude").mkdir()
+    (home / ".claude" / ".credentials.json").write_text("{}", encoding="utf-8")
+    # A link into the Lab's own scratch copy is not a home copy.
+    (scratch / ".local" / "bin" / "opencode").write_bytes(b"z")
+    (home / ".local" / "bin" / "opencode").symlink_to(scratch / ".local" / "bin" / "opencode")
+
+    rows = agents.home_copies(claude, home)
+    assert [r["path"] for r in rows] == ["~/.local/bin/claude", "~/.local/share/claude/versions"]
+    assert sum(r["bytes"] for r in rows) == 1100
+    assert agents.home_copies(agents.get_lab_agent("opencode"), home) == []
+
+    result = agents.remove_home_copies("claude", home)
+    assert result["ok"] and result["freed"] == 1100
+    assert not (home / ".local" / "bin" / "claude").exists() and not versions.exists()
+    assert (home / ".claude" / ".credentials.json").is_file()
+    assert (home / ".local" / "bin" / "opencode").is_symlink()
+
+
+def test_home_installs_are_programs_only() -> None:
+    """Never list a config, login or history path as a removable copy."""
+    for agent in agents.lab_agents():
+        for raw in agent.home_installs:
+            assert raw.startswith("~/"), raw
+            assert not any(part in raw for part in (".json", ".toml", "auth", "credentials")), raw
+            assert raw not in ("~/.claude", "~/.codex", "~/.pi", "~/.config", "~/.gemini"), raw
+
+
+def test_rehome_removes_home_copies_then_installs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    (tmp_path / "scratch").mkdir()
+    monkeypatch.setenv("SCRATCH", str(tmp_path / "scratch"))
+    (home / ".opencode" / "bin").mkdir(parents=True)
+    (home / ".opencode" / "bin" / "opencode").write_bytes(b"x" * 10)
+    order: list[str] = []
+    monkeypatch.setattr(
+        agents,
+        "install",
+        lambda agent_id: (
+            order.append("install")
+            or {"ok": not (home / ".opencode" / "bin").exists(), "agent": agent_id}
+        ),
+    )
+    result = agents.rehome("opencode", home)
+    assert result["ok"] and order == ["install"]
+    assert result["removed"] == ["~/.opencode/bin"] and result["freed"] == 10
