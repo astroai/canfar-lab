@@ -113,7 +113,7 @@ canfar lab jobs logs <id> --follow
 
 ### `canfar lab save [NAME]`
 
-Save lockfiles + manifest to `~/.astroai/lab/saves/`, or list snapshots.
+Save lockfiles + manifest to `~/.canfar/lab/saves/`, or list snapshots.
 
 ```bash
 canfar lab save
@@ -201,7 +201,7 @@ quota-constrained `/arc` home, registers the managed preset root and mounts the
 | `--doctor` | Pre-flight dsh, profile, composition, skills, providers, MCP; exit non-zero on a blocking problem |
 | `--no-team` | Skip the experimental Agent Teams layers |
 | `--no-install` | Never fetch bundles (offline / image-baked setups) |
-| `--mcp-bin PATH` | Pin the `canfar-lab` binary the Studio MCP row runs (remembered in `~/.astroai/lab/.env`) |
+| `--mcp-bin PATH` | Pin the `canfar-lab` binary the Studio MCP row runs (remembered in `~/.canfar/lab/.env`) |
 | `--skills` | Print skills.sh / agentskills onboarding |
 | `--force` | Overwrite managed scaffolding |
 | `--dsh-version SPEC` | `pin\|alpha\|next\|latest\|newest\|<exact>` — resolved/reported; install with `--install-dsh` |
@@ -252,29 +252,61 @@ pull manually.
 
 ### `canfar lab web`
 
-The Lab tab of the `astroai/dsh` image: coding agents (install, update,
-remove, CANFAR MCP + skills, API keys by presence only), save/restore of
-`$SCRATCH/src` and the assistant's history to `/arc`, and the Ray cluster.
-The page opens on a short checklist that tells a new user what to install
-and a returning user what to bring back. Loopback only; every request needs
-the per-process bearer token (`$CANFAR_LAB_WEB_TOKEN`, or generated and
-written to `--token-file`). The image proxy sends it for you.
+The Settings tab (gear icon) of the `astroai/dsh` image: coding agents
+(install, update, remove, CANFAR MCP + skills, API keys by presence only),
+where code lives, save/restore of the code folder and the assistant's history
+to `/arc`, privacy of agent logins, cache location, and the Ray cluster. The
+page opens on a short checklist that tells a new user what to install and a
+returning user what to bring back. Loopback only; every request needs the
+per-process bearer token (`$CANFAR_LAB_WEB_TOKEN`, or generated and written
+to `--token-file`). The image proxy sends it for you.
 
 | Flag | What it does |
 |------|----------------|
 | `--port N` | Loopback port (default: 4792) |
 | `--host ADDR` | `127.0.0.1` or `::1` |
 | `--token-file PATH` | Where to write the token, mode 0600 (default: session runtime dir) |
-| `--restore` | At start, reinstall the agents used in earlier sessions |
-| `--restore-code` | At start, restore the latest snapshot when `$SCRATCH/src` is empty |
+| `--restore` | At start, reinstall the agents used in earlier sessions and make agent config paths owner-only |
+| `--restore-code` | Allow restoring the latest snapshot at start into an empty scratch code folder (the user's "restore at start" setting decides) |
 
 ```bash
 canfar lab web --restore --restore-code    # what the dsh image runs
 ```
 
-Snapshots go to `~/.astroai/lab/snapshots` unless `CANFAR_LAB_SNAPSHOT_DIR`
-is set. They exclude `.pixi`, `.venv` and tool caches (rebuilt from lockfiles).
-On a laptop, open the `?token=` URL printed at start once; it sets a cookie.
+While it runs, a code folder on `$SCRATCH` is snapshotted to `/arc`
+automatically (default every 30 min when something changed, keep the last 5
+automatic ones; manual snapshots are never pruned), and once more on SIGTERM
+within `CANFAR_LAB_EXIT_SAVE_SEC` (default 25 s). Snapshots go to
+`~/.canfar/lab/snapshots` unless `CANFAR_LAB_SNAPSHOT_DIR` is set. They
+exclude `.pixi`, `.venv` and tool caches (rebuilt from lockfiles). On a
+laptop, open the `?token=` URL printed at start once; it sets a cookie.
+
+The image sets `CANFAR_LAB_RESTART_FILE` (Settings writes it to restart the
+tools in a new code/cache folder) and `CANFAR_LAB_LIVE_CODE_FILE` (the folder
+the running tools use).
+
+### `canfar lab workspace show|path|set`
+
+Where code lives, kept across sessions in `~/.canfar/lab/workspace.json`
+(0600). Same settings as the Settings tab.
+
+| Mode | Folder | Notes |
+|------|--------|-------|
+| `scratch` (default) | `$SCRATCH/src` | Fast; wiped at session end; automatic snapshots to `/arc` |
+| `home` | `~/src` | Kept on `/arc`; slower; counts against the home quota |
+| `custom PATH` | any absolute writable folder | e.g. `/arc/projects/<group>/<you>`; not `$HOME` itself, not a hidden folder in `$HOME`, not system dirs |
+
+```bash
+canfar lab workspace show            # code folder, automatic saves, cache folder
+canfar lab workspace path --ensure   # print (and create) the code folder: the session's $SRCDIR
+canfar lab workspace set home
+canfar lab workspace set custom /arc/projects/mygroup/me
+```
+
+`$SRCDIR` set explicitly still wins; otherwise the saved folder is used by
+`canfar lab env export`, `clone`, `init` and the image's tools. Caches and
+agent working data stay on `$SCRATCH` unless a cache folder is chosen in
+Settings (never `/arc/home`).
 
 ### `canfar lab sync`
 
@@ -461,12 +493,12 @@ current dir under `/arc/projects` or set explicitly.
 |----------|---------|
 | `SRCDIR` / `WORK` / `SCRATCH` / `PROJECT` | Set explicitly to override detected session paths. `SRCDIR` wins over `WORK` |
 | `CANFAR_LAB_WORK_ON_SCRATCH` | Set `0` to keep `SRCDIR` on the container overlay (`/srcdir`) instead of `$SCRATCH/src` |
-| `CANFAR_LAB_SAVE_DIR` | Env saves dir (default: `~/.astroai/lab/saves`) |
+| `CANFAR_LAB_SAVE_DIR` | Env saves dir (default: `~/.canfar/lab/saves`) |
 | `CANFAR_LAB_BIN_DIR` | User CLI install dir (default: `$SCRATCH/.local/bin`) |
 | `CANFAR_LAB_RUNTIME_ROOT` | Runtime uv/pixi/mamba roots (default: scratch `.runtime-$USER`) |
 | `CANFAR_LAB_NPM_PREFIX` | npm global prefix (default: parent of `CANFAR_LAB_BIN_DIR`) |
 | `NPM_CONFIG_PREFIX` | Fallback npm prefix when `CANFAR_LAB_NPM_PREFIX` is unset |
-| `CANFAR_LAB_CONFIG_DIR` | Workbench config dir (default: `~/.astroai/lab`) |
+| `CANFAR_LAB_CONFIG_DIR` | Workbench config dir (default: `~/.canfar/lab`; earlier releases used `~/.astroai/lab`, moved here on first run and left as a symlink, with `~/.astroai/ray` -> `~/.canfar/lab/ray`) |
 | `CANFAR_LAB_PYTHONPATH` | Extra `PYTHONPATH` entries (colon-separated) |
 | `PYTHONPATH` | Existing entries are preserved and merged into the export |
 

@@ -20,6 +20,7 @@ from canfar_lab.cli.kernel import kernel_app
 from canfar_lab.cli.panel import panel_app
 from canfar_lab.cli.studio import studio_app
 from canfar_lab.cli.sync import sync_app
+from canfar_lab.cli.workspace import workspace_app
 from canfar_lab.version import display_version
 from canfar_workload.cli import register as register_workload
 
@@ -45,9 +46,20 @@ web.register(app)
 app.add_typer(panel_app, name="panel")
 app.add_typer(sync_app, name="sync")
 app.add_typer(desk_app, name="desk")
+app.add_typer(workspace_app, name="workspace")
 register_workload(app, jobs_as="jobs")
 
 lab_app = app
+
+
+def _migrate_state_home() -> None:
+    """Move ~/.astroai/{lab,ray} to ~/.canfar/lab once; never block a command."""
+    import contextlib
+
+    from canfar_lab.core.state_home import migrate_legacy_state
+
+    with contextlib.suppress(Exception):  # a failed move leaves the legacy dirs usable
+        migrate_legacy_state()
 
 
 @app.callback()
@@ -65,6 +77,8 @@ def main(
 ) -> None:
     """In-session workbench for environments and AI agents."""
     ctx.obj = GlobalOpts(json=json_output, yes=yes, dry_run=dry_run, quiet=quiet)
+    if not dry_run:
+        _migrate_state_home()
     if version:
         typer.echo(f"canfar-lab {display_version()}")
         raise typer.Exit()

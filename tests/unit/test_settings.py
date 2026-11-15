@@ -16,7 +16,7 @@ def _clear_settings_cache() -> None:
 def test_yaml_config_loaded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "home"
     home.mkdir()
-    cfg_dir = home / ".astroai" / "lab"
+    cfg_dir = home / ".canfar" / "lab"
     cfg_dir.mkdir(parents=True)
     (cfg_dir / "config.yaml").write_text("default_pm: uv\nclone_from_env: ml-base\n")
     monkeypatch.setenv("HOME", str(home))

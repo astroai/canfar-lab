@@ -17,7 +17,7 @@ It does project environments (`init` / `save` / `resume`), the Ray cluster
 | **USAGE.md** (this file) | Where to work, storage, Ray, agents |
 | [help.md](help.md) | Cheat sheet |
 | [cli.md](cli.md) | Flags and every command |
-| [config.md](config.md) | Optional `~/.astroai/lab/config.yaml` |
+| [config.md](config.md) | Optional `~/.canfar/lab/config.yaml` |
 
 In a session: `canfar lab help` · `less /opt/astroai/USAGE.md` (image user guide).
 
@@ -136,7 +136,7 @@ canfar lab clone owner/repo --dir ~/src           # persist on /arc/home
 canfar lab clone owner/repo --dir /arc/projects/mygroup
 ```
 
-`save` writes lockfiles to `~/.astroai/lab/saves/` on `/arc/home`. The next
+`save` writes lockfiles to `~/.canfar/lab/saves/` on `/arc/home`. The next
 session `resume`s that snapshot — **not** your source tree (see Code
 propagation above).
 

@@ -75,8 +75,8 @@ IN_BOX_BUNDLES: tuple[str, ...] = (
 )
 
 #: Managed (AstroAI-owned) preset and skill roots under ``$HOME``.
-MANAGED_STUDIO_REL = Path(".astroai") / "lab" / "studio"
-MANAGED_BENCH_REL = Path(".astroai") / "lab" / "review-bench"
+MANAGED_STUDIO_REL = Path(".canfar") / "lab" / "studio"
+MANAGED_BENCH_REL = Path(".canfar") / "lab" / "review-bench"
 
 #: ``~/.agents/skills`` — dsh's ``user-agents`` root (rank 500), where
 #: ``npx skills add astroai/canfar-skills`` installs.
@@ -113,7 +113,7 @@ CANFAR_MCP_TOOLS = (
     "jobs_report",
 )
 
-#: Env var (or ``~/.astroai/lab/.env`` key) pinning the ``astroai`` binary the
+#: Env var (or ``~/.canfar/lab/.env`` key) pinning the ``astroai`` binary the
 #: Studio MCP row runs, for a checkout whose CLI is ahead of the installed one.
 MCP_BIN_ENV = "ASTROAI_STUDIO_MCP_BIN"
 

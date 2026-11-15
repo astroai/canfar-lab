@@ -61,7 +61,7 @@ Models live in dsh Settings → Models.
 
 ## Credentials
 
-Shared dotenv `~/.astroai/lab/.env` (0600) + `agent-env.sh`: discovery order
+Shared dotenv `~/.canfar/lab/.env` (0600) + `agent-env.sh`: discovery order
 env → shared `.env` → opencode/Codex auth files, for keys listed in
 `support.yaml`. `canfar lab agent setup` / `studio --prepare` ensure only
 `llm-pi-ai.providers.<id> = {apiKeyEnv[, api, baseURL]}` refs.
@@ -74,4 +74,4 @@ Cursor service tokens are not usable via pi-ai (documented gap).
 npx skills add astroai/canfar-skills
 ```
 
-Also loaded: `~/.astroai/lab/review-bench/skills` (`review-panel`, `canfar-session`).
+Also loaded: `~/.canfar/lab/review-bench/skills` (`review-panel`, `canfar-session`).

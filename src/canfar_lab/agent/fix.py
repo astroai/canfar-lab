@@ -43,7 +43,7 @@ def fix_agent_setup(*, home: Path | None = None, dry_run: bool = False) -> list[
         home / ".config" / "kilo",
         home / ".config" / "goose",
         home / ".codex",
-        home / ".astroai" / "lab",
+        home / ".canfar" / "lab",
     ]
     for d in dirs_to_create:
         if not d.is_dir():

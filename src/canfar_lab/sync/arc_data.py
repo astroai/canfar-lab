@@ -1,7 +1,7 @@
 """Carry the sync doorbell through ``canfar data`` (vosfs).
 
 Git still moves the commits. The mailbox is a few JSON files under
-``arc:/home/<user>/.astroai/lab/sync``. On a session that directory is the
+``arc:/home/<user>/.canfar/lab/sync``. On a session that directory is the
 POSIX home. On a laptop, ``canfar data cp`` reads and writes the same files.
 A vosfs mount is not required. ``canfar data`` ships with the CANFAR client
 v1.5 beta; an older ``canfar`` leaves this transport off.
@@ -67,7 +67,7 @@ def _supports(runner: Runner) -> bool:
 
 
 def remote_root(user: str) -> str:
-    return f"arc:/home/{user}/.astroai/lab/sync"
+    return f"arc:/home/{user}/.canfar/lab/sync"
 
 
 def _local(path: Path) -> str:

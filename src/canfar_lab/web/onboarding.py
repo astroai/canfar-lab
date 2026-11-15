@@ -134,15 +134,51 @@ def _code_step(
         return {**step, "status": "running", "detail": "Restoring your saved work…"}
     if running == "snapshot_save":
         return {**step, "status": "running", "detail": "Saving to /arc…"}
+    where_more = {"label": "Change where code lives", "focus": "code", "item": "where"}
+    if not code.get("ephemeral", True):
+        # ~/src or a custom /arc folder: nothing to save or restore.
+        if code["entries"]:
+            return {
+                **step,
+                "status": "done",
+                "detail": f"{_list(code['entries'])} in {code['src']}, kept between sessions.",
+                "more": where_more,
+            }
+        return {
+            **step,
+            "status": "optional",
+            "detail": f"Your code lives in {code['src']} and is kept between sessions. "
+            "Start from a repository: run `canfar lab clone OWNER/REPO` in the terminal, "
+            "or `canfar lab init NAME` for a new project.",
+            "command": "canfar lab clone OWNER/REPO",
+            "more": where_more,
+        }
+    autosave = code.get("autosave") or {}
+    auto_on = bool(autosave.get("enabled"))
+    every = autosave.get("interval_min") or 30
     if code["entries"]:
         where = f"{_list(code['entries'])} in {code['src']}"
         saved = _saved_since(latest, started_at)
+        if auto_on:
+            last = (
+                f" Last saved {_when(latest.get('created_at'))}."
+                if latest
+                else " The first save happens soon."
+            )
+            return {
+                **step,
+                "status": "done",
+                "detail": f"{where}. Saved to /arc automatically every {every} min and when "
+                f"the session ends.{last}",
+                "action": {"label": "Save now", "op": "save_snapshot"},
+                "more": where_more,
+            }
         if saved and latest:
-            when = latest.get("created_at", "?")
+            when = _when(latest.get("created_at"))
             detail = f"{where}. Saved this session as “{latest['name']}” ({when})."
         elif latest:
             detail = (
-                f"{where}. Last saved {latest.get('created_at', '?')} as “{latest['name']}”; "
+                f"{where}. Last saved {_when(latest.get('created_at'))} as “{latest['name']}”; "
                 "anything changed since is lost when the session ends."
             )
         else:
@@ -152,28 +188,53 @@ def _code_step(
             "status": "done" if saved else "optional",
             "detail": detail,
             "action": {"label": "Save now", "op": "save_snapshot"},
+            "more": {"label": "Turn on automatic saves", "focus": "code", "item": "autosave"},
         }
     if latest:
         repos = [str(r.get("path")) for r in latest.get("repos") or []]
         what = f" ({', '.join(repos[:4])}{'…' if len(repos) > 4 else ''})" if repos else ""
         return {
             **step,
-            "status": "todo",
+            # "Start empty" was a choice: offer the restore, do not nag about it.
+            "status": "optional" if code.get("restore_at_start") == "never" else "todo",
             "detail": f"Pick up where you left off: “{latest['name']}”, "
-            f"saved {latest.get('created_at', '?')}{what}.",
+            f"saved {_when(latest.get('created_at'))}{what}.",
             "action": {
                 "label": "Restore my work",
                 "op": "restore_snapshot",
                 "name": latest["name"],
             },
+            "more": {"label": "Pick another snapshot", "focus": "code"},
         }
+    saves = " It is saved to /arc automatically." if auto_on else " Save it here before you leave."
     return {
         **step,
         "status": "optional",
-        "detail": "Start from a repository: run `canfar lab clone OWNER/REPO` in the terminal, "
-        "or `canfar lab init NAME` for a new project. Save it here before you leave.",
+        "detail": f"Code lives in {code['src'] or '$SCRATCH/src'} (fast; wiped when the "
+        "session ends). Start from a repository: run `canfar lab clone OWNER/REPO` in the "
+        f"terminal, or `canfar lab init NAME` for a new project.{saves}",
         "command": "canfar lab clone OWNER/REPO",
+        "more": where_more,
     }
+
+
+def _when(raw: object, now: float | None = None) -> str:
+    """'today at 14:05 UTC', 'yesterday at 09:30 UTC', 'on 6 Nov' — not raw ISO."""
+    import time
+    from datetime import datetime, timezone
+
+    try:
+        at = datetime.fromisoformat(str(raw)).astimezone(timezone.utc)
+    except ValueError:
+        return str(raw or "?")
+    today = datetime.fromtimestamp(now if now is not None else time.time(), timezone.utc).date()
+    days = (today - at.date()).days
+    clock = at.strftime("%H:%M UTC")
+    if days == 0:
+        return f"today at {clock}"
+    if days == 1:
+        return f"yesterday at {clock}"
+    return f"on {at.day} {at.strftime('%b %Y' if at.year != today.year else '%b')}"
 
 
 def is_returning(
@@ -220,13 +281,28 @@ def build(
     steps.append(
         _code_step(code, snapshots, running, started_at=started_at, restore_code=restore_code)
     )
+    if code.get("restart_needed"):
+        live = code.get("live_src") or "the old folder"
+        restart: dict[str, Any] = {
+            "id": "restart",
+            "title": "Open your new code folder",
+            "status": "todo",
+            "detail": f"Terminal, JupyterLab, VS Code and the Harness still use {live}.",
+        }
+        if code.get("restart_supported"):
+            restart["action"] = {"label": "Restart tools now", "op": "restart_tools"}
+        else:
+            restart["detail"] += " Start a new session to switch."
+        steps.append(restart)
     pending = [s for s in steps if s["status"] in ("todo", "running")]
     ready = not pending
-    unsaved = steps[-1]["status"] == "optional" and bool(code["entries"])
+    unsaved = (
+        steps[-1]["status"] == "optional" and bool(code["entries"]) and code.get("ephemeral", True)
+    )
     if ready and unsaved:
         headline = "You're all set. Save your code here before you leave."
     elif ready:
-        headline = "You're all set. Switch to the Agent tab to start."
+        headline = "You're all set. Switch to the Harness tab to start."
     elif returning:
         headline = "Welcome back. A couple of things to get this session ready."
     else:

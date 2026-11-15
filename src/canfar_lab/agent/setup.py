@@ -20,7 +20,7 @@ _OPENROUTER_DOTENV_MARKER = "# astroai openrouter dotenv"
 
 def openrouter_dotenv_path(home: Path | None = None) -> Path:
     """Single shared secrets file for OpenRouter (marimo + agent CLIs)."""
-    return (home or Path.home()) / ".astroai" / "lab" / ".env"
+    return (home or Path.home()) / ".canfar" / "lab" / ".env"
 
 
 def _read_dotenv_value(path: Path, name: str) -> str | None:
@@ -144,7 +144,7 @@ def ensure_pi_openrouter_auth(home: Path, *, dry_run: bool = False, force: bool 
 
 
 def ensure_openrouter_dotenv(home: Path, *, dry_run: bool = False) -> str | None:
-    """Persist discovered OpenRouter key to ~/.astroai/lab/.env and agent-env.sh.
+    """Persist discovered OpenRouter key to ~/.canfar/lab/.env and agent-env.sh.
 
     One key for marimo AI + every agent that reads OPENROUTER_API_KEY — stop
     pasting the same sk-or-… into each tool.
@@ -158,10 +158,10 @@ def ensure_openrouter_dotenv(home: Path, *, dry_run: bool = False) -> str | None
         _write_dotenv_value(dotenv, OPENROUTER_KEY_ENV, key, dry_run=dry_run)
     os.environ[OPENROUTER_KEY_ENV] = key
 
-    hook = home / ".astroai" / "lab" / "agent-env.sh"
+    hook = home / ".canfar" / "lab" / "agent-env.sh"
     source_block = (
         f"{_OPENROUTER_DOTENV_MARKER}\n"
-        '_astroai_dotenv="${HOME}/.astroai/lab/.env"\n'
+        '_astroai_dotenv="${HOME}/.canfar/lab/.env"\n'
         'if [[ -f "${_astroai_dotenv}" ]]; then\n'
         "  set -a\n"
         "  # shellcheck disable=SC1090\n"
@@ -337,7 +337,7 @@ def _merge_marimo_openrouter(cfg: Path, *, force: bool, dry_run: bool) -> None:
 
     Merge strategy (never overwrites user settings outside the AI sections):
     1. If file missing, copy template from bundle data.
-    2. Discover key (env → ~/.astroai/lab/.env → existing marimo.toml).
+    2. Discover key (env → ~/.canfar/lab/.env → existing marimo.toml).
     3. Persist to shared .env so agents share one key.
     4. Inject api_key under [ai.openrouter] when missing (or force).
     5. Point [runtime].dotenv at the shared .env.
@@ -574,12 +574,12 @@ def run_bundle(
     elif name == "cli":
         install_file(
             root / "cli" / "agent-tools.sh",
-            home / ".astroai" / "lab" / "agent-tools-reminder.sh",
+            home / ".canfar" / "lab" / "agent-tools-reminder.sh",
             force=force,
             dry_run=dry_run,
         )
         ensure_openrouter_dotenv(home, dry_run=dry_run)
-        hook = home / ".astroai" / "lab" / "agent-env.sh"
+        hook = home / ".canfar" / "lab" / "agent-env.sh"
         if (force or not hook.is_file()) and not dry_run:
             from canfar_lab.utils.json_utils import atomic_write_text
 
@@ -589,7 +589,7 @@ def run_bundle(
                 atomic_write_text(
                     hook,
                     f"{_OPENROUTER_DOTENV_MARKER}\n"
-                    '_astroai_dotenv="${HOME}/.astroai/lab/.env"\n'
+                    '_astroai_dotenv="${HOME}/.canfar/lab/.env"\n'
                     'if [[ -f "${_astroai_dotenv}" ]]; then\n'
                     "  set -a\n"
                     "  # shellcheck disable=SC1090\n"
@@ -612,8 +612,8 @@ def run_bundle(
         bashrc = home / ".bashrc"
         marker = "# canfar lab agent setup"
         source_line = (
-            '[[ -f "${HOME}/.astroai/lab/agent-env.sh" ]] '
-            '&& source "${HOME}/.astroai/lab/agent-env.sh"'
+            '[[ -f "${HOME}/.canfar/lab/agent-env.sh" ]] '
+            '&& source "${HOME}/.canfar/lab/agent-env.sh"'
         )
         if bashrc.exists() and not dry_run:
             text = bashrc.read_text(encoding="utf-8")
@@ -669,7 +669,7 @@ def ensure_agent_dirs(home: Path, *, dry_run: bool) -> None:
         home / ".copilot",
         home / ".claude",
         home / ".config" / "canfar" / "lab",
-        home / ".astroai" / "lab",
+        home / ".canfar" / "lab",
         home / ".cache" / "canfar-lab",
     ]
     if dry_run:

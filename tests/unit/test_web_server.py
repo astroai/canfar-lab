@@ -77,7 +77,7 @@ def test_token_login_sets_cookie(lab: server_mod.LabServer) -> None:
     cookie = resp.getheader("Set-Cookie") or ""
     assert "HttpOnly" in cookie and "SameSite=Strict" in cookie
     status, page, _ = _req(lab, "GET", "/", token=None, headers={"Cookie": cookie.split(";")[0]})
-    assert status == 200 and "<title>AstroAI Lab</title>" in page
+    assert status == 200 and "<title>AstroAI Settings</title>" in page
     assert _req(lab, "GET", "/?token=nope", token=None)[0] == 401
 
 
@@ -173,21 +173,45 @@ def test_snapshot_round_trip_over_http(lab: server_mod.LabServer, tmp_path: Path
     assert _req(lab, "DELETE", "/api/snapshots/web1")[1]["ok"]
 
 
-def test_startup_job_restores_agents_and_code(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    from canfar_lab.session import agents, snapshots
+def _startup_mocks(monkeypatch: pytest.MonkeyPatch, *, ephemeral: bool = True) -> list[str]:
+    from canfar_lab.session import agents, secrets, snapshots
 
     monkeypatch.setattr(agents, "pending_restore", lambda home=None: ["claude"])
     monkeypatch.setattr(agents, "restore", lambda home=None: {"ok": True, "results": []})
+    monkeypatch.setattr(secrets, "lock_down", lambda home=None: {"changed": [], "errors": []})
     monkeypatch.setattr(snapshots, "list_snapshots", lambda root=None: [{"name": "last"}])
     restored: list[str] = []
     monkeypatch.setattr(
         snapshots, "restore", lambda name, **_: restored.append(name) or {"ok": True}
     )
-    monkeypatch.setattr(server_mod, "code_state", lambda: {"src": "/s", "entries": [], "repos": []})
+    monkeypatch.setattr(
+        server_mod,
+        "code_state",
+        lambda **_: {"src": "/s", "entries": [], "repos": [], "ephemeral": ephemeral},
+    )
+    return restored
+
+
+def test_startup_job_restores_agents_and_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    restored = _startup_mocks(monkeypatch)
     out = server_mod.startup_job(restore_code=True)(None)  # type: ignore[arg-type]
     assert out["ok"] and restored == ["last"] and "agents" in out
+
+
+def test_startup_job_respects_restore_setting_and_persistent_dirs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from canfar_lab.session import workspace
+
+    restored = _startup_mocks(monkeypatch)
+    for choice in ("ask", "never"):
+        workspace.set_options(restore_at_start=choice)
+        server_mod.startup_job(restore_code=True)(None)  # type: ignore[arg-type]
+    assert restored == []
+    workspace.set_options(restore_at_start="latest")
+    restored = _startup_mocks(monkeypatch, ephemeral=False)  # code on /arc: nothing to restore
+    server_mod.startup_job(restore_code=True)(None)  # type: ignore[arg-type]
+    assert restored == []
 
 
 def test_refuses_non_loopback_bind() -> None:
@@ -251,3 +275,49 @@ def test_negative_content_length_is_rejected(lab: server_mod.LabServer) -> None:
         conn.putheader(k, v)
     conn.endheaders()
     assert conn.getresponse().status == 400
+
+
+def test_workspace_routes(lab: server_mod.LabServer, tmp_path: Path) -> None:
+    status, body, _ = _req(lab, "GET", "/api/workspace")
+    assert status == 200 and body["code_dir"]["mode"] == "scratch" and body["ephemeral"]
+    status, body, _ = _req(lab, "POST", "/api/workspace/code-dir", {"mode": "home"})
+    assert status == 200 and body["changed"] and body["new"].endswith("/src")
+    assert body["restart_supported"] is False
+    status, body, _ = _req(
+        lab, "POST", "/api/workspace/code-dir", {"mode": "custom", "path": "/etc/x"}
+    )
+    assert status == 400 and "/etc" in body["error"]
+    status, body, _ = _req(lab, "POST", "/api/workspace/options", {"interval_min": "10"})
+    assert status == 400
+    status, body, _ = _req(
+        lab, "POST", "/api/workspace/options", {"autosave": False, "restore_at_start": "ask"}
+    )
+    assert status == 200 and body["autosave"]["enabled"] is False
+    _, state, _ = _req(lab, "GET", "/api/state")
+    assert state["workspace"]["restore_at_start"] == "ask"
+    assert state["code"]["ephemeral"] is False
+
+
+def test_code_dir_change_can_copy_projects(lab: server_mod.LabServer, tmp_path: Path) -> None:
+    src = tmp_path / "scratch" / "src"
+    (src / "proj").mkdir()
+    (src / "proj" / "a.py").write_text("x = 1\n", encoding="utf-8")
+    dest = tmp_path / "elsewhere"
+    status, body, _ = _req(
+        lab, "POST", "/api/workspace/code-dir", {"mode": "custom", "path": str(dest), "copy": True}
+    )
+    assert status == 200 and body["job"]["kind"] == "copy_projects"
+    assert lab.runner.wait(lab.runner.get(body["job"]["id"]), timeout=30)
+    assert (dest / "proj" / "a.py").is_file()
+
+
+def test_restart_needs_image_support(
+    lab: server_mod.LabServer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("CANFAR_LAB_RESTART_FILE", raising=False)
+    status, body, _ = _req(lab, "POST", "/api/workspace/restart")
+    assert status == 400 and "cannot restart" in body["error"]
+    flag = tmp_path / "state" / "restart"
+    monkeypatch.setenv("CANFAR_LAB_RESTART_FILE", str(flag))
+    status, body, _ = _req(lab, "POST", "/api/workspace/restart")
+    assert status == 200 and flag.is_file()

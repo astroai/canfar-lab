@@ -178,7 +178,7 @@ def test_clone_with_from_env(
 ) -> None:
     home = tmp_path / "home2"
     home.mkdir()
-    save_dir = home / ".astroai" / "lab" / "saves" / "ml-base"
+    save_dir = home / ".canfar" / "lab" / "saves" / "ml-base"
     save_dir.mkdir(parents=True)
     monkeypatch.setenv("HOME", str(home))
     get_settings.cache_clear()
@@ -295,7 +295,7 @@ def test_save_list_from_directory(lab_env: Path, tmp_path: Path) -> None:
 
 
 def test_resume_flat(lab_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    saves = Path.home() / ".astroai" / "lab" / "saves" / "mylab"
+    saves = Path.home() / ".canfar" / "lab" / "saves" / "mylab"
     saves.mkdir(parents=True, exist_ok=True)
     (saves / "pixi.toml").write_text('[project]\nname="p"\n')
     manifest = {
@@ -366,7 +366,7 @@ def test_agent_list_json(lab_env: Path) -> None:
 
 
 def test_resume_name_yes_accepted(lab_env: Path) -> None:
-    saves = Path.home() / ".astroai" / "lab" / "saves" / "mylab"
+    saves = Path.home() / ".canfar" / "lab" / "saves" / "mylab"
     saves.mkdir(parents=True, exist_ok=True)
     (saves / "pixi.toml").write_text('[project]\nname="p"\n')
     (saves / "manifest.json").write_text(
@@ -464,7 +464,7 @@ def test_dry_run_save_writes_nothing(lab_env: Path, monkeypatch: pytest.MonkeyPa
     result = runner.invoke(app, ["--dry-run", "save", "demo"])
     assert result.exit_code == 0, result.output
     assert "dry-run" in result.output.lower()
-    saves = Path.home() / ".astroai" / "lab" / "saves" / "demo"
+    saves = Path.home() / ".canfar" / "lab" / "saves" / "demo"
     assert not saves.exists()
 
 

@@ -26,7 +26,7 @@ LOCK_TIMEOUT_SEC = int(os.environ.get("CANFAR_LAB_AGENT_LOCK_TIMEOUT", "30"))
 
 def lab_state_dir(home: Path | None = None) -> Path:
     home = home or Path.home()
-    return home / ".astroai" / "lab"
+    return home / ".canfar" / "lab"
 
 
 def stamp_path(home: Path | None = None) -> Path:

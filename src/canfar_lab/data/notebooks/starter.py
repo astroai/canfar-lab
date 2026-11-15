@@ -108,7 +108,7 @@ def _(mo):
         f"- **home** (keep tiny): `{pathlib.Path.home()}`",
         f"- **XDG_CACHE_HOME**: `{os.environ.get('XDG_CACHE_HOME', '(unset)')}`",
         f"- **OpenRouter key**: "
-        f"{'set (`OPENROUTER_API_KEY` / `~/.astroai/lab/.env`)' if os.environ.get('OPENROUTER_API_KEY') or (pathlib.Path.home() / '.astroai' / 'lab' / '.env').is_file() else 'missing — once: `export OPENROUTER_API_KEY=…` then `canfar lab agent setup marimo`'}",
+        f"{'set (`OPENROUTER_API_KEY` / `~/.canfar/lab/.env`)' if os.environ.get('OPENROUTER_API_KEY') or (pathlib.Path.home() / '.canfar' / 'lab' / '.env').is_file() else 'missing — once: `export OPENROUTER_API_KEY=…` then `canfar lab agent setup marimo`'}",
     ]
 
     # Banner JSON shows session paths and save count.
@@ -374,7 +374,7 @@ canfar-lab save
 **AI agents** (one OpenRouter key on `/arc/home`)
 
 ```bash
-# once per user — stores key in ~/.astroai/lab/.env for marimo + agents
+# once per user — stores key in ~/.canfar/lab/.env for marimo + agents
 export OPENROUTER_API_KEY=sk-or-v1-…
 canfar lab agent setup             # seeds marimo AI + agent configs
 canfar lab agent install kilo      # or goose, claude, opencode, codex, qoder
@@ -394,7 +394,7 @@ def _(mo):
 ### Marimo AI Assistant
 
 Toolbar **AI** (or Cmd/Ctrl+Shift+E to refactor the current cell). Uses
-**OpenRouter**, same key as `astroai` agents (`~/.astroai/lab/.env` →
+**OpenRouter**, same key as `astroai` agents (`~/.canfar/lab/.env` →
 `OPENROUTER_API_KEY`). You should not need to paste the key again into marimo.
 
 1. Once: `export OPENROUTER_API_KEY=…` then `canfar lab agent setup` (or `… marimo`).

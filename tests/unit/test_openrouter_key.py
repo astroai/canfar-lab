@@ -54,7 +54,7 @@ def test_ensure_persists_marimo_key_to_shared_dotenv(
     dotenv = openrouter_dotenv_path(tmp_path)
     assert dotenv.is_file()
     assert f"{OPENROUTER_KEY_ENV}=sk-reuse-me" in dotenv.read_text(encoding="utf-8")
-    hook = tmp_path / ".astroai" / "lab" / "agent-env.sh"
+    hook = tmp_path / ".canfar" / "lab" / "agent-env.sh"
     assert hook.is_file()
     assert "astroai openrouter dotenv" in hook.read_text(encoding="utf-8")
     assert discover_openrouter_key(tmp_path) == "sk-reuse-me"

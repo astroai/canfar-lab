@@ -90,7 +90,7 @@ def _cluster_control_lock() -> Iterator[None]:
     """
     from canfar_lab.core.pathlock import path_lock
 
-    path = Path.home() / ".astroai" / "ray" / "control.lock"
+    path = Path.home() / ".canfar" / "lab" / "ray" / "control.lock"
     with path_lock(
         path,
         timeout=_CLUSTER_LOCK_TIMEOUT,

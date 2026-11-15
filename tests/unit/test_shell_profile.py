@@ -28,7 +28,7 @@ def _run(home: Path, script: str, *, interactive: bool = False) -> str:
 
 
 def test_open_shell_picks_up_saved_and_removed_keys(tmp_path: Path) -> None:
-    keys = tmp_path / ".astroai" / "lab" / ".env"
+    keys = tmp_path / ".canfar" / "lab" / ".env"
     keys.parent.mkdir(parents=True)
     keys.write_text("ASTRO_T1=one\n", encoding="utf-8")
     out = _run(
@@ -51,7 +51,7 @@ echo "gone=${{ASTRO_T2:-none}}"
 
 
 def test_key_saved_while_idle_at_the_prompt_reaches_the_next_command(tmp_path: Path) -> None:
-    keys = tmp_path / ".astroai" / "lab" / ".env"
+    keys = tmp_path / ".canfar" / "lab" / ".env"
     keys.parent.mkdir(parents=True)
     keys.write_text("ASTRO_T1=one\n", encoding="utf-8")
     proc = subprocess.Popen(

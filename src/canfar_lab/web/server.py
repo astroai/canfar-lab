@@ -15,6 +15,13 @@ Routes (all JSON unless noted)::
     POST   /api/snapshots/<n>/restore  job: restore {"overwrite"?}
     DELETE /api/snapshots/<n>
     POST   /api/cluster/start|stop   job
+    GET    /api/workspace            code/cache dir settings and what they resolve to
+    POST   /api/workspace/code-dir   {"mode", "path"?, "copy"?}; copy -> job
+    POST   /api/workspace/options    {"autosave"?, "interval_min"?, "keep"?,
+                                      "restore_at_start"?, "cache_dir"?, "reset_cache_dir"?}
+    POST   /api/workspace/private    owner-only access on the code dir
+    POST   /api/workspace/secure     owner-only access on agent logins/keys
+    POST   /api/workspace/restart    ask the image to restart its tools in the new code dir
     GET    /api/jobs                 recent jobs;  GET /api/jobs/<id>
     GET    /api/jobs/<id>/events     SSE: ``line`` events, then one ``done``
 
@@ -33,6 +40,7 @@ import json
 import os
 import re
 import secrets
+import signal
 import socket
 import sys
 import time
@@ -45,6 +53,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from canfar_lab.errors import LabError
 from canfar_lab.web import onboarding
+from canfar_lab.web.autosave import AutoSaver
 from canfar_lab.web.jobs import Busy, Job, JobRunner
 
 PAGE = Path(__file__).resolve().parent.parent / "data" / "web" / "index.html"
@@ -82,31 +91,60 @@ def session_info() -> dict[str, Any]:
 
 
 def code_state(*, with_repos: bool = True) -> dict[str, Any]:
-    """What is in ``$SCRATCH/src``. *with_repos* adds git state per project (slower)."""
-    from canfar_lab.session import snapshots
+    """What is in the code dir. *with_repos* adds git state per project (slower)."""
+    from canfar_lab.session import snapshots, workspace
 
-    scratch = snapshots.scratch_dir()
-    src = (scratch / "src") if scratch else None
+    settings = workspace.load()
+    src = workspace.code_dir()
     entries: list[str] = []
-    if src is not None and src.is_dir():
+    if src.is_dir():
         entries = sorted(p.name for p in src.iterdir() if not p.name.startswith("."))
-    repos = snapshots.repo_summary(src) if with_repos and src is not None and src.is_dir() else []
+    repos = snapshots.repo_summary(src) if with_repos and src.is_dir() else []
     by_path = {r["path"]: r for r in repos}
     projects = [
         {"name": name, "git": name in by_path, **(by_path.get(name) or {})} for name in entries
     ]
     return {
-        "src": str(src) if src else None,
+        "src": str(src),
         "entries": entries,
         "repos": repos,
         "projects": projects,
+        "ephemeral": workspace.is_ephemeral(src),
+        "autosave": {
+            "enabled": settings.autosave.enabled,
+            "interval_min": settings.autosave.interval_min,
+            "keep": settings.autosave.keep,
+        },
+        "restore_at_start": settings.restore_at_start,
+        **_restart_state(src),
+    }
+
+
+def _restart_state(src: Path) -> dict[str, Any]:
+    from canfar_lab.session import workspace
+
+    live = workspace.live_code_dir()
+    return {
+        "live_src": live or None,
+        "restart_needed": bool(live) and Path(live) != src,
+        "restart_supported": bool(os.environ.get("CANFAR_LAB_RESTART_FILE")),
     }
 
 
 def snapshot_rows() -> list[dict[str, Any]]:
     from canfar_lab.session import snapshots
 
-    keep = ("name", "created_at", "src_bytes", "dsh_bytes", "repos", "dsh_state", "path")
+    keep = (
+        "name",
+        "created_at",
+        "src_bytes",
+        "dsh_bytes",
+        "repos",
+        "dsh_state",
+        "path",
+        "auto",
+        "src",
+    )
     return [{k: row.get(k) for k in keep} for row in snapshots.list_snapshots()]
 
 
@@ -138,6 +176,7 @@ def lab_state(
         "code": code,
         "snapshots": snaps,
         "job": job,
+        "workspace": _workspace_state(),
         "onboarding": onboarding.build(
             agents=agent_state["agents"],
             keys=agent_state["keys"],
@@ -149,6 +188,41 @@ def lab_state(
             restore_code=restore_code,
         ),
     }
+
+
+def _workspace_state() -> dict[str, Any]:
+    from canfar_lab.session import secrets, workspace
+
+    try:
+        state = workspace.describe()
+    except LabError as exc:
+        state = {"error": exc.message}
+    try:
+        state["exposed_secrets"] = secrets.exposed()
+    except Exception:  # noqa: BLE001 — informational only
+        state["exposed_secrets"] = []
+    state["restart_supported"] = bool(os.environ.get("CANFAR_LAB_RESTART_FILE"))
+    return state
+
+
+def request_tool_restart() -> dict[str, Any]:
+    """Ask the image's startup script to restart its tools (new code/cache dir).
+
+    The image sets ``CANFAR_LAB_RESTART_FILE``; its supervisor watches for the
+    file, restarts the Harness, Terminal, JupyterLab and VS Code with fresh
+    paths, then removes it. Without the variable (a laptop) there is nothing
+    to restart: new terminals pick the change up.
+    """
+    raw = os.environ.get("CANFAR_LAB_RESTART_FILE", "").strip()
+    if not raw:
+        raise LabError(
+            "This session cannot restart its tools from here.",
+            hint="Open a new terminal, or start a new session, to use the new folder.",
+        )
+    path = Path(raw)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"{time.time()}\n", encoding="utf-8")
+    return {"ok": True, "requested": True}
 
 
 def session_was_used() -> bool | None:
@@ -179,21 +253,29 @@ def cluster_state() -> dict[str, Any]:
 
 
 def startup_job(*, restore_code: bool) -> Any:
-    """Session start: reinstall remembered agents; optionally bring code back."""
+    """Session start: lock down secrets, reinstall agents, maybe bring code back.
+
+    Code comes back only when *restore_code* (``--restore-code``) allows it,
+    the code dir is on scratch and empty, and the user's "restore at start"
+    setting is ``latest`` (``ask`` leaves it to the checklist).
+    """
 
     def _run(job: Job) -> dict[str, Any]:
-        from canfar_lab.session import agents, snapshots
+        from canfar_lab.session import agents, secrets, snapshots, workspace
 
         out: dict[str, Any] = {"ok": True}
+        locked = secrets.lock_down()
+        if locked["changed"]:
+            print(f"Made {len(locked['changed'])} agent config path(s) private.", flush=True)
         pending = agents.pending_restore()
         if pending:
             print(f"Reinstalling {', '.join(pending)} …", flush=True)
             out["agents"] = agents.restore()
             out["ok"] = bool(out["agents"]["ok"])
-        if restore_code:
-            code = code_state()
+        if restore_code and workspace.load().restore_at_start == "latest":
+            code = code_state(with_repos=False)
             snaps = snapshots.list_snapshots()
-            if snaps and not code["entries"]:
+            if snaps and code["ephemeral"] and not code["entries"]:
                 name = snaps[0]["name"]
                 print(f"Restoring your work from “{name}” …", flush=True)
                 out["snapshot"] = snapshots.restore(name)
@@ -252,6 +334,16 @@ def start_action(runner: JobRunner, op: str, **kw: Any) -> Job:
                 name, include_dsh=include_dsh, include_envs=include_envs, overwrite=overwrite
             ),
         )
+    if op == "copy_projects":
+        from canfar_lab.session import workspace
+
+        old, new = Path(kw["old"]), Path(kw["new"])
+        include_envs = _flag(kw, "include_envs")
+        return runner.start(
+            "copy_projects",
+            f"Copy projects to {new}",
+            lambda _j: workspace.copy_projects(old, new, include_envs=include_envs),
+        )
     if op == "restore_snapshot":
         name = snapshots._check_name(kw["name"])
         overwrite = _flag(kw, "overwrite")
@@ -289,6 +381,8 @@ class LabServer(ThreadingHTTPServer):
         self.started_at = time.time()
         #: Whether the startup job restores code (``--restore-code``).
         self.restore_code = False
+        #: Automatic snapshots (set by :func:`serve`; ``None`` in tests).
+        self.autosaver: AutoSaver | None = None
 
     def state(self, *, with_repos: bool = True) -> dict[str, Any]:
         return lab_state(
@@ -317,6 +411,12 @@ _ROUTES: list[tuple[str, re.Pattern[str], str]] = [
     ("POST", re.compile(r"/api/snapshots/(?P<name>[^/]+)/restore"), "snapshot_restore"),
     ("DELETE", re.compile(r"/api/snapshots/(?P<name>[^/]+)"), "snapshot_delete"),
     ("POST", re.compile(r"/api/cluster/(?P<verb>start|stop)"), "cluster_verb"),
+    ("GET", re.compile(r"/api/workspace"), "workspace"),
+    ("POST", re.compile(r"/api/workspace/code-dir"), "workspace_code_dir"),
+    ("POST", re.compile(r"/api/workspace/options"), "workspace_options"),
+    ("POST", re.compile(r"/api/workspace/private"), "workspace_private"),
+    ("POST", re.compile(r"/api/workspace/secure"), "workspace_secure"),
+    ("POST", re.compile(r"/api/workspace/restart"), "workspace_restart"),
 ]
 
 
@@ -589,6 +689,64 @@ class LabHandler(BaseHTTPRequestHandler):
     def _r_cluster_verb(self, *, verb: str, query: dict[str, list[str]]) -> None:
         self._job_reply(start_action(self.lab.runner, f"cluster_{verb}"))
 
+    def _r_workspace(self, *, query: dict[str, list[str]]) -> None:
+        self._json(HTTPStatus.OK, {"ok": True, **_workspace_state()})
+
+    def _r_workspace_code_dir(self, *, query: dict[str, list[str]]) -> None:
+        from canfar_lab.session import workspace
+
+        body = self._body()
+        mode = body.get("mode")
+        path = body.get("path")
+        if not isinstance(mode, str) or (path is not None and not isinstance(path, str)):
+            raise LabError("Send a mode (scratch, home or custom) and, for custom, a path.")
+        copy = _flag(body, "copy")
+        if copy and self.lab.runner.current() is not None:
+            raise Busy("Busy: wait for the running job to finish, then change the folder.")
+        result = workspace.set_code_dir(mode, path.strip() if path else None)
+        result["restart_supported"] = bool(os.environ.get("CANFAR_LAB_RESTART_FILE"))
+        if copy and result["changed"]:
+            job = start_action(
+                self.lab.runner, "copy_projects", old=result["old"], new=result["new"]
+            )
+            result["job"] = job.to_dict()
+        self._json(HTTPStatus.OK, result)
+
+    def _r_workspace_options(self, *, query: dict[str, list[str]]) -> None:
+        from canfar_lab.session import workspace
+
+        body = self._body()
+        kwargs: dict[str, Any] = {}
+        if "autosave" in body:
+            kwargs["autosave"] = _flag(body, "autosave")
+        for key in ("interval_min", "keep"):
+            if key in body:
+                if not isinstance(body[key], int) or isinstance(body[key], bool):
+                    raise LabError(f"{key!r} must be a whole number.")
+                kwargs[key] = body[key]
+        if "restore_at_start" in body:
+            kwargs["restore_at_start"] = str(body["restore_at_start"])
+        if body.get("reset_cache_dir") is True:
+            kwargs["reset_cache_dir"] = True
+        elif isinstance(body.get("cache_dir"), str) and body["cache_dir"].strip():
+            kwargs["cache_dir"] = body["cache_dir"].strip()
+        self._json(HTTPStatus.OK, workspace.set_options(**kwargs))
+
+    def _r_workspace_private(self, *, query: dict[str, list[str]]) -> None:
+        from canfar_lab.session import workspace
+
+        self._json(HTTPStatus.OK, workspace.make_private(workspace.code_dir()))
+
+    def _r_workspace_secure(self, *, query: dict[str, list[str]]) -> None:
+        from canfar_lab.session import secrets
+
+        self._json(HTTPStatus.OK, secrets.lock_down())
+
+    def _r_workspace_restart(self, *, query: dict[str, list[str]]) -> None:
+        if self.lab.runner.current() is not None:
+            raise Busy("Busy: wait for the running job to finish, then restart the tools.")
+        self._json(HTTPStatus.OK, request_tool_restart())
+
 
 # --------------------------------------------------------------------------
 # Entry point
@@ -652,9 +810,25 @@ def serve(
         server.runner.start(
             "startup", "Get this session ready", startup_job(restore_code=restore_code)
         )
+    saver = AutoSaver(server.runner)
+    server.autosaver = saver
+    saver.start()
+
+    def _terminate(_signum: int, _frame: Any) -> None:
+        raise KeyboardInterrupt
+
+    # The session is ending: stop serving, then take the last automatic save.
+    signal.signal(signal.SIGTERM, _terminate)
     try:
         server.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:
         pass
     finally:
+        # A second TERM must not abort the last save half-way.
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        saver.stop()
         server.server_close()
+        budget = float(os.environ.get("CANFAR_LAB_EXIT_SAVE_SEC", "25") or 25)
+        result = saver.final(budget=budget)
+        if result:
+            print(f"Saved “{result['name']}” before shutdown.", file=sys.stderr, flush=True)

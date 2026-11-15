@@ -66,7 +66,7 @@ def test_cold_start_init_save_env_resume_loop(cold_env: Path) -> None:
         save = runner.invoke(app, ["save", "mylab"])
     assert save.exit_code == 0, save.output
 
-    saves = list_saves(Path.home() / ".astroai" / "lab" / "saves")
+    saves = list_saves(Path.home() / ".canfar" / "lab" / "saves")
     assert len(saves) == 1
     save_dir, manifest = saves[0]
     assert manifest.name == "mylab"
@@ -88,7 +88,7 @@ def test_project_save_resume_roundtrip(cold_env: Path) -> None:
     """Direct save_env/restore_env roundtrip without CLI mocks."""
     project = cold_env / "roundtrip"
     _pixi(project, "roundtrip")
-    save_root = Path.home() / ".astroai" / "lab" / "saves"
+    save_root = Path.home() / ".canfar" / "lab" / "saves"
     saved = save_env("roundtrip", save_root / "roundtrip", project)
 
     manifest = read_manifest(saved / "manifest.json")
@@ -136,7 +136,7 @@ def test_resume_from_explicit_path(cold_env: Path, tmp_path: Path) -> None:
 def test_cold_start_second_save_updates_manifest(cold_env: Path) -> None:
     project = cold_env / "versioned"
     _pixi(project, "versioned")
-    save_root = Path.home() / ".astroai" / "lab" / "saves"
+    save_root = Path.home() / ".canfar" / "lab" / "saves"
     save_env("versioned", save_root / "versioned", project)
 
     (project / "pixi.lock").write_text("lock-v2")

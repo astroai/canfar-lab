@@ -831,7 +831,7 @@ def test_setup_registry_agent_dry_run_writes_nothing(tmp_path: Path, _no_plugins
     assert any("would create config" in a for a in result["actions"])
     assert not (home / ".hermes" / "config.yaml").exists()
     # no stamp written on dry-run
-    assert not (home / ".astroai" / "lab" / "agent-setup-stamp").exists()
+    assert not (home / ".canfar" / "lab" / "agent-setup-stamp").exists()
 
 
 def test_setup_registry_agent_creates_skills_dir(tmp_path: Path, _no_plugins) -> None:
@@ -1197,7 +1197,7 @@ def test_fix_registry_agent_scaffolds_missing_config(tmp_path: Path) -> None:
     ac.validate_config_text("hermes", cfg.read_text(), home=home)
     assert (home / ".hermes" / "skills").is_dir()
     # stamp refreshed (failed marker cleared)
-    assert (home / ".astroai" / "lab" / "agent-setup-stamp").is_file()
+    assert (home / ".canfar" / "lab" / "agent-setup-stamp").is_file()
 
 
 def test_fix_registry_agent_reports_healthy_existing(tmp_path: Path) -> None:
@@ -1280,7 +1280,7 @@ def test_fix_registry_agent_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert any("would create config" in a for a in result["actions"])
     assert not (home / ".hermes" / "config.yaml").exists()
     assert not (home / ".hermes" / "skills").exists()
-    assert not (home / ".astroai" / "lab" / "agent-setup-stamp").exists()
+    assert not (home / ".canfar" / "lab" / "agent-setup-stamp").exists()
 
 
 def test_fix_registry_agent_dry_run_broken_config_untouched(tmp_path: Path) -> None:
@@ -1293,7 +1293,7 @@ def test_fix_registry_agent_dry_run_broken_config_untouched(tmp_path: Path) -> N
     result = fix_registry_agent("kilo", home=home, dry_run=True)
     assert any("would repair broken jsonc config" in a for a in result["actions"])
     assert cfg.read_text() == broken  # untouched in dry-run
-    assert not (home / ".astroai" / "lab" / "agent-setup-stamp").exists()
+    assert not (home / ".canfar" / "lab" / "agent-setup-stamp").exists()
 
 
 def test_setup_scaffold_parses_for_json5(tmp_path: Path, _no_plugins) -> None:

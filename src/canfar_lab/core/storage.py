@@ -107,8 +107,8 @@ def dir_size(path: Path, *, timeout_sec: float = DIR_SIZE_TIMEOUT_SEC) -> int:
 def home_breakdown(home: Path) -> list[tuple[str, str, str]]:
     entries = [
         (".cache", "ML/tool caches"),
-        (".astroai", "AstroAI lab saves"),
-        (".canfar", "CANFAR client config"),
+        (".canfar", "CANFAR client config + lab state"),
+        (".astroai", "legacy AstroAI lab dir (moved to ~/.canfar/lab)"),
         (".pixi", "pixi global envs"),
         (".local", "user tools and data"),
         (".config", "application config"),

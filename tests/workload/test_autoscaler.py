@@ -89,7 +89,7 @@ def _provider(**config):
         "gpus": 1,
         "max_workers": 8,
         "pending_timeout_minutes": 15,
-        "heartbeat_path": "/arc/home/u/.astroai/ray/clusters/c1/manager-heartbeat",
+        "heartbeat_path": "/arc/home/u/.canfar/lab/ray/clusters/c1/manager-heartbeat",
         "ray_version": "2.56.1",
         **config,
     }

@@ -1,4 +1,4 @@
-"""Persist cluster/worker state under ~/.astroai/ray/clusters/<id>/.
+"""Persist cluster/worker state under ~/.canfar/lab/ray/clusters/<id>/.
 
 Moved from the ray-manager container (``ray/manager/state_store.py``).
 """
@@ -30,7 +30,7 @@ def _utc_now() -> str:
 def cluster_state_dir(cluster_id: str | None = None) -> Path:
     home = Path(os.environ.get("HOME", "/tmp"))
     cid = cluster_id or os.environ.get("RAY_CLUSTER_ID", "default")
-    return home / ".astroai/ray" / "clusters" / cid
+    return home / ".canfar/lab/ray" / "clusters" / cid
 
 
 @dataclass

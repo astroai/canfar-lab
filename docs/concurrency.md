@@ -11,8 +11,8 @@ concurrently, and the guarantees `canfar lab` makes.
 | Agent configs (MCP servers, settings, skills) | `$HOME` (`~/.cursor`, `~/.claude.json`, …) | Durable, small, read-mostly; shared so every session is configured identically |
 | Agent CLIs | `$SCRATCH/.local/bin` (via `CANFAR_LAB_BIN_DIR`) | Fast local disk — `/arc/home` NFS is too slow for CLI installs/updates |
 | Auth (`canfar`, `gh`, tokens) | `$HOME` | Must survive sessions |
-| Env saves / lab state (`~/.astroai/lab`) | `$HOME` | Explicit snapshots + stamps |
-| Ray cluster state (`~/.astroai/ray`) | `$HOME` | Written by the manager and CLI control plane |
+| Env saves / lab state (`~/.canfar/lab`) | `$HOME` | Explicit snapshots + stamps |
+| Ray cluster state (`~/.canfar/lab/ray`) | `$HOME` | Written by the manager and CLI control plane |
 | **Agent runtimes** (transcripts, session DBs, telemetry — e.g. `~/.claude/projects`, `~/.dsh/sessions`, `~/.dsh/storages`) | **Symlink → scratch** | Two sessions writing one SQLite store over NFS corrupts it; NFS locking is unreliable |
 | Caches, package envs | Scratch/work | Already per-session |
 
@@ -37,9 +37,9 @@ See [studio.md](studio.md#state-and-the-canfar-storage-split).
    `O_EXCL` lock file recording `HOST PID TIMESTAMP`:
    - agent domain (`install`, `remove`, `update`, `setup`,
      `plugins install/remove`, `verify --fix`, `verify --clean`, `wipe`):
-     `~/.astroai/lab/agent-setup.lock`
+     `~/.canfar/lab/agent-setup.lock`
    - cluster domain (`cluster start`, `cluster stop`, hub *Start batch
-     compute*): `~/.astroai/ray/control.lock`
+     compute*): `~/.canfar/lab/ray/control.lock`
    A lock is stale when the same-host holder PID is dead, or when the
    wall-clock age exceeds 10 minutes (cross-pod holders on NFS are never
    treated as dead via local `os.kill`). Same-thread nesting is re-entrant

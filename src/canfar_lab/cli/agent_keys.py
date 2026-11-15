@@ -22,7 +22,7 @@ def _keys_failed(opts: Any, exc: LabError) -> typer.Exit:
 keys_app = typer.Typer(
     help=(
         "Model API keys shared by agent CLIs, marimo, and the Studio assistant.\n\n"
-        "Values are written to ~/.astroai/lab/.env and dsh credentials (0600) and\n"
+        "Values are written to ~/.canfar/lab/.env and dsh credentials (0600) and\n"
         "are never printed. `set` reads the value from stdin, never from argv."
     ),
 )

@@ -14,7 +14,7 @@ runner = CliRunner()
 
 
 def _home_mailbox() -> Path:
-    return Path.home() / ".astroai" / "lab" / "sync"
+    return Path.home() / ".canfar" / "lab" / "sync"
 
 
 # ------------------------------------------------------------- exchange

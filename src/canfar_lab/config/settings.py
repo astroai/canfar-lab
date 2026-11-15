@@ -9,7 +9,7 @@ from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from canfar_lab import config_dir, saves_dir
-from canfar_lab.core.session_common import ensure_writable_dir, overlay_work_dir
+from canfar_lab.core.session_common import PLATFORM_SRC, ensure_writable_dir, overlay_work_dir
 
 
 class LabSettings(BaseSettings):
@@ -58,7 +58,13 @@ class LabSettings(BaseSettings):
 
     def resolve_work_dir(self) -> Path:
         scratch = self.resolve_scratch_dir()
-        for raw in (_env_path("SRCDIR"), _env_path("WORK"), self.work_dir):
+        # Explicit $SRCDIR or $WORK wins (a session or job started with it), then
+        # the code dir chosen in Settings (persisted on /arc). The base image's
+        # ENV WORK=/srcdir is a default, not a choice, so it comes after.
+        work = _env_path("WORK")
+        explicit_work = work if work is not None and work != PLATFORM_SRC else None
+        candidates = [_env_path("SRCDIR"), explicit_work, _saved_code_dir(scratch), work]
+        for raw in (*candidates, self.work_dir):
             if raw is None:
                 continue
             raw = raw.expanduser()
@@ -95,6 +101,15 @@ class LabSettings(BaseSettings):
 
 def config_file_path() -> Path:
     return config_dir() / "config.yaml"
+
+
+def _saved_code_dir(scratch: Path | None) -> Path | None:
+    from canfar_lab.session.workspace import configured_code_dir
+
+    try:
+        return configured_code_dir(scratch=scratch)
+    except Exception:  # noqa: BLE001 — a bad settings file must not break path resolution
+        return None
 
 
 def _env_path(name: str) -> Path | None:

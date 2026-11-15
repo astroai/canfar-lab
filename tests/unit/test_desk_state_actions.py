@@ -397,7 +397,7 @@ def test_sync_to_canfar_dry_run_touches_nothing(tmp_path):
     assert out["ok"] is True
     assert engine.calls[0]["dry_run"] is True
     assert out["report"]["summary"] == {"ok": 1, "missing": 1}
-    assert not (tmp_path / ".astroai").exists()
+    assert not (tmp_path / ".canfar" / "lab").exists()
 
 
 def test_sync_to_canfar_drops_request_in_mailbox(tmp_path):
@@ -409,7 +409,7 @@ def test_sync_to_canfar_drops_request_in_mailbox(tmp_path):
         engine_factory=lambda side: engine,
     )
     out = acts.sync_to_canfar({})
-    mailbox = tmp_path / ".astroai" / "lab" / "sync"
+    mailbox = tmp_path / ".canfar" / "lab" / "sync"
     assert out["mailbox"] == str(mailbox)
     assert out["request"].endswith(".json")
     assert out["shared_mailbox"] is False

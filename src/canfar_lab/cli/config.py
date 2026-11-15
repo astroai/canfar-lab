@@ -9,7 +9,7 @@ from canfar_lab.cli.context import get_opts, merge_opts
 from canfar_lab.config.settings import config_file_path, get_settings
 
 config_app = typer.Typer(
-    help="Optional preferences (~/.astroai/lab/config.yaml).",
+    help="Optional preferences (~/.canfar/lab/config.yaml).",
     invoke_without_command=True,
 )
 
@@ -26,7 +26,7 @@ def config_root(ctx: typer.Context) -> None:
                 }
             )
             return
-        ui.print_hint("Lab preferences (~/.astroai/lab/config.yaml).")
+        ui.print_hint("Lab preferences (~/.canfar/lab/config.yaml).")
         ui.print_hint("  canfar lab config show")
         ui.print_hint("  canfar lab config --help")
 

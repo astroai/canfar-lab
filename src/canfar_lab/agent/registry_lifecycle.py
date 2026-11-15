@@ -280,7 +280,7 @@ def _remove_registry_method(
     cfg = agent_config_file(agent, home)
     if cfg is not None:
         rm(cfg, f"config:{cfg}")
-        lab_dir = home / ".astroai" / "lab"
+        lab_dir = home / ".canfar" / "lab"
         if purge and cfg.parent not in {home, lab_dir}:
             rm_tree(cfg.parent, f"purge:{cfg.parent}")
         if str(agent_id) == "hermes":

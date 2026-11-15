@@ -9,7 +9,7 @@ Managed Credentials & Configs:
   - Git config: ~/.gitconfig
   - GitHub CLI auth: ~/.config/gh/hosts.yml
   - CANFAR client auth: ~/.canfar/config.yaml & ~/.ssl/cadcproxy.pem
-  - Agent / AI API keys: ~/.astroai/lab/.env
+  - Agent / AI API keys: ~/.canfar/lab/.env
 
 Enforces CANFAR Environment Hygiene:
   - Verifies zero Python packages in /arc/home/<user>/.local
@@ -131,13 +131,13 @@ def check_canfar_auth() -> tuple[bool, str]:
 
 
 def check_ai_env() -> tuple[bool, str]:
-    env_file = Path.home() / ".astroai" / "lab" / ".env"
+    env_file = Path.home() / ".canfar" / "lab" / ".env"
     if env_file.is_file():
         has_or = any("OPENROUTER_API_KEY=" in ln for ln in env_file.read_text().splitlines())
         if has_or:
-            return True, "OpenRouter key configured in ~/.astroai/lab/.env"
-        return True, "Configured in ~/.astroai/lab/.env"
-    return False, "No ~/.astroai/lab/.env"
+            return True, "OpenRouter key configured in ~/.canfar/lab/.env"
+        return True, "Configured in ~/.canfar/lab/.env"
+    return False, "No ~/.canfar/lab/.env"
 
 
 def cmd_check() -> int:
@@ -280,9 +280,9 @@ def cmd_push(dry_run: bool = False) -> int:
         files_to_sync.append((cadcproxy, ".ssl/cadcproxy.pem", 0o600))
 
     # AI keys
-    ai_env = home / ".astroai" / "lab" / ".env"
+    ai_env = home / ".canfar" / "lab" / ".env"
     if ai_env.is_file():
-        files_to_sync.append((ai_env, ".astroai/lab/.env", 0o600))
+        files_to_sync.append((ai_env, ".canfar/lab/.env", 0o600))
 
     print(f"\n{BOLD}Pushing Credentials to CANFAR $HOME (/arc/home/<user>):{RESET}")
     for src, rel, perm in files_to_sync:

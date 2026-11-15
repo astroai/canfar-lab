@@ -28,7 +28,7 @@ def test_list_covers_all_installable_agents() -> None:
 
 
 def test_clean_agent_state(tmp_path: Path) -> None:
-    state_dir = tmp_path / ".astroai" / "lab"
+    state_dir = tmp_path / ".canfar" / "lab"
     state_dir.mkdir(parents=True, exist_ok=True)
     lock_file = state_dir / "agent-setup.lock"
     failed_file = state_dir / "agent-setup-failed"
@@ -64,7 +64,7 @@ def test_fix_agent_setup(tmp_path: Path) -> None:
     mcp_file.write_text("{ broken json: ", encoding="utf-8")
 
     # Failed marker
-    state_dir = tmp_path / ".astroai" / "lab"
+    state_dir = tmp_path / ".canfar" / "lab"
     state_dir.mkdir(parents=True, exist_ok=True)
     failed_file = state_dir / "agent-setup-failed"
     failed_file.write_text("error", encoding="utf-8")

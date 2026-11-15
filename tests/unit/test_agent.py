@@ -38,7 +38,7 @@ def test_agent_setup_dry_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
     agent_setup(bundles=["cli"], dry_run=True)
-    assert not (home / ".astroai" / "lab" / "agent-env.sh").is_file()
+    assert not (home / ".canfar" / "lab" / "agent-env.sh").is_file()
 
 
 def test_agent_verify_fresh_home_ok(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

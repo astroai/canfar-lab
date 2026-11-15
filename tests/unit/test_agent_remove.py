@@ -47,7 +47,7 @@ def _make_installed(bin_dir: Path, binary: str, home: Path, config_rel: str) -> 
     cfg = home / config_rel
     cfg.parent.mkdir(parents=True, exist_ok=True)
     cfg.write_text("{}", encoding="utf-8")
-    stamp = home / ".astroai" / "lab" / "agent-setup-stamp"
+    stamp = home / ".canfar" / "lab" / "agent-setup-stamp"
     stamp.parent.mkdir(parents=True, exist_ok=True)
     stamp.write_text("2026-08-02T00:00:00Z bundle=test mode=install\n", encoding="utf-8")
 
@@ -86,7 +86,7 @@ def test_uninstall_tool_removes_binary_config_stamp(
     assert all(r.status == "removed" for r in results)
     assert not (bin_dir / "copilot").exists()
     assert not (home / ".copilot" / "mcp-config.json").exists()
-    assert not (home / ".astroai" / "lab" / "agent-setup-stamp").exists()
+    assert not (home / ".canfar" / "lab" / "agent-setup-stamp").exists()
 
 
 def test_uninstall_tool_purge_removes_home_dir(

@@ -205,13 +205,13 @@ def test_canfar_layer_routes_state_to_scratch(home: Path, tmp_path: Path) -> Non
     scratch.mkdir()
     plan = sp.plan_studio_profile(home, profile="canfar", scratch=scratch)
     assert str(scratch) in plan.layer_yaml
-    assert str(home) not in plan.layer_yaml.replace(str(home / ".astroai"), "")
+    assert str(home) not in plan.layer_yaml.replace(str(home / ".canfar"), "")
 
 
 def test_mcp_command_falls_back_to_the_module_entry(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # `home` keeps this off the developer's own ~/.astroai/lab/.env pin.
+    # `home` keeps this off the developer's own ~/.canfar/lab/.env pin.
     monkeypatch.delenv(sp.MCP_BIN_ENV, raising=False)
     monkeypatch.setattr(sp.shutil, "which", lambda *_: None)
     command = sp.mcp_serve_command(home=tmp_path)
@@ -223,7 +223,7 @@ def test_mcp_bin_override_prefers_env_then_dotenv(tmp_path: Path) -> None:
     real.write_text("#!/bin/sh\n", encoding="utf-8")
     dotenv_only = tmp_path / "other"
     dotenv_only.write_text("#!/bin/sh\n", encoding="utf-8")
-    lab = tmp_path / ".astroai" / "lab"
+    lab = tmp_path / ".canfar" / "lab"
     lab.mkdir(parents=True)
     (lab / ".env").write_text(f"{sp.MCP_BIN_ENV}={dotenv_only}\n", encoding="utf-8")
     assert sp.mcp_serve_command(home=tmp_path)[0] == str(dotenv_only)

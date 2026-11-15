@@ -63,11 +63,11 @@ def resolve_dashboard_url(
       1. Explicit ``address`` or ``CANFAR_RAY_JOBS_ADDRESS`` /
          ``RAY_DASHBOARD_URL`` (set inside a ray-manager session).
       2. Live Running/Pending ray-manager with a connect URL (also
-         best-effort persists the URL under ``~/.astroai/ray/clusters/``)
+         best-effort persists the URL under ``~/.canfar/lab/ray/clusters/``)
          — skipped when ``live=False`` (shell ``env export`` / profile).
       3. Live manager still Pending (no connect URL yet) → ``None`` so callers
          poll instead of using a stale persisted URL from a previous manager.
-      4. Persisted connect URL under ``~/.astroai/ray/clusters/*/connect-url``,
+      4. Persisted connect URL under ``~/.canfar/lab/ray/clusters/*/connect-url``,
          but only when a quick probe succeeds (or the URL session id matches
          the live manager id). Dead persists are cleared.
 
@@ -166,8 +166,8 @@ def _probe_manager_url(connect_url: str) -> bool:
 
 
 def read_persisted_connect_url() -> str | None:
-    """Newest ``connect-url`` file under ~/.astroai/ray/clusters/*/."""
-    clusters = Path.home() / ".astroai" / "ray" / "clusters"
+    """Newest ``connect-url`` file under ~/.canfar/lab/ray/clusters/*/."""
+    clusters = Path.home() / ".canfar" / "lab" / "ray" / "clusters"
     if not clusters.is_dir():
         return None
     candidates: list[tuple[float, str]] = []
@@ -205,7 +205,7 @@ def clear_persisted_connect_urls() -> int:
 
     Called on cluster teardown so resolution never points at a dead manager.
     """
-    clusters = Path.home() / ".astroai" / "ray" / "clusters"
+    clusters = Path.home() / ".canfar" / "lab" / "ray" / "clusters"
     if not clusters.is_dir():
         return 0
     removed = 0

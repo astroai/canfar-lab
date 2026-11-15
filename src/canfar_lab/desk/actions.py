@@ -351,7 +351,7 @@ class DeskActions:
             return {"ok": True, "mode": mode, "manager": row}
         if mode not in ("start", "stop"):
             raise LabError(f"unknown cluster mode: {mode}")
-        log = self.home / ".astroai" / "lab" / "desk-cluster.log"
+        log = self.home / ".canfar" / "lab" / "desk-cluster.log"
         log.parent.mkdir(parents=True, exist_ok=True)
         cmd = [sys.executable, "-m", "canfar_lab.cli.main", "cluster", mode]
         with log.open("ab") as handle:

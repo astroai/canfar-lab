@@ -21,7 +21,7 @@ def test_push_uses_canfar_data(tmp_path: Path) -> None:
     out = arc_data.bridge(tmp_path, direction="push", user="ada", runner=run)
     assert out["ok"] is True
     assert out["transport"] == "arc"
-    assert out["remote"] == "arc:/home/ada/.astroai/lab/sync"
+    assert out["remote"] == "arc:/home/ada/.canfar/lab/sync"
     assert ["canfar", "data", "mkdir", "-p", out["remote"]] in calls
     assert any(item[2:4] == ["cp", "-R"] and "requests" in item[4] for item in calls)
 

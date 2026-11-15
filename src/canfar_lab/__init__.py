@@ -8,8 +8,8 @@ from canfar_lab.version import __version__, display_version, version_info
 
 
 def config_dir() -> Path:
-    """Workbench config directory (~/.astroai/lab)."""
-    return Path.home() / ".astroai" / "lab"
+    """Workbench config directory (~/.canfar/lab)."""
+    return Path.home() / ".canfar" / "lab"
 
 
 def saves_dir() -> Path:

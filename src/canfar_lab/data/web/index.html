@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AstroAI Lab</title>
+<title>AstroAI Settings</title>
 <style>
   :root {
     --bg: #0b1026; --panel: #121a3d; --panel-2: #0f1634; --line: rgba(129,140,248,.2);
@@ -121,6 +121,20 @@
   .save-bar { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap; padding: 12px 14px; border-radius: 10px;
               background: var(--panel-2); margin-top: 12px; }
   .save-bar input[type=text] { width: 12rem; }
+  .where { display: grid; gap: 6px; margin: 0 0 4px; }
+  .where label.opt { display: grid; grid-template-columns: 20px 1fr; gap: 2px 8px; align-items: start; padding: 10px 12px;
+                     border-radius: 10px; background: var(--panel-2); cursor: pointer; border: 1px solid transparent; }
+  .where label.opt:has(input:checked) { border-color: var(--accent); }
+  .where label.opt input[type=radio] { margin: 3px 0 0; }
+  .where .opt-title { font-weight: 600; }
+  .where .opt-sub { grid-column: 2; color: var(--muted); font-size: 13px; }
+  .where .opt-sub input[type=text] { width: min(28rem, 100%); margin-top: 4px; }
+  .row { display: flex; gap: 8px 12px; align-items: center; flex-wrap: wrap; }
+  .row + .row { margin-top: 8px; }
+  input[type=number] { font: inherit; width: 4.5rem; background: var(--panel-2); color: var(--text);
+                       border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; }
+  select { font: inherit; background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+           border-radius: 8px; padding: 4px 6px; }
 
   /* cluster */
   .stats { display: flex; gap: 18px; flex-wrap: wrap; margin: 4px 0 12px; }
@@ -137,7 +151,9 @@
   #activity.open #log { display: block; }
   #log pre { margin: 0; height: min(40vh, 360px); overflow: auto; background: var(--panel-2); border-radius: 8px; padding: 8px 10px;
              font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
-  #toast { position: fixed; top: 12px; right: 12px; max-width: 380px; z-index: 6; display: none;
+  code { overflow-wrap: anywhere; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #toast { position: fixed; top: 12px; right: 12px; max-width: min(380px, calc(100vw - 24px)); z-index: 6; display: none;
            box-shadow: 0 8px 24px rgba(0,0,0,.25); }
   #toast.show { display: block; }
 
@@ -154,7 +170,7 @@
 <body>
 <main>
   <header class="top">
-    <h1>Lab</h1>
+    <h1>Settings</h1>
     <span class="meta" id="session-meta"></span>
   </header>
 
@@ -163,26 +179,56 @@
     <ol class="steps" id="steps"></ol>
   </section>
 
-  <nav class="tabs" role="tablist" aria-label="Lab sections">
-    <button role="tab" id="tab-agents" data-tab="agents" aria-selected="true">Agents<span class="attn" id="attn-agents"></span></button>
-    <button role="tab" id="tab-keys" data-tab="keys" aria-selected="false">Keys</button>
-    <button role="tab" id="tab-code" data-tab="code" aria-selected="false">Code<span class="attn" id="attn-code"></span></button>
-    <button role="tab" id="tab-cluster" data-tab="cluster" aria-selected="false">Cluster</button>
+  <nav class="tabs" role="tablist" aria-label="Settings sections">
+    <button role="tab" id="tab-agents" aria-controls="panel-agents" data-tab="agents" aria-selected="true">Agents<span class="attn" id="attn-agents"><span class="sr-only">needs attention</span></span></button>
+    <button role="tab" id="tab-keys" aria-controls="panel-keys" data-tab="keys" aria-selected="false">Keys</button>
+    <button role="tab" id="tab-code" aria-controls="panel-code" data-tab="code" aria-selected="false">Code<span class="attn" id="attn-code"><span class="sr-only">needs attention</span></span></button>
+    <button role="tab" id="tab-cluster" aria-controls="panel-cluster" data-tab="cluster" aria-selected="false">Cluster</button>
   </nav>
 
-  <section data-panel="agents" role="tabpanel" aria-labelledby="tab-agents">
-    <p class="intro">Coding agents run in the Terminal tab. Their programs live on <code>$SCRATCH</code> and the newest
+  <section id="panel-agents" data-panel="agents" role="tabpanel" aria-labelledby="tab-agents">
+    <p class="intro">Use coding agents in the Harness or Terminal tab. Their programs live on the session's fast disk
+      (<code>$SCRATCH</code>, wiped when the session ends) and the newest
       version is installed for you at every session start. Logins and settings stay in your home.</p>
     <div class="list" id="agents"></div>
   </section>
 
-  <section data-panel="keys" role="tabpanel" aria-labelledby="tab-keys" hidden>
+  <section id="panel-keys" data-panel="keys" role="tabpanel" aria-labelledby="tab-keys" hidden>
     <p class="intro">Only needed if you do not sign in from the terminal. A key is stored in your home and used by
       every agent that reads it. Saved keys are never shown again, only whether one is set.</p>
-    <div class="list" id="keys"></div>
+    <div class="list" id="keys" data-editable></div>
   </section>
 
-  <section data-panel="code" role="tabpanel" aria-labelledby="tab-code" hidden>
+  <section id="panel-code" data-panel="code" role="tabpanel" aria-labelledby="tab-code" hidden>
+    <div class="card" id="workspace-card" data-item="where">
+      <h2>Where your code lives</h2>
+      <p class="intro">Kept for your next sessions. Terminal, JupyterLab, VS Code and the Harness open here.</p>
+      <form id="where-form" class="where">
+        <label class="opt"><input type="radio" name="mode" value="scratch">
+          <span class="opt-title">Session scratch <code id="where-scratch">$SCRATCH/src</code></span>
+          <span class="opt-sub">The session's fast disk. Wiped when the session ends, so your code is saved to
+            /arc for you and brought back next time (below).</span></label>
+        <label class="opt"><input type="radio" name="mode" value="home">
+          <span class="opt-title">Your home <code id="where-home">~/src</code></span>
+          <span class="opt-sub">Kept on /arc between sessions. Slower, and uses your home quota: put big data
+            and environments elsewhere.</span></label>
+        <label class="opt"><input type="radio" name="mode" value="custom">
+          <span class="opt-title">A folder you choose</span>
+          <span class="opt-sub">For example a folder in your group project.
+            <input type="text" id="where-path" placeholder="/arc/projects/GROUP/YOU" aria-label="Your code folder"></span></label>
+        <div class="row"><button class="primary" type="submit" id="where-apply">Use this folder</button>
+          <span class="muted small" id="where-note"></span></div>
+      </form>
+      <div id="where-confirm"></div>
+      <div id="where-callouts"></div>
+    </div>
+
+    <div class="card" id="autosave-card" data-item="autosave">
+      <h2>Saving to /arc</h2>
+      <div id="autosave-body" data-editable></div>
+    </div>
+
+    <h3>Projects</h3>
     <p class="intro" id="code-intro"></p>
     <div id="projects"></div>
     <div class="save-bar">
@@ -195,9 +241,14 @@
     </div>
     <h3>Saved snapshots</h3>
     <div class="list" id="snapshots"></div>
+
+    <div class="card" id="storage-card">
+      <h2>Privacy and caches</h2>
+      <div id="storage-body" data-editable></div>
+    </div>
   </section>
 
-  <section data-panel="cluster" role="tabpanel" aria-labelledby="tab-cluster" hidden>
+  <section id="panel-cluster" data-panel="cluster" role="tabpanel" aria-labelledby="tab-cluster" hidden>
     <div id="cluster" class="muted">Checking…</div>
   </section>
 </main>
@@ -222,7 +273,7 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 // `text` with `backticks` rendered as click-to-copy code.
-const rich = (v) => esc(v).replace(/`([^`]+)`/g, '<code class="copy" title="Click to copy">$1</code>');
+const rich = (v) => esc(v).replace(/`([^`]+)`/g, '<code class="copy" tabindex="0" role="button" title="Click to copy">$1</code>');
 let state = null, streaming = null, clusterTimer = null, dismissed = null, logOpen = false;
 
 const store = {
@@ -269,6 +320,25 @@ function stamp(t) {
   return ms ? new Date(ms).toLocaleString() : "";
 }
 function plural(n, word) { return `${n} ${word}${n === 1 ? "" : "s"}`; }
+// Only http(s) links from the server become hrefs.
+const safeUrl = (u) => (/^https?:\/\//i.test(String(u || "")) ? String(u) : "");
+// A form the user is typing in (or has edited and not saved) is not rebuilt by
+// the periodic refresh; it would wipe their input and move their focus.
+function editing(el) {
+  if (!el) return false;
+  if (el.dataset.dirty) return true;
+  const a = document.activeElement;
+  return !!(a && el.contains(a) && a.matches("input, select, textarea"));
+}
+document.addEventListener("input", (ev) => {
+  const box = ev.target.closest("[data-editable]");
+  if (box) box.dataset.dirty = "1";
+});
+// Disable a button while its request runs (no double submits).
+async function pending(btn, fn) {
+  if (btn) btn.disabled = true;
+  try { return await fn(); } finally { if (btn) btn.disabled = false; }
+}
 
 // ---- actions --------------------------------------------------------------
 
@@ -288,6 +358,16 @@ async function run(op, data = {}) {
       await api("DELETE", `snapshots/${encodeURIComponent(data.name)}`); toast("Snapshot deleted."); return refresh();
     }
     else if (op === "cluster_start" || op === "cluster_stop") reply = await api("POST", `cluster/${op.slice(8)}`);
+    else if (op === "restart_tools") {
+      await api("POST", "workspace/restart");
+      toast("Restarting Terminal, JupyterLab, VS Code and the Harness in the new folder…",
+        "Their tabs reload in a few seconds. Unsaved editor buffers are lost.");
+    }
+    else if (op === "make_private") { await api("POST", "workspace/private"); toast("Only you can open this folder now."); }
+    else if (op === "secure_secrets") {
+      const r = await api("POST", "workspace/secure");
+      toast(r.changed.length ? `Made ${plural(r.changed.length, "path")} private.` : "Already private.");
+    }
     if (reply && reply.job) { dismissed = null; follow(reply.job); }
   } catch (e) { toast(e.message, e.hint); }
   refresh();
@@ -308,6 +388,11 @@ function focus(tab, id) {
   }
 }
 
+document.addEventListener("keydown", (ev) => {
+  if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches && ev.target.matches("code.copy")) {
+    ev.preventDefault(); ev.target.click();
+  }
+});
 document.addEventListener("click", (ev) => {
   const code = ev.target.closest("code.copy");
   if (code) {
@@ -318,11 +403,12 @@ document.addEventListener("click", (ev) => {
   }
   const b = ev.target.closest("button[data-op], button[data-focus]");
   if (!b || b.disabled) return;
-  if (b.dataset.focus) return focus(b.dataset.focus, b.dataset.agent);
+  if (b.dataset.focus) return focus(b.dataset.focus, b.dataset.item || b.dataset.agent);
   const d = b.dataset;
   if (d.op === "agent" && d.verb === "remove" && !confirm(`Remove ${d.label} from this session? Your login and settings stay in your home.`)) return;
   if (d.op === "agent" && (d.verb === "clean-home" || d.verb === "rehome") && !confirm(`Delete these ${d.label} program copies from your home?\n\n${d.paths}\n\nYour login, settings and history are not touched.`)) return;
   if (d.op === "cluster_stop" && !confirm("Stop the cluster? Running jobs are cancelled.")) return;
+  if (d.op === "restart_tools" && !confirm("Restart Terminal, JupyterLab, VS Code and the Harness now?\n\nOpen terminals close and unsaved editor changes are lost. Agent chats are kept.")) return;
   run(d.op, { ...d });
 });
 
@@ -346,7 +432,11 @@ function renderHeader(st) {
   $("#session-meta").innerHTML = bits.join(" · ");
 }
 
+let lastStatus = "";
 function renderStatus(o, busy) {
+  const key = JSON.stringify([o, busy]);
+  if (key === lastStatus) return;  // the card is aria-live: do not re-announce
+  lastStatus = key;
   const card = $("#status");
   card.classList.toggle("compact", !!o.ready);
   $("#headline").textContent = o.headline;
@@ -354,6 +444,7 @@ function renderStatus(o, busy) {
   $("#steps").innerHTML = o.steps.map((s) => `
     <li class="step ${esc(s.status)}">
       <span class="mark" aria-hidden="true">${mark[s.status] ?? ""}</span>
+      <span class="sr-only">${{ done: "Done:", todo: "To do:", optional: "Optional:", running: "In progress:" }[s.status] || ""}</span>
       <div class="text"><span class="title">${esc(s.title)}</span>
         <span class="detail muted">${rich(s.detail)}</span></div>
       <div class="acts">${s.status === "running" ? "" :
@@ -381,13 +472,13 @@ function renderAgents(agents, busy) {
       : copies.length ? "" : btn("install", a.needs_restore ? "Reinstall" : "Install", "primary");
     const keyNames = a.keys.map((k) => `<code>${esc(k.key)}</code>`).join(" or ");
     const signin = a.installed && !a.ready ? `
-      <div class="callout info"><span class="grow">Run <code class="copy" title="Click to copy">${esc(a.login)}</code>
+      <div class="callout info"><span class="grow">Run <code class="copy" tabindex="0" role="button" title="Click to copy">${esc(a.login)}</code>
         in the Terminal tab and follow the sign-in link${a.keys.length ? `, or add ${keyNames}` : ""}.</span>
         ${a.keys.length ? `<button data-focus="keys" data-agent="${esc(a.id)}">Add a key</button>` : ""}</div>` : "";
     const paths = copies.map((c) => `<code>${esc(c.path)}</code>`).join(", ");
     const home = !copies.length ? "" : a.installed ? `
       <div class="callout warn"><span class="grow">Older copies in your home${total ? ` (${esc(size(total))})` : ""}:
-        ${paths}. They come from self-updates or manual installs, can shadow the Lab's copy, and slow your home.</span>
+        ${paths}. They come from self-updates or manual installs, can override the copy installed for you, and slow your home.</span>
         <button data-op="agent" data-agent="${esc(a.id)}" data-verb="clean-home" data-label="${esc(a.label)}"
           data-paths="${esc(copies.map((c) => c.path).join("\n"))}"${dis}>Remove them</button></div>` : `
       <div class="callout warn"><span class="grow">Found in your home${total ? ` (${esc(size(total))})` : ""}: ${paths}.
@@ -398,13 +489,14 @@ function renderAgents(agents, busy) {
     return `<div class="item" data-item="${esc(a.id)}">
       <div class="item-head"><span class="name">${esc(a.label)}</span>${agentStatus(a)}
         <span class="acts">${acts}</span></div>
-      <div class="muted small">${esc(a.summary)}${a.homepage ? ` · <a href="${esc(a.homepage)}" target="_blank" rel="noopener">docs ↗</a>` : ""}</div>
+      <div class="muted small">${esc(a.summary)}${safeUrl(a.homepage) ? ` · <a href="${esc(safeUrl(a.homepage))}" target="_blank" rel="noopener">docs ↗</a>` : ""}</div>
       ${signin}${home}</div>`;
   }).join("");
   $("#attn-agents").classList.toggle("on", agents.some((a) => (a.installed && !a.ready) || a.needs_restore || (a.home_copies || []).length));
 }
 
 function renderKeys(keys) {
+  if (editing($("#keys"))) return;
   $("#keys").innerHTML = keys.map((k) => `
     <div class="item" data-item="${esc(k.key)}">
       <div class="item-head"><span class="name">${esc(k.label)}</span>
@@ -424,8 +516,12 @@ document.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const input = $("input", form), value = input.value.trim();
   if (!value) return input.focus();
-  try { await api("POST", `keys/${form.dataset.key}`, { value }); input.value = ""; toast("Key saved."); }
-  catch (e) { toast(e.message, e.hint); }
+  await pending($("button[type=submit]", form), async () => {
+    try {
+      await api("POST", `keys/${form.dataset.key}`, { value });
+      input.value = ""; delete $("#keys").dataset.dirty; input.blur(); toast("Key saved.");
+    } catch (e) { toast(e.message, e.hint); }
+  });
   refresh();
 });
 document.addEventListener("click", async (ev) => {
@@ -448,20 +544,22 @@ function projectState(p) {
 function renderCode(st, busy) {
   const code = st.code, projects = code.projects || [];
   const src = esc(code.src || "$SCRATCH/src");
-  $("#code-intro").innerHTML = `Your code lives in <code>${src}</code>, which is wiped when the session ends.
-    A snapshot saves all of it, including uncommitted work, to <code>${esc(st.snapshot_root)}</code>.`;
+  $("#code-intro").innerHTML = code.ephemeral
+    ? `In <code>${src}</code>, wiped when the session ends. A snapshot saves all of it, including
+       uncommitted work, to <code>${esc(st.snapshot_root)}</code>.`
+    : `In <code>${src}</code>, kept between sessions. Snapshots are optional here.`;
   $("#projects").innerHTML = projects.length ? `
     <table class="projects"><thead><tr><th>Project</th><th>Branch</th><th>State</th></tr></thead><tbody>
     ${projects.map((p) => `<tr><td class="name">${esc(p.name)}</td>
       <td>${p.git ? `${esc(p.branch || "detached")} <span class="muted">${esc(p.head || "")}</span>` : ""}</td>
       <td>${projectState(p)}</td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">Nothing in <code>${src}</code> yet. In the Terminal tab, run
-       <code class="copy" title="Click to copy">canfar lab clone OWNER/REPO</code> or
-       <code class="copy" title="Click to copy">canfar lab init NAME</code>.</div>`;
+       <code class="copy" tabindex="0" role="button" title="Click to copy">canfar lab clone OWNER/REPO</code> or
+       <code class="copy" tabindex="0" role="button" title="Click to copy">canfar lab init NAME</code>.</div>`;
   $$('[data-op="save_snapshot"]').forEach((b) => (b.disabled = busy || !projects.length));
   $("#snapshots").innerHTML = st.snapshots.length ? st.snapshots.map((s) => {
-    const repos = (s.repos || []).map((r) => esc(r.path) + (r.dirty ? ` <span class="pill warn">${r.dirty} uncommitted</span>` : "")).join(", ");
-    return `<div class="item"><div class="item-head"><span class="name">${esc(s.name)}</span>
+    const repos = (s.repos || []).map((r) => esc(r.path) + (r.dirty ? ` <span class="pill warn">${esc(r.dirty)} uncommitted</span>` : "")).join(", ");
+    return `<div class="item"><div class="item-head"><span class="name">${esc(s.name)}</span>${s.auto ? ' <span class="pill">automatic</span>' : ""}
         <span class="muted small" title="${esc(stamp(s.created_at))}">saved ${esc(ago(s.created_at))} · ${esc(size((s.src_bytes || 0) + (s.dsh_bytes || 0)))}</span>
         <span class="acts">
           <button data-op="restore_snapshot" data-name="${esc(s.name)}"${busy ? " disabled" : ""}>Restore</button>
@@ -471,6 +569,190 @@ function renderCode(st, busy) {
   const step = (st.onboarding.steps || []).find((s) => s.id === "code");
   $("#attn-code").classList.toggle("on", !!(step && step.status !== "done" && projects.length));
 }
+
+// ---- workspace: code folder, automatic saves, privacy, caches -------------
+
+let whereDirty = false;  // keep the user's unsaved radio/path choice across refreshes
+
+function whereTarget(w) {
+  const mode = ($('#where-form input[name="mode"]:checked') || {}).value;
+  const byMode = Object.fromEntries((w.choices || []).map((c) => [c.mode, c.path]));
+  const path = mode === "custom" ? $("#where-path").value.trim() : byMode[mode];
+  return { mode, path };
+}
+
+function renderWorkspace(st, busy) {
+  const w = st.workspace || {};
+  const callouts = [];
+  if (w.error) callouts.push(`<div class="callout warn"><span class="grow">${esc(w.error)}</span></div>`);
+  const byMode = Object.fromEntries((w.choices || []).map((c) => [c.mode, c.path]));
+  $("#where-scratch").textContent = byMode.scratch || "$SCRATCH/src (no scratch disk in this session)";
+  $("#where-home").textContent = byMode.home || "~/src";
+  $('#where-form input[value="scratch"]').disabled = !byMode.scratch;
+  if (!whereDirty) {
+    let mode = w.code_dir ? w.code_dir.mode : "scratch";
+    if (mode === "scratch" && !byMode.scratch) {  // no scratch disk: show what is really used
+      mode = w.code_path === byMode.home ? "home" : "custom";
+    }
+    $$('#where-form input[name="mode"]').forEach((r) => (r.checked = r.value === mode));
+    $("#where-path").value = (w.code_dir && w.code_dir.path) || (mode === "custom" ? w.code_path || "" : "");
+  }
+  $("#where-note").innerHTML = w.code_path ? `Now: <code>${esc(w.code_path)}</code>` : "";
+
+  if (w.restart_needed) {
+    callouts.push(`<div class="callout warn"><span class="grow">Terminal, JupyterLab, VS Code and the Harness are still
+      using <code>${esc(w.live_code_path)}</code>. Restart them to open <code>${esc(w.code_path)}</code>.</span>` +
+      (w.restart_supported
+        ? `<button class="primary" data-op="restart_tools"${busy ? " disabled" : ""}>Restart tools now</button>`
+        : '<span class="muted">Start a new session to switch.</span>') + "</div>");
+  }
+  const pv = w.privacy;
+  if (pv && pv.private === false) {
+    const who = [pv.group_access && "your group", pv.other_access && "everyone",
+      pv.acl && pv.acl.length && "specific people or groups it was shared with"].filter(Boolean).join(", ");
+    callouts.push(`<div class="callout warn"><span class="grow">Others can open this folder (${esc(who)}).
+      Fine if you share it on purpose.</span><button data-op="make_private">Make it private</button></div>`);
+  } else if (pv && pv.private) {
+    callouts.push('<div class="callout info"><span class="grow">Only you can open this folder.</span></div>');
+  }
+  $("#where-callouts").innerHTML = callouts.join("");
+
+  const autosave = $("#autosave-body");
+  if (!editing(autosave)) {
+    const a = w.autosave || {};
+    autosave.innerHTML = w.ephemeral ? `
+      <form id="autosave-form">
+        <div class="row"><label class="check"><input type="checkbox" name="enabled"${a.enabled ? " checked" : ""}>
+          Save automatically every</label>
+          <input type="number" name="interval_min" min="5" max="1440" required value="${esc(a.interval_min)}" aria-label="Minutes between automatic saves"> min
+          and when the session ends, keeping the last
+          <input type="number" name="keep" min="1" max="50" required value="${esc(a.keep)}" aria-label="Automatic saves to keep"> automatic saves</div>
+        <div class="row"><label for="restore-at-start">When a new session starts with an empty folder:</label>
+          <select id="restore-at-start" name="restore_at_start">
+            <option value="latest"${w.restore_at_start === "latest" ? " selected" : ""}>bring back my latest save</option>
+            <option value="ask"${w.restore_at_start === "ask" ? " selected" : ""}>ask me</option>
+            <option value="never"${w.restore_at_start === "never" ? " selected" : ""}>start empty</option>
+          </select>
+          <span class="grow"></span><button type="submit">Save settings</button></div>
+      </form>
+      <p class="muted small" style="margin:8px 0 0">Saves skip Python environments (<code>.pixi</code>, <code>.venv</code>);
+        they are rebuilt from your project files. Snapshots you take by hand are never deleted automatically.</p>`
+      : `<p class="intro" style="margin:0">${w.on_arc
+          ? "Your code folder is on /arc, so it is already kept between sessions."
+          : "Your code folder is not on the session's scratch disk, so nothing is saved automatically."}
+         You can still take a snapshot below, for example before a big change.</p>`;
+  }
+
+  const storage = $("#storage-body");
+  if (!editing(storage)) {
+    const exposed = w.exposed_secrets || [];
+    const cache = w.cache_default
+      ? (w.cache_path ? `<code>${esc(w.cache_path)}</code> <span class="muted">(default: the session's fast disk)</span>`
+                      : '<span class="muted">the default folder</span>')
+      : `<code>${esc(w.cache_path)}</code>`;
+    storage.innerHTML = `
+      <div class="row">${exposed.length
+        ? `<span class="pill warn">Your agent logins or keys can be read by others</span>
+           <button data-op="secure_secrets">Make private</button>
+           <details class="small"><summary>Which files?</summary>${exposed.map((p) => `<div><code>${esc(p)}</code></div>`).join("")}</details>`
+        : '<span class="pill ok">Agent logins, keys and settings are private to you</span>'}</div>
+      <form id="cache-form" class="row" style="margin-top:12px">
+        <span>Caches and agent working data (pip, uv, pixi, npm, agent sessions) go to ${cache}.</span>
+        <input type="text" name="cache_dir" placeholder="/arc/projects/GROUP/cache" aria-label="Another cache folder">
+        <button type="submit">Use folder</button>
+        ${w.cache_default ? "" : '<button type="button" class="link" id="cache-reset">Back to the default</button>'}
+      </form>
+      <p class="muted small" style="margin:8px 0 0">Caches never go to your /arc home. A change applies to tools started
+        after it (restart them above, or in the next session).</p>`;
+  }
+}
+
+$("#where-form").addEventListener("change", () => { whereDirty = true; $("#where-confirm").innerHTML = ""; });
+["focus", "input"].forEach((t) => $("#where-path").addEventListener(t, () => {
+  $('#where-form input[value="custom"]').checked = true;
+  whereDirty = true;
+}));
+
+async function applyWhere(copy) {
+  const { mode, path } = whereTarget((state && state.workspace) || {});
+  $("#where-confirm").innerHTML = "";
+  await pending($("#where-apply"), async () => {
+    try {
+      const r = await api("POST", "workspace/code-dir", { mode, path: mode === "custom" ? path : undefined, copy });
+      whereDirty = false;
+      toast(r.changed ? `Your code folder is now ${r.new}.` : "That is already your code folder.",
+        r.changed && r.restart_supported ? "Restart the tools (button below) to open them there." : undefined);
+      if (r.job) { dismissed = null; follow(r.job); }
+    } catch (e) { toast(e.message, e.hint); }
+  });
+  refresh();
+}
+
+$("#where-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  const w = (state && state.workspace) || {};
+  const { mode, path } = whereTarget(w);
+  if (!mode) return;
+  if (mode === "custom" && !path) { toast("Type the folder to use."); $("#where-path").focus(); return; }
+  if (path && path === w.code_path) { whereDirty = false; toast("That is already your code folder."); return; }
+  const projects = (state && state.code && state.code.entries) || [];
+  if (!projects.length) { applyWhere(false); return; }
+  $("#where-confirm").innerHTML = `<div class="callout info"><span class="grow">Copy your
+    ${esc(plural(projects.length, "project"))} to the new folder? Your originals stay where they are; Python
+    environments are rebuilt there.</span>
+    <button class="primary" data-where="copy">Copy and switch</button>
+    <button data-where="switch">Switch only</button>
+    <button class="link" data-where="cancel">Cancel</button></div>`;
+  $('#where-confirm [data-where="copy"]').focus();
+});
+$("#where-confirm").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-where]");
+  if (!b) return;
+  if (b.dataset.where === "cancel") { $("#where-confirm").innerHTML = ""; return; }
+  applyWhere(b.dataset.where === "copy");
+});
+
+document.addEventListener("submit", async (ev) => {
+  const form = ev.target.closest("#autosave-form, #cache-form");
+  if (!form) return;
+  ev.preventDefault();
+  if (!form.reportValidity()) return;
+  const f = new FormData(form);
+  let body, done;
+  if (form.id === "autosave-form") {
+    body = { autosave: f.get("enabled") === "on", interval_min: parseInt(f.get("interval_min"), 10),
+             keep: parseInt(f.get("keep"), 10), restore_at_start: f.get("restore_at_start") };
+  } else {
+    const dir = String(f.get("cache_dir") || "").trim();
+    if (!dir) { toast("Type a folder, for example under /arc/projects, or keep the default."); return; }
+    body = { cache_dir: dir };
+  }
+  await pending($("button[type=submit]", form), async () => {
+    try {
+      const r = await api("POST", "workspace/options", body);
+      const box = form.closest("[data-editable]");
+      if (box) delete box.dataset.dirty;
+      document.activeElement && document.activeElement.blur();
+      if (form.id === "autosave-form") {
+        const a = r.autosave;
+        toast(a.enabled ? `Automatic saves every ${a.interval_min} min, keeping the last ${a.keep}.`
+          : "Automatic saves are off. Save by hand before you leave.");
+      } else {
+        toast(`Caches go to ${r.cache_path} for tools started from now on.`);
+      }
+    } catch (e) { toast(e.message, e.hint); }
+  });
+  refresh();
+});
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("#cache-reset");
+  if (!b) return;
+  await pending(b, async () => {
+    try { await api("POST", "workspace/options", { reset_cache_dir: true }); toast("Caches go to the default folder again."); }
+    catch (e) { toast(e.message, e.hint); }
+  });
+  refresh();
+});
 
 async function refreshCluster() {
   const el = $("#cluster");
@@ -492,10 +774,10 @@ async function refreshCluster() {
         <span class="pill ${j.status === "SUCCEEDED" || j.status === "succeeded" ? "ok" : /fail/i.test(j.status) ? "bad" : "run"}">${esc(String(j.status).toLowerCase())}</span>
         <span class="grow muted">${esc(j.entrypoint)}</span>
         ${j.start_time ? `<span class="muted">${esc(ago(j.start_time / 1000))}</span>` : ""}</div></div>`).join("")
-      : '<div class="empty">No jobs yet. Submit one from the Terminal tab with <code class="copy" title="Click to copy">canfar lab run script.py</code>.</div>';
+      : '<div class="empty">No jobs yet. Submit one from the Terminal tab with <code class="copy" tabindex="0" role="button" title="Click to copy">canfar lab run script.py</code>.</div>';
     el.innerHTML = `<div class="card"><div class="item-head"><h2>Ray cluster</h2><span class="pill ok">${esc(c.phase)}</span>
         ${c.authenticated ? "" : '<span class="pill warn">CANFAR login missing</span>'}
-        <span class="acts">${c.dashboard_url ? `<a href="${esc(c.dashboard_url)}" target="_blank" rel="noopener">Ray dashboard ↗</a>` : ""}
+        <span class="acts">${safeUrl(c.dashboard_url) ? `<a href="${esc(safeUrl(c.dashboard_url))}" target="_blank" rel="noopener">Ray dashboard ↗</a>` : ""}
           <button class="link danger" data-op="cluster_stop"${dis}>Stop</button></span></div>
       <div class="stats">
         <div class="stat"><div class="v">${esc(c.workers_joined ?? 0)}</div><div class="k">workers</div></div>
@@ -534,7 +816,7 @@ function resultNote(job) {
   if (job.kind === "snapshot_restore" && job.state === "ok") {
     let s = r.skipped && r.skipped.length ? ` <span class="muted small">Kept your current ${esc(r.skipped.join(", "))}.</span>
       <button data-op="restore_snapshot" data-name="${esc(r.name)}" data-overwrite="1">Replace them</button>` : "";
-    if (r.dsh && r.dsh.restart_required) s += ' <span class="muted small">Reload the Agent tab to see the restored history.</span>';
+    if (r.dsh && r.dsh.restart_required) s += ' <span class="muted small">Reload the Harness tab to see the restored history.</span>';
     return s;
   }
   if (job.kind === "agent:install" && job.state === "ok") return ' <span class="muted small">Next: sign in from the Terminal tab.</span>';
@@ -598,7 +880,10 @@ $("#job-close").addEventListener("click", () => {
 // ---- tabs + refresh ---------------------------------------------------------
 
 function selectTab(tab) {
-  $$("nav.tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+  $$("nav.tabs button").forEach((b) => {
+    b.setAttribute("aria-selected", String(b.dataset.tab === tab));
+    b.tabIndex = b.dataset.tab === tab ? 0 : -1;  // roving tabindex: arrows move between tabs
+  });
   $$("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== tab));
   store.set("lab.tab", tab);
   clearInterval(clusterTimer);
@@ -616,13 +901,14 @@ $("nav.tabs").addEventListener("keydown", (ev) => {  // arrow keys move between 
 async function refresh() {
   try {
     state = await api("GET", "state");
-  } catch (e) { $("#headline").textContent = "The Lab is not answering: " + e.message; return; }
+  } catch (e) { lastStatus = ""; $("#headline").textContent = "Settings can't reach its server: " + e.message; return; }
   const busy = !!(state.job && state.job.state === "running");
   renderHeader(state);
   renderStatus(state.onboarding, busy);
   renderAgents(state.agents, busy);
   renderKeys(state.keys);
   renderCode(state, busy);
+  renderWorkspace(state, busy);
   if (state.job) follow(state.job); else $("#activity").hidden = true;
 }
 

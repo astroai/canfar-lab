@@ -51,8 +51,8 @@ $DSH_HOME/profiles/astroai/package.json        # manifest: dsh.profile.bundles I
 $DSH_HOME/profiles/astroai/cordis.patch.yml    # the Studio layer (generated)
 $DSH_HOME/profiles/astroai/pnpm-workspace.yaml # nodeLinker: hoisted
 $DSH_HOME/cordis.patch.yml                     # machine layer: bash-sandbox timeoutMs
-~/.astroai/lab/studio/studio-profile.yaml      # the resolved resource profile
-~/.astroai/lab/review-bench/                   # managed presets, skills, bin
+~/.canfar/lab/studio/studio-profile.yaml      # the resolved resource profile
+~/.canfar/lab/review-bench/                   # managed presets, skills, bin
 ```
 
 `$DSH_HOME` is `~/.dsh` unless the environment overrides it. All of the above
@@ -120,7 +120,7 @@ dsh discovers skills from these roots, in precedence order:
 |---|---|
 | 100 | `<repo>/.dsh/skills` (per project) |
 | 200 | `<repo>/.agents/skills` |
-| 300 | the managed AstroAI pack: `~/.astroai/lab/review-bench/skills` |
+| 300 | the managed AstroAI pack: `~/.canfar/lab/review-bench/skills` |
 | 400 | `$DSH_HOME/skills` |
 | 500 | `~/.agents/skills` |
 | 600 | bundled |
@@ -146,7 +146,7 @@ saved in Settings → Models are left as they are.
 
 Keys are **not** required before the session starts. Prepare only writes
 `apiKeyEnv` names (and the Go endpoint/models); the secret itself comes later
-from Settings → Models, the environment, `~/.astroai/lab/.env`, or
+from Settings → Models, the environment, `~/.canfar/lab/.env`, or
 `$DSH_HOME/.credentials.yaml`. On CANFAR that means: Connect → paste the key
 in Settings → pick a model. Add a gateway by hand in **Settings → Add a custom
 provider**, or declare it once in `support.yaml` so every machine and image
@@ -214,7 +214,7 @@ To run the row against a checkout whose CLI is ahead of the installed one
 canfar lab studio --prepare --mcp-bin ~/src/astroai/canfar-lab/.pixi/envs/default/bin/canfar-lab
 ```
 
-That writes `ASTROAI_STUDIO_MCP_BIN` to `~/.astroai/lab/.env`. Clearing the key
+That writes `ASTROAI_STUDIO_MCP_BIN` to `~/.canfar/lab/.env`. Clearing the key
 restores the default (whatever `canfar-lab` resolves to on `PATH`), which is what a
 committed, upgraded CLI wants.
 

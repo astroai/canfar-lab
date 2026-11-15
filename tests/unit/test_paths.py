@@ -27,8 +27,8 @@ def lab_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def test_config_dirs_under_astroai(lab_home: Path) -> None:
-    assert config_dir() == lab_home / ".astroai" / "lab"
-    assert saves_dir() == lab_home / ".astroai" / "lab" / "saves"
+    assert config_dir() == lab_home / ".canfar" / "lab"
+    assert saves_dir() == lab_home / ".canfar" / "lab" / "saves"
 
 
 def test_work_dir_from_env(lab_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -61,7 +61,7 @@ def test_work_dir_creates_missing_explicit_path(
 
 def test_yaml_work_dir(lab_home: Path) -> None:
     work = lab_home / "src"
-    cfg = lab_home / ".astroai" / "lab"
+    cfg = lab_home / ".canfar" / "lab"
     cfg.mkdir(parents=True)
     (cfg / "config.yaml").write_text(f'work_dir: "{work}"\n')
     get_settings.cache_clear()
@@ -91,7 +91,7 @@ def test_save_dir_override(lab_home: Path, monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_yaml_save_dir_affects_resolve_paths(lab_home: Path) -> None:
     custom = lab_home / "yaml-saves"
-    cfg = lab_home / ".astroai" / "lab"
+    cfg = lab_home / ".canfar" / "lab"
     cfg.mkdir(parents=True)
     (cfg / "config.yaml").write_text(f'save_dir: "{custom}"\n')
     get_settings.cache_clear()
@@ -105,17 +105,13 @@ def test_resolve_paths(lab_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("WORK", str(work))
     paths = resolve_paths()
     assert paths.work_dir == work
-    assert paths.config_dir == lab_home / ".astroai" / "lab"
+    assert paths.config_dir == lab_home / ".canfar" / "lab"
 
 
-def test_config_dir_ignores_legacy_canfar_lab(lab_home: Path) -> None:
+def test_config_dir_is_canfar_lab(lab_home: Path) -> None:
     from canfar_lab import config_dir
 
-    leftover = lab_home / ".canfar" / "lab"
-    leftover.mkdir(parents=True)
-    (leftover / "config.yaml").write_text("default_pm: uv\n")
-    assert config_dir() == lab_home / ".astroai" / "lab"
-    assert not (lab_home / ".astroai" / "lab").exists()
+    assert config_dir() == lab_home / ".canfar" / "lab"
 
 
 def _fake_devs(

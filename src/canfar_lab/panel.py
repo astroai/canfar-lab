@@ -203,7 +203,7 @@ def run_panel(
         ensured = _rb.ensure_dsh_settings(home, dry_run=False)
     if not keys and not dry_run:
         raise LabError(
-            "No dsh provider key found (checked env, ~/.astroai/lab/.env, opencode auth).",
+            "No dsh provider key found (checked env, ~/.canfar/lab/.env, opencode auth).",
             hint="Run `opencode auth login` or `export DEEPSEEK_API_KEY=...`, "
             "then `canfar lab agent setup` to persist it.",
         )

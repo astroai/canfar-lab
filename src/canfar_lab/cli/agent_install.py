@@ -550,7 +550,7 @@ def agent_wipe_cmd(
     if not opts.dry_run and not opts.yes and not opts.json:
         ui.print_warn("This PERMANENTLY removes every agent configuration:")
         ui.print_warn("  • every installed agent CLI (binary + config + plugins + home dirs)")
-        ui.print_warn("  • ~/.astroai/lab setup state (stamps, locks, logs)")
+        ui.print_warn("  • ~/.canfar/lab setup state (stamps, locks, logs)")
         ui.print_warn("  • Cursor skills, rules, and MCP configs (~/.cursor)")
         ui.print_warn("Saved environments, projects, and CANFAR config are NOT touched.")
         if not typer.confirm("Proceed with the full wipe?", default=False):

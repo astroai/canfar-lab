@@ -163,7 +163,7 @@ def test_fast_io_hook_prefixes_path(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert scratch is not None
     write_bin_root(home, ROOT_SCRATCH)
     assert sync_fast_io_env(home) == "updated"
-    text = (home / ".astroai" / "lab" / "agent-env.sh").read_text(encoding="utf-8")
+    text = (home / ".canfar" / "lab" / "agent-env.sh").read_text(encoding="utf-8")
     assert "CANFAR_LAB_BIN_DIR" in text
     assert 'export PATH="${CANFAR_LAB_BIN_DIR}:${PATH}"' in text
     assert "XDG_CACHE_HOME" in text
@@ -175,7 +175,7 @@ def test_settings_payload_has_key_names_not_secrets(
 ) -> None:
     home, _scratch = _session(tmp_path, monkeypatch, scratch=True)
     secret = "supersecretvalue1"
-    env = home / ".astroai" / "lab" / ".env"
+    env = home / ".canfar" / "lab" / ".env"
     env.parent.mkdir(parents=True)
     env.write_text(f"OPENROUTER_API_KEY={secret}\n", encoding="utf-8")
     payload = settings_payload(home)

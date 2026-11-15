@@ -97,7 +97,7 @@ def test_env_export_includes_persisted_ray_address(tmp_path, monkeypatch) -> Non
         "canfar_workload.dashboard._live_manager_connect",
         _boom,
     )
-    url = tmp_path / ".astroai" / "ray" / "clusters" / "default" / "connect-url"
+    url = tmp_path / ".canfar" / "lab" / "ray" / "clusters" / "default" / "connect-url"
     url.parent.mkdir(parents=True)
     url.write_text("https://mgr.example/", encoding="utf-8")
     runner = CliRunner()

@@ -18,6 +18,6 @@ verify:
 plugins: [skill, mcp, config]
 notes: >-
   Studio Team / review-bench via `canfar lab agent setup` into
-  ~/.astroai/lab/review-bench and ~/.dsh/profiles/astroai/cordis.patch.yml.
+  ~/.canfar/lab/review-bench and ~/.dsh/profiles/astroai/cordis.patch.yml.
   Coding UI: `canfar lab studio` (profile `astroai`, see docs/studio.md) or
   image astroai/studio. Headless Team: `canfar lab panel run`.

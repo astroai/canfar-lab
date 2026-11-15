@@ -10,7 +10,7 @@ fi
 CANFAR_LAB_PROFILE_LOADED=1
 
 # Stderr → canfar logs (non-interactive only; a terminal user should not see
-# boot chatter). Always ~/.astroai/lab/boot.log on shared home.
+# boot chatter). Always ~/.canfar/lab/boot.log on shared home.
 astroai_boot_log() {
     local ts sid kind line dir
     ts="$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || printf '?')"
@@ -18,7 +18,7 @@ astroai_boot_log() {
     kind="${ASTROAI_SESSION_KIND:-?}"
     line="${ts} sid=${sid} pid=$$ kind=${kind} $*"
     [[ -t 2 ]] || echo "[astroai-boot] ${line}" >&2 || true
-    dir="${CANFAR_LAB_CONFIG_DIR:-${HOME}/.astroai/lab}"
+    dir="${CANFAR_LAB_CONFIG_DIR:-${HOME}/.canfar/lab}"
     mkdir -p "${dir}" 2>/dev/null || return 0
     echo "${line}" >> "${dir}/boot.log" 2>/dev/null || true
 }
@@ -50,7 +50,7 @@ unset _canfar_lab_cli
 # removed) in the Studio hub reaches terminals already open — before the next
 # command runs, not one command late. Writers replace the file atomically:
 # the inode changes on every save.
-_astroai_keys_file="${HOME}/.astroai/lab/.env"
+_astroai_keys_file="${HOME}/.canfar/lab/.env"
 _astroai_keys_stamp=""
 _astroai_keys_names=""
 _astroai_keys_load() {

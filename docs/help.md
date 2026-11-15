@@ -22,7 +22,7 @@ Marimo: Science Portal → **marimo** → `$WORK/notebooks/starter.py`.
 | Home | `/arc/home` | Config and env saves |
 | Projects | `/arc/projects` | Team storage |
 
-Saves default to **`~/.astroai/lab/saves/`**.
+Saves default to **`~/.canfar/lab/saves/`**.
 
 ## Project env
 
@@ -47,7 +47,7 @@ Same as AstroAI hub **Start batch compute**. `canfar lab status` is not the clus
 
 ## Desk sync (laptop ⇄ session)
 
-The mailbox under `~/.astroai/lab/sync` is only a doorbell; GitHub is the
+The mailbox under `~/.canfar/lab/sync` is only a doorbell; GitHub is the
 protocol. Session side:
 
 ```text

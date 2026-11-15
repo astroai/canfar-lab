@@ -824,7 +824,7 @@ class TestClusterStartAutoscaling:
 
 class TestClusterStopTeardown:
     def _write_connect_url(self, home: Path) -> Path:
-        path = home / ".astroai" / "ray" / "clusters" / "default" / "connect-url"
+        path = home / ".canfar" / "lab" / "ray" / "clusters" / "default" / "connect-url"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("https://mgr/", encoding="utf-8")
         return path

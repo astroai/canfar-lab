@@ -126,7 +126,7 @@ def test_code_counts_as_saved_only_by_a_snapshot_from_this_session() -> None:
         agents=ready_agent, keys=[], snapshots=[fresh], code=SOME_CODE, started_at=started
     )
     assert _step(new, "code")["status"] == "done"
-    assert "Switch to the Agent tab" in new["headline"]
+    assert "Switch to the Harness tab" in new["headline"]
 
 
 def test_running_job_labels_match_the_action() -> None:

@@ -2,7 +2,7 @@
 
 Layout (docs/desk-sync.md §6.4)::
 
-    <mailbox>/                # $HOME/.astroai/lab/sync — shared /arc home in session
+    <mailbox>/                # $HOME/.canfar/lab/sync — shared /arc home in session
       ready.json              # written by the session watcher at boot
       requests/<ts>-<id>.json # desk → session (TTL'd)
       processing/<ts>-<id>.json
@@ -34,7 +34,7 @@ MAILBOX_ENV = "CANFAR_LAB_SYNC_MAILBOX"
 
 
 def mailbox_dir(*, home: Path | None = None, override: Path | str | None = None) -> Path:
-    """Resolve the mailbox: explicit override → env → ``~/.astroai/lab/sync``.
+    """Resolve the mailbox: explicit override → env → ``~/.canfar/lab/sync``.
 
     On the desk the ``$HOME`` here must be the *shared* home (an SSHFS mount
     of ``arc:/home/$USER`` or a synced copy) for the session to see requests;
@@ -45,7 +45,7 @@ def mailbox_dir(*, home: Path | None = None, override: Path | str | None = None)
     env = os.environ.get(MAILBOX_ENV, "").strip()
     if env:
         return Path(env).expanduser()
-    return (home or Path.home()) / ".astroai" / "lab" / "sync"
+    return (home or Path.home()) / ".canfar" / "lab" / "sync"
 
 
 def ensure(mailbox: Path) -> Path:

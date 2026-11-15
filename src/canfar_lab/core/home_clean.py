@@ -96,7 +96,7 @@ def plan_clean(home: Path, save_dir: Path) -> dict[str, Any]:
         item["saved_at"] = row["saved_at"]
         item["env_kind"] = row["kind"]
         saves.append(item)
-    cfg = home / ".astroai" / "lab" / "config.yaml"
+    cfg = home / ".canfar" / "lab" / "config.yaml"
     config = _row(cfg, "config") if cfg.exists() else None
     return {
         "caches": caches,

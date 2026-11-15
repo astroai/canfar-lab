@@ -115,7 +115,7 @@
   name: '@deepseek-ai/dsh-skill-filesystem'
   config:
     customSkillDirs:
-      - !!js (process.env.CANFAR_LAB_DATA || process.env.HOME + '/.astroai/lab') + '/review-bench/skills'
+      - !!js (process.env.CANFAR_LAB_DATA || process.env.HOME + '/.canfar/lab') + '/review-bench/skills'
       - !!js process.env.HOME + '/dsh/skills'
 
 - id: tool-skill

@@ -73,7 +73,7 @@ started by Skaha). Treat these facts as ground truth over general habits.
 - Model API keys are managed in the AstroAI hub (the **AstroAI** chip, `/astroai-agents/`);
   never print key values. A self-hosted OpenAI-compatible model server (e.g. vLLM in
   another CANFAR session) appears as the `canfar` provider when `ASTROAI_LLM_BASE_URL`
-  and `ASTROAI_LLM_MODELS` (comma-separated) are set in `~/.astroai/lab/.env`, with an
+  and `ASTROAI_LLM_MODELS` (comma-separated) are set in `~/.canfar/lab/.env`, with an
   optional `ASTROAI_LLM_API_KEY`; it takes effect in the next session.
 - Commands run with the user's own permissions (full access is the CANFAR default:
   the OS sandbox would block archive network access and `/arc` reads). Never delete

@@ -41,7 +41,7 @@ def _make_installed_hermes(bin_dir: Path, home: Path) -> None:
     skill = home / ".hermes" / "skills" / "astroai-ray" / "SKILL.md"
     skill.parent.mkdir(parents=True, exist_ok=True)
     skill.write_text("# astroai-ray\n", encoding="utf-8")
-    stamp = home / ".astroai" / "lab" / "agent-setup-stamp"
+    stamp = home / ".canfar" / "lab" / "agent-setup-stamp"
     stamp.parent.mkdir(parents=True, exist_ok=True)
     stamp.write_text("2026-08-02T00:00:00Z bundle=test mode=install\n", encoding="utf-8")
 
@@ -75,7 +75,7 @@ def test_wipe_dry_run_reports_and_touches_nothing(
     # nothing actually removed
     assert (home / ".hermes" / "config.yaml").is_file()
     assert (home / ".cursor" / "mcp.json").is_file()
-    assert (home / ".astroai" / "lab" / "agent-setup-stamp").is_file()
+    assert (home / ".canfar" / "lab" / "agent-setup-stamp").is_file()
     targets = {r["target"] for r in results}
     assert "state:stamp" in targets  # agent setup stamp is wiped
     assert "cursor" in targets  # whole ~/.cursor dir is removed (factory reset)
@@ -97,7 +97,7 @@ def test_wipe_removes_agents_state_and_cursor(
     assert not (tmp_path / "bin" / "hermes").exists()
     assert not (home / ".hermes").exists()  # purge removes the whole home dir
     # state + cursor gone
-    assert not (home / ".astroai" / "lab").exists()
+    assert not (home / ".canfar" / "lab").exists()
     assert not (home / ".cursor").exists()
 
 
@@ -125,23 +125,23 @@ def test_wipe_leaves_canfar_lab_config(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 def test_wipe_keeps_saved_environments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Env saves (~/.astroai/lab/saves/) and prefs (config.yaml) survive a wipe."""
+    """Env saves (~/.canfar/lab/saves/) and prefs (config.yaml) survive a wipe."""
     _fake_session_paths(monkeypatch, tmp_path)
     home = tmp_path / "home"
     home.mkdir()
-    saved = home / ".astroai" / "lab" / "saves" / "mylab"
+    saved = home / ".canfar" / "lab" / "saves" / "mylab"
     saved.mkdir(parents=True)
     (saved / "pixi.toml").write_text("[project]\n", encoding="utf-8")
-    prefs = home / ".astroai" / "lab" / "config.yaml"
+    prefs = home / ".canfar" / "lab" / "config.yaml"
     prefs.write_text("default_pm: uv\n", encoding="utf-8")
     _make_installed_hermes(tmp_path / "bin", home)
 
     wipe_agent_state(home=home)
     # saves + preferences preserved; the agent stamp is gone
-    assert (home / ".astroai" / "lab" / "saves" / "mylab" / "pixi.toml").is_file()
+    assert (home / ".canfar" / "lab" / "saves" / "mylab" / "pixi.toml").is_file()
     assert prefs.is_file()
-    assert not (home / ".astroai" / "lab" / "agent-setup-stamp").exists()
-    assert (home / ".astroai" / "lab").is_dir()  # lab dir survives while it holds data
+    assert not (home / ".canfar" / "lab" / "agent-setup-stamp").exists()
+    assert (home / ".canfar" / "lab").is_dir()  # lab dir survives while it holds data
 
 
 def test_wipe_unknown_agent_error_captured(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

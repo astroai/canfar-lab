@@ -29,7 +29,7 @@ Never `pip install --user` or write large caches under `$HOME/.local` on `/arc/h
 ## Laptop Studio
 
 - No Skaha quota; local CPU/RAM/GPU.
-- Same skills and `~/.astroai/lab/.env` keys as CANFAR.
+- Same skills and `~/.canfar/lab/.env` keys as CANFAR.
 
 ## Checks
 

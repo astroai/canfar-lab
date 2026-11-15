@@ -7,7 +7,7 @@ laptops get it without cloning ``~/dsh``. Single source of truth remains
 
 Layout after ``canfar lab agent setup``::
 
-    ~/.astroai/lab/review-bench/      # presets/ + skills/ + bin/ + validate.mjs
+    ~/.canfar/lab/review-bench/      # presets/ + skills/ + bin/ + validate.mjs
     ~/.dsh/profiles/web/cordis.patch.yml   # web preset root (idempotent)
     ~/.dsh/profiles/headless/cordis.yml    # empty list (presets are web-only)
 """
@@ -57,7 +57,7 @@ def vendored_review_bench_root() -> Path:
 
 
 def managed_bench_dir(home: Path | None = None) -> Path:
-    return (home or Path.home()) / ".astroai" / "lab" / "review-bench"
+    return (home or Path.home()) / ".canfar" / "lab" / "review-bench"
 
 
 def validate_preset(root: Path | None = None) -> tuple[list[str], list[str]]:
@@ -145,8 +145,8 @@ def validate_preset(root: Path | None = None) -> tuple[list[str], list[str]]:
                 f"preset: row {row.get('id')} presets model ({model!r}) — "
                 "astroai does not preset models"
             )
-    if not any("astroai" in line for line in text.splitlines()):
-        failures.append("preset: customSkillDirs does not mention the managed ~/.astroai path")
+    if not any(".canfar/lab" in line for line in text.splitlines()):
+        failures.append("preset: customSkillDirs does not mention the managed ~/.canfar/lab path")
     else:
         checks.append("preset: customSkillDirs points at the managed bench")
     return checks, failures
@@ -155,7 +155,7 @@ def validate_preset(root: Path | None = None) -> tuple[list[str], list[str]]:
 def ensure_review_bench(
     home: Path | None = None, *, dry_run: bool = False, force: bool = False
 ) -> bool:
-    """Install the vendored bench to ``~/.astroai/lab/review-bench`` + dsh layers.
+    """Install the vendored bench to ``~/.canfar/lab/review-bench`` + dsh layers.
 
     Returns True when files were (or would be, under ``dry_run``) written.
     The web patch layer keeps user edits: a differing installed layer is left
@@ -295,7 +295,7 @@ def discover_dsh_keys(home: Path | None = None) -> dict[str, str]:
 
 
 def ensure_dsh_dotenv(home: Path | None = None, *, dry_run: bool = False) -> dict[str, str]:
-    """Persist discovered dsh keys into the shared ``~/.astroai/lab/.env``."""
+    """Persist discovered dsh keys into the shared ``~/.canfar/lab/.env``."""
     from canfar_lab.agent.setup import _write_dotenv_value, openrouter_dotenv_path
 
     home = home or Path.home()
@@ -309,13 +309,13 @@ def ensure_dsh_dotenv(home: Path | None = None, *, dry_run: bool = False) -> dic
         if not dry_run:
             os.environ[name] = value
     if not dry_run:
-        hook = home / ".astroai" / "lab" / "agent-env.sh"
+        hook = home / ".canfar" / "lab" / "agent-env.sh"
         text = hook.read_text(encoding="utf-8") if hook.is_file() else ""
         if "_astroai_dotenv" not in text:
             hook.parent.mkdir(parents=True, exist_ok=True)
             hook.write_text(
                 "# astroai dsh dotenv\n"
-                '_astroai_dotenv="${HOME}/.astroai/lab/.env"\n'
+                '_astroai_dotenv="${HOME}/.canfar/lab/.env"\n'
                 'if [[ -f "${_astroai_dotenv}" ]]; then\n  set -a\n'
                 "  # shellcheck disable=SC1090\n"
                 '  source "${_astroai_dotenv}"\n  set +a\nfi\n' + (("\n" + text) if text else ""),
@@ -382,7 +382,7 @@ def ensure_provider_entry(
 
     The key itself is not required at write time. ``apiKeyEnv`` is only a
     name — the secret can arrive later via Settings → Models,
-    ``~/.astroai/lab/.env``, or ``$DSH_HOME/.credentials.yaml`` after the
+    ``~/.canfar/lab/.env``, or ``$DSH_HOME/.credentials.yaml`` after the
     session is already up (CANFAR first-boot has no pre-session place to
     set it).
     """

@@ -2,7 +2,7 @@
 # `default`; a `roots` path or a patch against the old `agent-presets` id
 # fails profile load. This overlay restates the shipped default and does not
 # mount the review-bench composition. The bench tree is still installed under
-# ~/.astroai/lab/review-bench for its skills.
+# ~/.canfar/lab/review-bench for its skills.
 #
 # A patch row replaces the targeted row's whole config, so `default` is
 # restated. The row is inserted by dsh-web-app; profiles that do not mount it

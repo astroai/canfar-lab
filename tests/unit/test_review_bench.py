@@ -196,7 +196,7 @@ def test_ensure_dotenv_preserves_other_keys(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("OPENCODE_API_KEY", "zen-key")
-    dotenv = tmp_path / ".astroai" / "lab" / ".env"
+    dotenv = tmp_path / ".canfar" / "lab" / ".env"
     dotenv.parent.mkdir(parents=True)
     dotenv.write_text("OPENROUTER_API_KEY=sk-or\n", encoding="utf-8")
     rb.ensure_dsh_dotenv(tmp_path, dry_run=False)
@@ -208,9 +208,9 @@ def test_ensure_dotenv_preserves_other_keys(
 
 def test_ensure_review_bench_installs_and_idempotent(tmp_path: Path) -> None:
     assert rb.ensure_review_bench(tmp_path, dry_run=True) is True
-    assert not (tmp_path / ".astroai").exists()  # dry-run writes nothing
+    assert not (tmp_path / ".canfar" / "lab").exists()  # dry-run writes nothing
     assert rb.ensure_review_bench(tmp_path, dry_run=False) is True
-    bench = tmp_path / ".astroai" / "lab" / "review-bench"
+    bench = tmp_path / ".canfar" / "lab" / "review-bench"
     assert (bench / "presets" / "review-bench" / "agent.cordis.yml").is_file()
     assert (bench / "skills" / "review-panel" / "SKILL.md").is_file()
     web = tmp_path / ".dsh" / "profiles" / "web" / "cordis.patch.yml"

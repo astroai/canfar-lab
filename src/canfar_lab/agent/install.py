@@ -391,7 +391,7 @@ def _uninstall_tool_locked(
     if purge:
         for rel in TOOL_CONFIG_PATHS.get(name, []):
             d = (home / rel).parent
-            lab_dir = home / ".astroai" / "lab"
+            lab_dir = home / ".canfar" / "lab"
             if d not in {home, lab_dir}:
                 result = _remove_tree(d, f"purge:{d}", dry_run=dry_run)
                 if result:

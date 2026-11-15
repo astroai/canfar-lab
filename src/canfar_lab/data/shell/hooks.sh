@@ -3,7 +3,7 @@
 # Home quota belongs in `canfar lab status`, not every prompt.
 
 __canfar_lab_state_dir() {
-    echo "${CANFAR_LAB_CONFIG_DIR:-${HOME}/.astroai/lab}"
+    echo "${CANFAR_LAB_CONFIG_DIR:-${HOME}/.canfar/lab}"
 }
 
 __canfar_lab_scratch_dir() {

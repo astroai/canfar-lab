@@ -76,7 +76,7 @@ Do not pass `--user`. On a CANFAR session that writes `/arc/home/.local`. If the
 | [docs/help.md](docs/help.md) | Cheat sheet |
 | [docs/USAGE.md](docs/USAGE.md) | Storage, workflows, Ray, agents |
 | [docs/cli.md](docs/cli.md) | Flags and every command |
-| [docs/config.md](docs/config.md) | Optional `~/.astroai/lab/config.yaml` |
+| [docs/config.md](docs/config.md) | Optional `~/.canfar/lab/config.yaml` |
 | [docs/concurrency.md](docs/concurrency.md) | Shared home: locks, atomic writes, agent runtime placement |
 | [docs/studio.md](docs/studio.md) | AstroAI Studio: the browser coding portal, its dsh profile, teams, storage split |
 | [docs/desk-sync.md](docs/desk-sync.md) | Desk cockpit and CANFAR ↔ desktop sync (design proposal) |

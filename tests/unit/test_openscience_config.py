@@ -250,7 +250,7 @@ def test_llm_endpoint_from_environment(tmp_path: Path, monkeypatch) -> None:
 def test_llm_endpoint_from_lab_dotenv_without_key(tmp_path: Path, monkeypatch) -> None:
     for name in ("ASTROAI_LLM_BASE_URL", "ASTROAI_LLM_MODELS", "ASTROAI_LLM_API_KEY"):
         monkeypatch.delenv(name, raising=False)
-    dotenv = tmp_path / ".astroai" / "lab" / ".env"
+    dotenv = tmp_path / ".canfar" / "lab" / ".env"
     dotenv.parent.mkdir(parents=True)
     dotenv.write_text("ASTROAI_LLM_BASE_URL=http://10.0.0.5:8000/v1\nASTROAI_LLM_MODELS=llama\n")
     cfg_path = tmp_path / CONFIG_REL

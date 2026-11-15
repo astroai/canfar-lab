@@ -29,7 +29,7 @@ def test_ensure_agent_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
 def test_write_stamp(tmp_path: Path) -> None:
     home = tmp_path / "home"
     write_stamp(home, "install", dry_run=False)
-    assert (home / ".astroai" / "lab" / "agent-setup-stamp").is_file()
+    assert (home / ".canfar" / "lab" / "agent-setup-stamp").is_file()
 
 
 def test_run_bundle_cli_dry_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

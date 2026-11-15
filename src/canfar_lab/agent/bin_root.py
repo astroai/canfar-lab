@@ -1,7 +1,7 @@
 """Where agent CLIs live: home ($HOME, /arc/home on CANFAR) or this session's scratch.
 
 Config and keys always stay on home. Caches stay on scratch when scratch exists.
-The choice is remembered under ``~/.astroai/lab/bin-root.json`` and is only
+The choice is remembered under ``~/.canfar/lab/bin-root.json`` and is only
 offered when a scratch disk is mounted. A laptop keeps each agent's own paths.
 """
 
@@ -34,12 +34,12 @@ DROP_DIR_RELS: tuple[str, ...] = (
 _FAST_IO_BEGIN = "# canfar-lab: fast-io begin"
 _FAST_IO_END = "# canfar-lab: fast-io end"
 _BASHRC_SOURCE = (
-    '[[ -f "${HOME}/.astroai/lab/agent-env.sh" ]] && source "${HOME}/.astroai/lab/agent-env.sh"'
+    '[[ -f "${HOME}/.canfar/lab/agent-env.sh" ]] && source "${HOME}/.canfar/lab/agent-env.sh"'
 )
 
 
 def bin_root_path(home: Path) -> Path:
-    return home / ".astroai" / "lab" / ROOT_FILE
+    return home / ".canfar" / "lab" / ROOT_FILE
 
 
 def read_bin_root(home: Path) -> str | None:
@@ -250,7 +250,7 @@ def sync_fast_io_env(home: Path) -> str | None:
     """
     from canfar_lab.shell.session_env import install_scratch_dir
 
-    hook = home / ".astroai" / "lab" / "agent-env.sh"
+    hook = home / ".canfar" / "lab" / "agent-env.sh"
     current = hook.read_text(encoding="utf-8") if hook.is_file() else ""
     base = _strip_fast_io(current)
     scratch = install_scratch_dir()

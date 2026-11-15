@@ -2,7 +2,7 @@
 
 Two stores hold the same secrets:
 
-* ``~/.astroai/lab/.env`` — sourced by every login shell (CLI agents, marimo).
+* ``~/.canfar/lab/.env`` — sourced by every login shell (CLI agents, marimo).
 * ``$DSH_HOME/.credentials.yaml`` ``refs`` — hot-reloaded by a running dsh.
 
 ``set_key``/``unset_key`` write both; ``sync_keys`` reconciles them at Studio
@@ -249,13 +249,13 @@ def ensure_shell_hook(home: Path) -> None:
     from canfar_lab.agent.setup import _OPENROUTER_DOTENV_MARKER
     from canfar_lab.utils.json_utils import atomic_write_text
 
-    hook = home / ".astroai" / "lab" / "agent-env.sh"
+    hook = home / ".canfar" / "lab" / "agent-env.sh"
     text = hook.read_text(encoding="utf-8") if hook.is_file() else ""
     if "_astroai_dotenv" in text:
         return
     block = (
         f"{_OPENROUTER_DOTENV_MARKER}\n"
-        '_astroai_dotenv="${HOME}/.astroai/lab/.env"\n'
+        '_astroai_dotenv="${HOME}/.canfar/lab/.env"\n'
         'if [[ -f "${_astroai_dotenv}" ]]; then\n'
         "  set -a\n"
         "  # shellcheck disable=SC1090\n"

@@ -55,7 +55,7 @@
       "description": "GitHub Copilot CLI MCP (~/.copilot/mcp-config.json)"
     },
     "cli": {
-      "description": "GitHub token hook + command reminder file (~/.astroai/lab/)"
+      "description": "GitHub token hook + command reminder file (~/.canfar/lab/)"
     },
     "project": {
       "description": "Project .cursor/, AGENTS.md, .goosehints in target dir"

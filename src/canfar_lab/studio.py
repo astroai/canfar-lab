@@ -419,7 +419,7 @@ def pin_mcp_bin(home: Path, mcp_bin: str, *, dry_run: bool = False) -> str | Non
     """Persist ``ASTROAI_STUDIO_MCP_BIN`` so later prepares keep the same CLI.
 
     Returns a user-facing action line, or ``None`` when the pin was already in
-    place. Clearing the key (an empty value in ``~/.astroai/lab/.env``) restores
+    place. Clearing the key (an empty value in ``~/.canfar/lab/.env``) restores
     the default: whatever ``astroai`` resolves to on ``PATH``.
     """
     from canfar_lab.agent.setup import (

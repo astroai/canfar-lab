@@ -1,11 +1,11 @@
 """Full factory-reset wipe of the agent layer (`agent wipe`).
 
 Removes EVERY installed agent (binary + config + plugins + home dirs), the
-``~/.astroai/lab`` setup state (stamps, locks, logs), and the Cursor agent
+``~/.canfar/lab`` setup state (stamps, locks, logs), and the Cursor agent
 configs (skills / rules / mcp.json) so a user can restart from scratch.
 
-Deliberately scoped: saved environments (~/.astroai/lab/saves/), preferences
-(~/.astroai/lab/config.yaml), project files, and CANFAR client config are NOT
+Deliberately scoped: saved environments (~/.canfar/lab/saves/), preferences
+(~/.canfar/lab/config.yaml), project files, and CANFAR client config are NOT
 touched — only the agent-layer state (per-agent binaries/configs/plugins, the
 setup stamp/failed/lock/log markers, Cursor configs, and the upstream-skill
 cache) is removed.
@@ -80,7 +80,7 @@ def wipe_agent_state(*, home: Path | None = None, dry_run: bool = False) -> list
             except OSError as exc:
                 results.append({"target": target, "status": "error", "detail": str(exc)})
 
-            # 2. Agent setup state files under ~/.astroai/lab (stamp / failed marker /
+            # 2. Agent setup state files under ~/.canfar/lab (stamp / failed marker /
             #    lock / log). The dir itself is preserved while it holds user data
             #    (env saves under saves/, preferences config.yaml); only an
             #    otherwise-empty lab dir is removed for a clean slate.
@@ -104,12 +104,12 @@ def wipe_agent_state(*, home: Path | None = None, dry_run: bool = False) -> list
         # 4. Upstream skill clone cache (re-cloned by `agent update`).
         _rm(home / ".cache" / "canfar-lab" / "upstream-skills", "cache:upstream-skills")
 
-        # 5. Shared agent files under ~/.astroai/lab (keep saves/ and config.yaml).
-        lab = home / ".astroai" / "lab"
+        # 5. Shared agent files under ~/.canfar/lab (keep saves/ and config.yaml).
+        lab = home / ".canfar" / "lab"
         for name in ("agent-env.sh", "agent-tools-reminder.sh"):
             _rm(lab / name, f"config:{name}")
         _rm(home / ".claude.json", "config:.claude.json")
-    # Our lock lived in ~/.astroai/lab; if that made the dir look non-empty,
+    # Our lock lived in ~/.canfar/lab; if that made the dir look non-empty,
     # remove it now that it is released and empty (silent — never reported).
     import contextlib
 

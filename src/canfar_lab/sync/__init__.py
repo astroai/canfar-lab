@@ -4,7 +4,7 @@ Design: ``docs/desk-sync.md``. Modules:
 
 * :mod:`canfar_lab.sync.catalog` — repo catalog resolution.
 * :mod:`canfar_lab.sync.engine` — publish/absorb/bootstrap git operations.
-* :mod:`canfar_lab.sync.bus` — the ``$HOME/.astroai/lab/sync`` mailbox.
+* :mod:`canfar_lab.sync.bus` — the ``$HOME/.canfar/lab/sync`` mailbox.
 * :mod:`canfar_lab.sync.watch` — the session and desk watchers.
 """
 

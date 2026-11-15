@@ -41,7 +41,7 @@ def _creds(home: Path) -> dict:
 
 
 def _dotenv(home: Path) -> str:
-    return (home / ".astroai" / "lab" / ".env").read_text(encoding="utf-8")
+    return (home / ".canfar" / "lab" / ".env").read_text(encoding="utf-8")
 
 
 def test_catalog_lists_openrouter_and_dsh_routes() -> None:
@@ -85,9 +85,9 @@ def test_set_dsh_key_writes_both_stores_private_and_keeps_records(home: Path) ->
     assert doc["records"]["client-connection/browser-session"]["payload"]["secret"] == "keepme"
     assert f"ANTHROPIC_API_KEY={SECRET}" in _dotenv(home)
     assert _mode(creds) == 0o600
-    assert _mode(home / ".astroai" / "lab" / ".env") == 0o600
+    assert _mode(home / ".canfar" / "lab" / ".env") == 0o600
     assert not creds.with_name(".credentials.yaml.lock").exists()
-    assert "_astroai_dotenv" in (home / ".astroai" / "lab" / "agent-env.sh").read_text()
+    assert "_astroai_dotenv" in (home / ".canfar" / "lab" / "agent-env.sh").read_text()
     assert keys.set_key(home, "ANTHROPIC_API_KEY", SECRET)["changed"] is False
 
 
@@ -126,7 +126,7 @@ def test_set_rejects_unknown_names_and_shell_unsafe_values(
 ) -> None:
     with pytest.raises(LabError):
         keys.set_key(home, name, value)
-    assert not (home / ".astroai" / "lab" / ".env").exists()
+    assert not (home / ".canfar" / "lab" / ".env").exists()
 
 
 def test_live_lock_blocks_then_times_out(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -153,7 +153,7 @@ def test_stale_lock_from_dead_pid_is_broken(home: Path) -> None:
 
 
 def test_sync_copies_missing_and_newest_file_wins(home: Path) -> None:
-    dotenv = home / ".astroai" / "lab" / ".env"
+    dotenv = home / ".canfar" / "lab" / ".env"
     dotenv.parent.mkdir(parents=True)
     dotenv.write_text(f"GEMINI_API_KEY={SECRET}\nOPENAI_API_KEY=sk-env-000000001\n")
     creds = home / ".dsh" / ".credentials.yaml"

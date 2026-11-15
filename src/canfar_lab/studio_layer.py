@@ -104,7 +104,7 @@ def mcp_serve_command(
     """Argv for ``canfar lab mcp serve`` (the CANFAR job/cluster MCP server).
 
     Resolution order: an explicit path, then ``ASTROAI_STUDIO_MCP_BIN`` (in the
-    environment or in ``~/.astroai/lab/.env``, so a working checkout can pin the
+    environment or in ``~/.canfar/lab/.env``, so a working checkout can pin the
     row without every later ``--prepare`` reverting it to whatever ``PATH``
     happened to hold), then ``canfar-lab`` on ``PATH``, then this interpreter.
     """
@@ -123,7 +123,7 @@ def mcp_bin_override(home: Path | None = None) -> str | None:
     home = home or Path.home()
     value = os.environ.get(MCP_BIN_ENV, "").strip()
     if not value:
-        dotenv = home / ".astroai" / "lab" / ".env"
+        dotenv = home / ".canfar" / "lab" / ".env"
         if dotenv.is_file():
             try:
                 from canfar_lab.agent.setup import _read_dotenv_value

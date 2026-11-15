@@ -158,7 +158,7 @@ def test_banner_with_active_team(mock_cwd, lab_home: Path) -> None:
 def test_config_path(lab_home: Path) -> None:
     result = runner.invoke(app, ["config", "path"])
     assert result.exit_code == 0
-    assert str(lab_home / ".astroai" / "lab" / "config.yaml") in result.stdout
+    assert str(lab_home / ".canfar" / "lab" / "config.yaml") in result.stdout
 
 
 def test_config_show_json(lab_home: Path) -> None:
@@ -247,9 +247,9 @@ def test_clean_yes_deletes_caches_keeps_saves(lab_home: Path) -> None:
     pip = lab_home / ".cache" / "pip"
     pip.mkdir(parents=True)
     (pip / "wheel").write_text("x", encoding="utf-8")
-    save = lab_home / ".astroai" / "lab" / "saves" / "mylab"
+    save = lab_home / ".canfar" / "lab" / "saves" / "mylab"
     write_manifest(save, "mylab")
-    cfg = lab_home / ".astroai" / "lab" / "config.yaml"
+    cfg = lab_home / ".canfar" / "lab" / "config.yaml"
     cfg.write_text("default_pm: pixi\n", encoding="utf-8")
     result = runner.invoke(app, ["clean", "--yes"])
     assert result.exit_code == 0
@@ -261,9 +261,9 @@ def test_clean_yes_deletes_caches_keeps_saves(lab_home: Path) -> None:
 def test_clean_yes_saves_and_config(lab_home: Path) -> None:
     from tests.helpers import write_manifest
 
-    save = lab_home / ".astroai" / "lab" / "saves" / "mylab"
+    save = lab_home / ".canfar" / "lab" / "saves" / "mylab"
     write_manifest(save, "mylab")
-    cfg = lab_home / ".astroai" / "lab" / "config.yaml"
+    cfg = lab_home / ".canfar" / "lab" / "config.yaml"
     cfg.write_text("default_pm: pixi\n", encoding="utf-8")
     result = runner.invoke(app, ["clean", "--yes", "--saves", "--config"])
     assert result.exit_code == 0

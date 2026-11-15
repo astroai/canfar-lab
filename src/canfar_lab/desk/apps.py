@@ -85,7 +85,7 @@ def editor_command(
         return ["open", "-a", mac_app, str(path)]
     raise LabError(
         f"Editor not found: {editor}",
-        hint=f"Install `{binary}` or set apps_editor in ~/.astroai/lab/config.yaml",
+        hint=f"Install `{binary}` or set apps_editor in ~/.canfar/lab/config.yaml",
     )
 
 
@@ -225,7 +225,7 @@ def _local_url(tool: str, port: int) -> str:
 
 
 def _state_path(home: Path) -> Path:
-    return home / ".astroai" / "lab" / "desk-apps.json"
+    return home / ".canfar" / "lab" / "desk-apps.json"
 
 
 def _read_state(home: Path) -> dict:
@@ -319,7 +319,7 @@ def ensure_local_app(
 
     port = _free_port(int(spec["port"]))
     cmd = local_app_command(tool, folder, port)
-    log_path = home / ".astroai" / "lab" / "logs" / f"{tool}.log"
+    log_path = home / ".canfar" / "lab" / "logs" / f"{tool}.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log = log_path.open("ab")
     try:

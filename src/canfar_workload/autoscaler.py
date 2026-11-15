@@ -19,7 +19,7 @@ Provider config (``provider.config`` in the autoscaling YAML)::
     gpus: 0
     max_workers: 8
     pending_timeout_minutes: 15
-    heartbeat_path: /arc/home/<user>/.astroai/ray/clusters/<id>/manager-heartbeat
+    heartbeat_path: /arc/home/<user>/.canfar/lab/ray/clusters/<id>/manager-heartbeat
     cluster_id: default
     node_manager_port, object_manager_port, ...  (optional Ray port pins)
 

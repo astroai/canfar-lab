@@ -20,13 +20,13 @@ cp "$SRC/panel.sh" "$SRC/dsh-web.sh" "$SRC/validate.mjs" "$SRC/HOWTO.md" "$SRC/R
 cp "$SRC/panel.sh" "$SRC/dsh-web.sh" "$DST/bin/"
 
 # Managed-install overrides (re-applied on every sync; do not edit by hand):
-# 1. preset skill root -> ~/.astroai/lab/review-bench/skills (+ ~/dsh fallback)
+# 1. preset skill root -> ~/.canfar/lab/review-bench/skills (+ ~/dsh fallback)
 python3 - "$DST/presets/review-bench/agent.cordis.yml" <<'PY'
 import sys
 p = sys.argv[1]
 text = open(p).read()
 old = "      - !!js process.env.HOME + '/dsh/skills'\n"
-new = ("      - !!js (process.env.CANFAR_LAB_DATA || process.env.HOME + '/.astroai/lab')"
+new = ("      - !!js (process.env.CANFAR_LAB_DATA || process.env.HOME + '/.canfar/lab')"
        " + '/review-bench/skills'\n      - !!js process.env.HOME + '/dsh/skills'\n")
 assert old in text, "upstream preset skill-root line changed — update this script"
 open(p, "w").write(text.replace(old, new))

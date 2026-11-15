@@ -33,6 +33,15 @@ def _under_home(path: Path) -> bool:
         return False
 
 
+def _custom_cache_base() -> Path | None:
+    from canfar_lab.session.workspace import cache_base
+
+    try:
+        return cache_base()
+    except Exception:  # noqa: BLE001 — a bad settings file must not break env export
+        return None
+
+
 def _session_cache_root(work: Path, scratch: Path | None) -> Path:
     """Package caches live on scratch, else work — never under $HOME."""
     root = scratch_cache_root(work, scratch)
@@ -329,31 +338,34 @@ def _pythonpath_extra(work: Path) -> str:
 def resolve_session_env(*, ensure: bool = True) -> SessionEnv:
     work = resolve_work_dir()
     scratch = resolve_scratch_dir()
-    cache_root = _session_cache_root(work, scratch)
+    # Caches and runtime state: $SCRATCH unless the user picked another root
+    # in the Lab Settings (never /arc/home; see session.workspace).
+    cache_base = _custom_cache_base() or scratch
+    cache_root = _session_cache_root(work, cache_base)
     bin_dir = user_bin_dir(work, install_scratch_dir())
-    runtime = runtime_root(work, scratch)
+    runtime = runtime_root(work, cache_base)
     home = Path.home()
     xdg_config = Path(os.environ.get("XDG_CONFIG_HOME", str(home / ".config")))
     # Keep XDG_DATA_HOME on $HOME for small durable agent/jupyter specs;
     # package download caches use XDG_CACHE_HOME / explicit *_CACHE_* vars.
     # When a scratch disk exists, bulk data lands there instead so agent
     # runtimes do not eat the home quota; tiny durable specs stay on /arc.
-    if scratch is not None:
-        xdg_data = _session_cache_path("XDG_DATA_HOME", cache_root / "data", work, scratch)
-        xdg_state = _session_cache_path("XDG_STATE_HOME", cache_root / "state", work, scratch)
+    if cache_base is not None:
+        xdg_data = _session_cache_path("XDG_DATA_HOME", cache_root / "data", work, cache_base)
+        xdg_state = _session_cache_path("XDG_STATE_HOME", cache_root / "state", work, cache_base)
     else:
         xdg_data = Path(os.environ.get("XDG_DATA_HOME", str(home / ".local" / "share")))
         xdg_state = Path(os.environ.get("XDG_STATE_HOME", str(home / ".local" / "state")))
-    xdg_cache = _session_cache_path("XDG_CACHE_HOME", cache_root, work, scratch)
+    xdg_cache = _session_cache_path("XDG_CACHE_HOME", cache_root, work, cache_base)
 
-    if scratch is not None:
+    if cache_base is not None:
         hf_default = cache_root / "huggingface"
         torch_default = cache_root / "torch"
-        tmp_default = scratch / f".tmp-{user_tag()}"
-        hf = _session_cache_path("HF_HOME", hf_default, work, scratch)
-        torch = _session_cache_path("TORCH_HOME", torch_default, work, scratch)
-        tmp = _session_cache_path("TMPDIR", tmp_default, work, scratch)
-        pixi_home = _session_runtime_path("PIXI_HOME", runtime / "pixi", scratch)
+        tmp_default = cache_base / f".tmp-{user_tag()}"
+        hf = _session_cache_path("HF_HOME", hf_default, work, cache_base)
+        torch = _session_cache_path("TORCH_HOME", torch_default, work, cache_base)
+        tmp = _session_cache_path("TMPDIR", tmp_default, work, cache_base)
+        pixi_home = _session_runtime_path("PIXI_HOME", runtime / "pixi", cache_base)
     else:
         hf = Path(os.environ.get("HF_HOME", str(xdg_cache / "huggingface")))
         torch = Path(os.environ.get("TORCH_HOME", str(xdg_cache / "torch")))
@@ -370,23 +382,25 @@ def resolve_session_env(*, ensure: bool = True) -> SessionEnv:
         canfar_lab_runtime_root=runtime,
         canfar_lab_save_dir=get_settings().resolve_save_dir(),
         canfar_lab_config_dir=config_dir(),
-        uv_cache_dir=_session_cache_path("UV_CACHE_DIR", cache_root / "uv", work, scratch),
-        pip_cache_dir=_session_cache_path("PIP_CACHE_DIR", cache_root / "pip", work, scratch),
-        npm_config_cache=_session_cache_path("NPM_CONFIG_CACHE", cache_root / "npm", work, scratch),
-        pixi_cache_dir=_session_cache_path("PIXI_CACHE_DIR", cache_root / "pixi", work, scratch),
+        uv_cache_dir=_session_cache_path("UV_CACHE_DIR", cache_root / "uv", work, cache_base),
+        pip_cache_dir=_session_cache_path("PIP_CACHE_DIR", cache_root / "pip", work, cache_base),
+        npm_config_cache=_session_cache_path(
+            "NPM_CONFIG_CACHE", cache_root / "npm", work, cache_base
+        ),
+        pixi_cache_dir=_session_cache_path("PIXI_CACHE_DIR", cache_root / "pixi", work, cache_base),
         rattler_cache_dir=_session_cache_path(
-            "RATTLER_CACHE_DIR", cache_root / "rattler", work, scratch
+            "RATTLER_CACHE_DIR", cache_root / "rattler", work, cache_base
         ),
         mamba_pkgs_dirs=_session_cache_path(
-            "MAMBA_PKGS_DIRS", cache_root / "conda" / "pkgs", work, scratch
+            "MAMBA_PKGS_DIRS", cache_root / "conda" / "pkgs", work, cache_base
         ),
         uv_python_install_dir=_session_runtime_path(
-            "UV_PYTHON_INSTALL_DIR", runtime / "uv" / "python", scratch
+            "UV_PYTHON_INSTALL_DIR", runtime / "uv" / "python", cache_base
         ),
-        uv_tool_dir=_session_runtime_path("UV_TOOL_DIR", runtime / "uv" / "tools", scratch),
+        uv_tool_dir=_session_runtime_path("UV_TOOL_DIR", runtime / "uv" / "tools", cache_base),
         pixi_home=pixi_home,
         mamba_root_prefix=_session_runtime_path(
-            "MAMBA_ROOT_PREFIX", runtime / "micromamba", scratch
+            "MAMBA_ROOT_PREFIX", runtime / "micromamba", cache_base
         ),
         hf_home=hf,
         torch_home=torch,

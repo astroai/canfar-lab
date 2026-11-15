@@ -90,7 +90,7 @@ Four channels, four policies:
 |---|---|---|
 | **Code** | GitHub relay (existing fork `origin` / canonical `upstream`) | Button-driven exchange; ff/rebase only; per-repo results |
 | **Config deltas** (AGENTS.md, skills list, per-repo `.dsh/` patches) | Same git channel + generated profiles | Parity by *generation*: both sides run their own `canfar lab studio --prepare` from the same CLI |
-| **Coordination** (`requests/`, `events/`, `state/`, `ready.json`) | `$HOME/.astroai/lab/sync/` — POSIX in session; SSHFS on desk; `canfar data` fallback | Tiny JSON files, TTLs, idempotent uuids; never secrets |
+| **Coordination** (`requests/`, `events/`, `state/`, `ready.json`) | `$HOME/.canfar/lab/sync/` — POSIX in session; SSHFS on desk; `canfar data` fallback | Tiny JSON files, TTLs, idempotent uuids; never secrets |
 | **Data** | `/arc/projects`, VOSpace | Never synced wholesale; on-demand `canfar data cp` into `~/canfar-data` |
 
 ## 5. Configuration
@@ -99,19 +99,19 @@ Four channels, four policies:
 
 ```
 built-in defaults
-  → ~/.astroai/lab/config.yaml                 # MACHINE: per-laptop prefs (extends LabSettings)
-  → ~/.astroai/lab/studio/studio-profile.yaml  # SHARED: must match both sides; mirrored to the home mailbox
+  → ~/.canfar/lab/config.yaml                 # MACHINE: per-laptop prefs (extends LabSettings)
+  → ~/.canfar/lab/studio/studio-profile.yaml  # SHARED: must match both sides; mirrored to the home mailbox
   → session resolution in-container             # $WORK, mounts, actual resources — read-only, echoed back
   → CLI flags
 ```
 
 - `LabSettings` (`src/canfar_lab/config/settings.py`) already reads
-  `~/.astroai/lab/config.yaml` with a `CANFAR_LAB_` env prefix; the desk/app/sync
+  `~/.canfar/lab/config.yaml` with a `CANFAR_LAB_` env prefix; the desk/app/sync
   machine keys join it.
 - The shared profile is already written by `canfar lab studio --prepare`
-  (`~/.astroai/lab/studio/studio-profile.yaml`); it grows `code`, `sync`,
+  (`~/.canfar/lab/studio/studio-profile.yaml`); it grows `code`, `sync`,
   `session`, `ray`, `apps`, `desk` sections. The desk publishes it to
-  `$HOME/.astroai/lab/studio/studio-profile.yaml` on the mailbox when launching
+  `$HOME/.canfar/lab/studio/studio-profile.yaml` on the mailbox when launching
   a session; both sides report the effective values.
 - `canfar lab config show --json` prints effective values with provenance
   (which layer won). `canfar lab desk --doctor` validates roots and mounts.
@@ -169,7 +169,7 @@ Because the default root is ephemeral, the design absorbs the failure mode:
 | `sync.origin_poll_seconds` | `300` | machine (desk) | origin fetch fallback when the mailbox is quiet |
 | `sync.watcher_poll_seconds` | `10` | shared | session-side mailbox poll (POSIX, no inotify) |
 | `sync.open_on_pull` | `[]` | machine | repos to open in the editor after an absorb |
-| `sync.with_keys` | `false` | machine | opt-in: push model keys into `~/.astroai/lab/.env` on the home (where in-session keys already live) |
+| `sync.with_keys` | `false` | machine | opt-in: push model keys into `~/.canfar/lab/.env` on the home (where in-session keys already live) |
 | `session.name` | `astroai-studio` | shared | "ensure" reuses one session (interactive cap) |
 | `session.image` | `images.canfar.net/astroai/studio:<tag>` | shared | tag or digest; drift shown on the parity chip |
 | `session.resources` | `{}` | shared | `{cpu, memory, gpu}` validated against `Context().resources()` |
@@ -233,7 +233,7 @@ What the desk button runs (`canfar lab sync exchange --to canfar`):
    `gpu`) using `session.resources`, then wait via `canfar info`; if Pending
    beyond 180 s, surface `canfar events <id>` and `canfar logs <id>`.
 4. **Wait for the mailbox before dropping a note** — the session writes
-   `$HOME/.astroai/lab/sync/ready.json` at boot (on durable home, not scratch).
+   `$HOME/.canfar/lab/sync/ready.json` at boot (on durable home, not scratch).
    The desk waits up to 90 s for it; without a bus it skips to step 7.
 5. **Enqueue request** — `requests/<utc-ts>-<uuid>.json`: action exchange,
    `bootstrap: auto`, per-repo expected SHAs, TTL 30 min.
@@ -276,7 +276,7 @@ What the session dock chip runs (`canfar lab sync exchange --to desktop`):
 ### 6.4 Mailbox files
 
 ```
-$HOME/.astroai/lab/sync/          # /arc/home in session; SSHFS-or-canfar-data on desk
+$HOME/.canfar/lab/sync/          # /arc/home in session; SSHFS-or-canfar-data on desk
   ready.json                      # written by the session at boot (id, pid, config digest)
   requests/<ts>-<uuid>.json       # desk → session; TTL 30 min
   processing/<ts>-<uuid>.json     # claimed by the session watcher

@@ -13,7 +13,7 @@ def test_mailbox_dir_precedence(tmp_path, monkeypatch):
     assert bus.mailbox_dir() == tmp_path / "envbox"
 
     monkeypatch.delenv(bus.MAILBOX_ENV)
-    assert bus.mailbox_dir(home=tmp_path) == tmp_path / ".astroai" / "lab" / "sync"
+    assert bus.mailbox_dir(home=tmp_path) == tmp_path / ".canfar" / "lab" / "sync"
 
 
 def test_enqueue_and_read_roundtrip(tmp_path):

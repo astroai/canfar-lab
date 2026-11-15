@@ -2,7 +2,7 @@
 
 Paths resolve from session environment variables (`SRCDIR`, `SCRATCH`,
 `PROJECT`) and standard CANFAR mount points. `WORK` is an alias of `SRCDIR`.
-Optional preferences live at **`~/.astroai/lab/config.yaml`**. Every key is optional.
+Optional preferences live at **`~/.canfar/lab/config.yaml`**. Every key is optional.
 
 ```yaml
 # example
@@ -31,5 +31,5 @@ canfar lab config path
 canfar lab --json config show
 ```
 
-Workbench settings stay in `~/.astroai/lab/` so published git repos remain
+Workbench settings stay in `~/.canfar/lab/` so published git repos remain
 portable (`pixi.toml` / `pyproject.toml` only).

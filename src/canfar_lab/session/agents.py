@@ -285,7 +285,16 @@ def install(agent_id: str, *, setup: bool = True, dry_run: bool = False) -> dict
         errors.extend(str(e) for e in result.get("errors") or [])
     if not dry_run:
         remember_agent(None, agent_id, installed=True)
+        _lock_down(actions)
     return {"ok": not errors, "agent": agent_id, "actions": actions, "errors": errors}
+
+
+def _lock_down(actions: list[str]) -> None:
+    """Owner-only access on the config/login dirs an install just created."""
+    from canfar_lab.session import secrets
+
+    with contextlib.suppress(Exception):  # never fail an install over a chmod
+        actions.extend(f"private:{line}" for line in secrets.lock_down()["changed"])
 
 
 def update(agent_id: str, *, dry_run: bool = False) -> dict[str, Any]:
@@ -295,12 +304,14 @@ def update(agent_id: str, *, dry_run: bool = False) -> dict[str, Any]:
 
     get_lab_agent(agent_id)
     result = update_registry_agent(agent_id, dry_run=dry_run)
+    actions = [str(a) for a in result.get("actions") or []]
     if not dry_run and result.get("ok"):
         remember_agent(None, agent_id, installed=True)
+        _lock_down(actions)
     return {
         "ok": bool(result.get("ok")),
         "agent": agent_id,
-        "actions": [str(a) for a in result.get("actions") or []],
+        "actions": actions,
         "errors": [str(e) for e in result.get("errors") or []],
     }
 

@@ -8,7 +8,7 @@ skills, approval prompts for tools that start sessions or write storage,
 instead of the OS sandbox. Models are left to OpenScience, which picks one from
 the provider keys in the environment; an OpenAI-compatible endpoint named by
 ``ASTROAI_LLM_BASE_URL`` + ``ASTROAI_LLM_MODELS`` (environment or
-``~/.astroai/lab/.env``) is added as the ``canfar`` provider.
+``~/.canfar/lab/.env``) is added as the ``canfar`` provider.
 
 It also installs an astronomy specialist agent and CANFAR slash commands into
 ``~/.config/openscience/{agent,command}/``. A stamp file records what was
@@ -73,7 +73,7 @@ def _lab_setting(home: Path, name: str) -> str:
         return value
     from canfar_lab.agent.setup import _read_dotenv_value
 
-    return (_read_dotenv_value(home / ".astroai" / "lab" / ".env", name) or "").strip()
+    return (_read_dotenv_value(home / ".canfar" / "lab" / ".env", name) or "").strip()
 
 
 def llm_provider(home: Path) -> dict[str, Any] | None:
