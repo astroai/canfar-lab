@@ -52,7 +52,8 @@ Platform CLIs (`canfar`, `cadcget`, `canfar-lab`) live in `/opt/canfar`; upgrade
 | Big temp data | `/scratch` (wiped when session ends) |
 | Shared project data | `/arc/projects/<group>` |
 | Home (tiny) | `/arc/home/$USER` — config only |
-| Quotas / projects | `canfar lab status --json`, `df -h` |
+| Quotas / projects | `canfar lab status --json`; CephFS: `getfattr -n ceph.quota.max_bytes -n ceph.dir.rbytes "$HOME"` (not `quota`) |
+| Project access (ACLs) | `getfacl /arc/projects/<group>`, `id; groups` |
 | Session CPU/RAM | `nproc`, `free -h`, `canfar info` |
 | Headless batch | `canfar create headless …` + `PYTHONNOUSERSITE=1` |
 | Contributed web UI port | **5000** |

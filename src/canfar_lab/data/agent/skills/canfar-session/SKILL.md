@@ -41,6 +41,26 @@ left only on `/scratch` or `$HOME` is the wrong place for a job output.
   by a path on this session's `/scratch`. `canfar lab save` stores lockfiles,
   not source.
 
+## Quotas, usage and sharing on /arc
+
+`/arc` is CephFS. Quotas are directory xattrs, so `quota`/`repquota` see
+nothing and `du` over a big tree is slow. AstroAI images ship `getfattr`,
+`setfattr`, `getfacl` and `setfacl`.
+
+```bash
+canfar lab status --json                                  # home + project quotas, summarized
+getfattr -n ceph.quota.max_bytes -n ceph.dir.rbytes "$HOME"   # limit and bytes used
+getfattr -n ceph.dir.rbytes /arc/projects/<group>/sub     # size of a tree, instant
+getfacl /arc/projects/<group>                             # who may read/write
+id; groups                                                # which groups this user is in
+```
+
+`ceph.dir.rbytes` can lag a few seconds after large writes; that is Ceph
+accounting, not an error. Access to `/arc/projects/<group>` comes from POSIX
+ACLs on CANFAR groups. Read them with `getfacl` before writing there. Do not
+run `setfacl` or `chmod -R` on a shared project unless the user asks for that
+exact change.
+
 ## Headless
 
 ```bash
