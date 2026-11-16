@@ -25,8 +25,9 @@ from canfar_lab.utils.timing import PhaseTimer
 from canfar_lab.version import version_info
 
 # Keep `status` responsive at session start even if the canfar CLI is slow
-# or its auth server stalls; a timeout degrades to "Not authenticated".
+# or its auth server stalls. A timeout says so; it is not a missing login.
 CANFAR_CMD_TIMEOUT_SEC = 5.0
+AUTH_TIMED_OUT = "Unknown (canfar auth check timed out)"
 
 
 def _status_timer(verbose: bool) -> PhaseTimer:
@@ -56,8 +57,10 @@ def _canfar_snapshot() -> tuple[str | None, list[str] | None]:
         f_ps = pool.submit(_ps)
         try:
             auth = f_auth.result(timeout=CANFAR_CMD_TIMEOUT_SEC + 0.5)
-        except (LabError, TimeoutError):
-            auth = "Not authenticated"
+        except TimeoutError:
+            auth = AUTH_TIMED_OUT
+        except LabError as exc:
+            auth = AUTH_TIMED_OUT if "timed out" in str(exc) else "Not authenticated"
         with contextlib.suppress(LabError, TimeoutError):
             sessions = f_ps.result(timeout=CANFAR_CMD_TIMEOUT_SEC + 0.5)
     return auth, sessions

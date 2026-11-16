@@ -119,7 +119,7 @@ def test_status_canfar_timeout_graceful(lab_env: Path) -> None:
         result = runner.invoke(app, ["status", "--json"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.stdout)
-    assert data["canfar_auth"] == "Not authenticated"
+    assert data["canfar_auth"].startswith("Unknown")
     assert data["canfar_sessions"] is None
     called = {tuple(cmd) for cmd, _ in calls}
     assert called == {("canfar", "auth", "show"), ("canfar", "ps")}
