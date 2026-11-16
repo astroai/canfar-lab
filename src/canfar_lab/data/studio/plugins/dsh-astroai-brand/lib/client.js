@@ -6,58 +6,39 @@ window.__ModuleLoader__.load({
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 		const { jsx, jsxs } = require("react/jsx-runtime");
 
-		function AstroAIMark({ size, className }) {
-			return jsxs("svg", {
-				width: size,
-				height: size,
-				viewBox: "0 0 32 32",
+		// The CANFAR mark (opencadc/canfar docs/static/logo.png) is white and
+		// yellow, so it sits on a dark tile to read on light and dark themes.
+		const CANFAR_LOGO = "data:image/png;base64,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";
+
+		function CanfarMark({ size, className }) {
+			const px = typeof size === "number" ? size : 24;
+			return jsx("span", {
 				className,
 				role: "img",
-				"aria-label": "AstroAI",
-				children: [
-					jsx("defs", {
-						children: jsxs("linearGradient", {
-							id: "astroai-mark-gradient",
-							x1: "0",
-							y1: "0",
-							x2: "1",
-							y2: "1",
-							children: [
-								jsx("stop", { offset: "0", stopColor: "#38bdf8" }),
-								jsx("stop", { offset: "0.5", stopColor: "#6366f1" }),
-								jsx("stop", { offset: "1", stopColor: "#a855f7" })
-							]
-						})
-					}),
-					jsx("path", {
-						d: "M9.5 26V14.5a6.5 6.5 0 0 1 13 0V26h-3.2l-3.3-3.4-3.3 3.4z",
-						fill: "url(#astroai-mark-gradient)"
-					}),
-					jsx("path", {
-						d: "M16 10.6l1.25 3.15 3.15 1.25-3.15 1.25L16 19.4l-1.25-3.15L11.6 15l3.15-1.25z",
-						fill: "#0b1026"
-					}),
-					jsx("ellipse", {
-						cx: "16",
-						cy: "19.5",
-						rx: "13.5",
-						ry: "4",
-						transform: "rotate(-16 16 19.5)",
-						fill: "none",
-						stroke: "url(#astroai-mark-gradient)",
-						strokeWidth: "1.7",
-						strokeDasharray: "30 6 44"
-					}),
-					jsx("circle", { cx: "25.5", cy: "5.5", r: "1.1", fill: "#c4b5fd" })
-				]
+				"aria-label": "CANFAR",
+				style: {
+					display: "inline-flex",
+					alignItems: "center",
+					justifyContent: "center",
+					width: px,
+					height: px,
+					borderRadius: Math.round(px * 0.22),
+					background: "#0f1222",
+					flex: "none"
+				},
+				children: jsx("img", {
+					src: CANFAR_LOGO,
+					alt: "",
+					style: { width: "72%", height: "72%", objectFit: "contain" }
+				})
 			});
 		}
 
-		function AstroAIName() {
+		function CanfarName() {
 			return jsxs("span", {
 				style: { fontWeight: 650, letterSpacing: "0.01em", whiteSpace: "nowrap" },
 				children: [
-					"AstroAI",
+					"CANFAR",
 					jsx("span", { style: { fontWeight: 500, opacity: 0.6, marginLeft: "0.3em" }, children: "Studio" })
 				]
 			});
@@ -66,12 +47,12 @@ window.__ModuleLoader__.load({
 		const inject = ["slots"];
 
 		function apply(ctx) {
-			document.title = "AstroAI Studio";
+			document.title = "CANFAR Studio";
 			ctx.slots.inject("sidebar.brand.mark", () => ctx.slots.inject("sidebar.brand.name", function* () {
-				yield ctx.slots.register({ name: "sidebar.brand.mark" }, AstroAIMark);
-				yield ctx.slots.register({ name: "sidebar.brand.name" }, AstroAIName);
+				yield ctx.slots.register({ name: "sidebar.brand.mark" }, CanfarMark);
+				yield ctx.slots.register({ name: "sidebar.brand.name" }, CanfarName);
 			}));
-			ctx.slots.inject("conversation.hero.brand.mark", () => ctx.slots.register({ name: "conversation.hero.brand.mark" }, AstroAIMark));
+			ctx.slots.inject("conversation.hero.brand.mark", () => ctx.slots.register({ name: "conversation.hero.brand.mark" }, CanfarMark));
 		}
 
 		exports.apply = apply;

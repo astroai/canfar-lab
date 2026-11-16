@@ -195,7 +195,7 @@ def web_app_preset_dir() -> Path | None:
 def strip_preset_persona(text: str) -> str:
     """Rewrite one web-app preset patch as an override without ``dsh-persona``.
 
-    The host already registers ``deployment:persona-prefix``. On dsh 0.2.1-rc.3
+    The host already registers ``deployment:persona-prefix``. On dsh 0.2.x
     the preset row registers that same section without an agent scope, and
     New session fails with ``agent-preset/invalid``.
     """
@@ -255,7 +255,7 @@ def preset_persona_overrides() -> str:
     if presets is None:
         return ""
     chunks = [
-        "# dsh 0.2.1-rc.3 registers the persona section on the host.",
+        "# dsh 0.2.x registers the persona section on the host.",
         "# These overrides drop the preset copy that makes New session fail.",
     ]
     found = False
@@ -318,7 +318,7 @@ def studio_layer_yaml(
         "    default: standard",
         "",
         "# Identity lives here. The preset persona row collides with this section",
-        "# on dsh 0.2.1-rc.3, so the overrides below remove that row. Only",
+        "# on dsh 0.2.x, so the overrides below remove that row. Only",
         "# {{provider}} and {{model}} exist here: any other variable fails every turn.",
         "- id: system-prompt",
         "  config:",

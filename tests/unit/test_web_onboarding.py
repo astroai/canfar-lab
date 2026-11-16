@@ -61,7 +61,7 @@ def test_new_user_is_asked_for_a_studio_key_first() -> None:
     }
     assert [s["id"] for s in result["steps"]] == ["studio", "agents", "code"]  # no sign-in yet
     assert _step(result, "code")["status"] == "optional"
-    assert "Welcome to AstroAI" in result["headline"]
+    assert "Welcome to CANFAR Studio" in result["headline"]
 
 
 def test_returning_user_reinstall_then_restore_code() -> None:
@@ -93,7 +93,7 @@ def test_first_install_keeps_new_user_greeting() -> None:
     agents = [_agent("opencode", installed=True, remembered=True)]
     assert _build(agents, keys=[NO_STUDIO_KEY])["kind"] == "returning"  # inferred from state
     result = _build(agents, returning=False)
-    assert result["kind"] == "new" and "Welcome to AstroAI" in result["headline"]
+    assert result["kind"] == "new" and "Welcome to CANFAR Studio" in result["headline"]
     assert result["next"] == "signin"
 
 
@@ -137,7 +137,7 @@ def test_code_counts_as_saved_only_by_a_snapshot_from_this_session() -> None:
         started_at=started,
     )
     assert _step(new, "code")["status"] == "done"
-    assert "Switch to the Studio tab" in new["headline"]
+    assert "Switch to the Chat tab" in new["headline"]
 
 
 def test_running_job_labels_match_the_action() -> None:

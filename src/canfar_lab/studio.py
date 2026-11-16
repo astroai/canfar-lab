@@ -186,7 +186,8 @@ def apply_studio_bash_timeout(
     return f"bash-sandbox timeoutMs → {timeout_ms} ({path})"
 
 
-_WELCOME_NOTICE_RE = re.compile(r'WELCOME_NOTICE_VERSION\s*=\s*"([^"]+)"')
+#: ``= "x"`` in dsh <= 0.2.1; 0.2.2 ships the client minified as ``=`x```.
+_WELCOME_NOTICE_RE = re.compile(r"""WELCOME_NOTICE_VERSION\s*=\s*["'`]([^"'`]+)["'`]""")
 
 
 def installed_welcome_notice_version() -> str | None:

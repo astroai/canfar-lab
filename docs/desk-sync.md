@@ -328,7 +328,7 @@ canfar lab sync watch --desk|--session [--once] [--interval S]
 
 ### 7.3 dsh version policy and parity
 
-- The repo pin lives in `src/canfar_lab/dsh_pin.py` (`0.2.1-rc.3`);
+- The repo pin lives in `src/canfar_lab/dsh_pin.py` (`0.2.2-rc.3`);
   `data/agent/agents/dsh.yaml` repeats it and a unit test keeps the two in
   lockstep (the image installs that exact version). The pin is the *offline
   fallback*, not the desk default.

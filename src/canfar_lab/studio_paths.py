@@ -28,7 +28,11 @@ TEAM_BUNDLES: tuple[str, ...] = ("@deepseek-ai/dsh-experimental-agent-team-profi
 
 #: Bundles removed from the Studio order. Kept out of regenerated manifests so
 #: an upgrade does not keep installing a package this dsh no longer publishes.
-RETIRED_BUNDLES: tuple[str, ...] = ("@deepseek-ai/dsh-experimental-agent-team-web-profile",)
+RETIRED_BUNDLES: tuple[str, ...] = (
+    "@deepseek-ai/dsh-experimental-agent-team-web-profile",
+    # Its "AstroAI" section moved to the Settings (gear) tab.
+    "dsh-astroai-settings",
+)
 
 #: Injects ``x-opencode-session`` for OpenCode Go (avoids 400 MissingSessionID).
 #: Vendored under ``data/studio/plugins/`` so CANFAR ``--no-install`` boots still
@@ -37,12 +41,9 @@ OPENCODE_SESSION_BUNDLE = "dsh-opencode-session"
 #: AstroAI mark/name in the sidebar and blank-chat hero (replaces the official
 #: brand row). Vendored alongside the OpenCode plugin for the same reason.
 BRAND_BUNDLE = "dsh-astroai-brand"
-#: Studio settings section: home vs scratch, key names, layout status.
-SETTINGS_BUNDLE = "dsh-astroai-settings"
 ASTROAI_EXTRA_BUNDLES: tuple[str, ...] = (
     OPENCODE_SESSION_BUNDLE,
     BRAND_BUNDLE,
-    SETTINGS_BUNDLE,
 )
 
 #: Required layer order for every bundle the Studio profile names.

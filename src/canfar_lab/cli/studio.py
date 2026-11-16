@@ -439,7 +439,7 @@ def studio_main(
 
     session_kind = os.environ.get("ASTROAI_SESSION_KIND", "").lower()
     if _on_skaha() and session_kind in ("dsh", "studio"):
-        ui.print_ok("Studio is already running in this session: open the Studio tab.")
+        ui.print_ok("Studio is already running in this session: open the Chat tab.")
         return
     if _on_skaha():
         ui.print_warn(

@@ -2,7 +2,7 @@
 
 Pure function of the Lab state, so every case is unit-testable:
 
-1. **Studio** — a model key, so the Studio tab can answer.
+1. **Chat** — a model key, so the Chat tab can answer.
 2. **Agents** — reinstall the ones a returning user had (automatic when the
    server starts with ``--restore``). New Terminal agents are optional.
 3. **Sign in** — an installed agent with neither a login file nor a key.
@@ -46,21 +46,21 @@ def _job_kind(job: dict[str, Any] | None) -> str:
 
 
 def _studio_step(keys: list[dict[str, Any]]) -> dict[str, Any]:
-    step: dict[str, Any] = {"id": "studio", "title": "Studio"}
+    step: dict[str, Any] = {"id": "studio", "title": "Chat"}
     usable = [k for k in keys if k.get("studio")]
     have = [str(k["label"]) for k in usable if k["present"]]
     if have:
         return {
             **step,
             "status": "done",
-            "detail": f"Studio can use your {_list(have)} key. Pick the model at the "
+            "detail": f"Chat can use your {_list(have)} key. Pick the model at the "
             "bottom of the chat box.",
         }
     labels = _list([str(k["label"]) for k in usable], limit=6)
     return {
         **step,
         "status": "todo",
-        "detail": f"Studio needs an API key from one model provider: {labels}. "
+        "detail": f"Chat needs an API key from one model provider: {labels}. "
         "DeepSeek is the cheapest to start with.",
         "action": {"label": "Add a key", "focus": "keys"},
     }
@@ -310,7 +310,7 @@ def build(
             "id": "restart",
             "title": "Open your new code folder",
             "status": "todo",
-            "detail": f"Studio, Terminal, JupyterLab and VS Code still use {live}.",
+            "detail": f"Chat, Terminal, JupyterLab and VS Code still use {live}.",
         }
         if code.get("restart_supported"):
             restart["action"] = {"label": "Restart tools now", "op": "restart_tools"}
@@ -325,11 +325,11 @@ def build(
     if ready and unsaved:
         headline = "You're all set. Save your code here before you leave."
     elif ready:
-        headline = "You're all set. Switch to the Studio tab to start."
+        headline = "You're all set. Switch to the Chat tab to start."
     elif returning:
         headline = "Welcome back. A couple of things to get this session ready."
     else:
-        headline = "Welcome to AstroAI. A couple of steps and you're coding."
+        headline = "Welcome to CANFAR Studio. A couple of steps and you're coding."
     return {
         "kind": "returning" if returning else "new",
         "headline": headline,

@@ -281,3 +281,9 @@ def test_parse_error_never_quotes_the_file(home: Path) -> None:
     with pytest.raises(LabError) as excinfo:
         keys.sync_keys(home)
     assert SECRET not in str(excinfo.value) and "line" in str(excinfo.value)
+
+
+def test_welcome_notice_version_reads_minified_dsh() -> None:
+    rx = studio_mod._WELCOME_NOTICE_RE
+    assert rx.search('const WELCOME_NOTICE_VERSION = "2026-08-13.1";').group(1) == "2026-08-13.1"
+    assert rx.search("const WELCOME_NOTICE_VERSION=`2026-09-28.1`;").group(1) == "2026-09-28.1"

@@ -77,7 +77,7 @@ def test_token_login_sets_cookie(lab: server_mod.LabServer) -> None:
     cookie = resp.getheader("Set-Cookie") or ""
     assert "HttpOnly" in cookie and "SameSite=Strict" in cookie
     status, page, _ = _req(lab, "GET", "/", token=None, headers={"Cookie": cookie.split(";")[0]})
-    assert status == 200 and "<title>AstroAI Settings</title>" in page
+    assert status == 200 and "<title>CANFAR Studio Settings</title>" in page
     assert _req(lab, "GET", "/?token=nope", token=None)[0] == 401
 
 

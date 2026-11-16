@@ -1,7 +1,7 @@
 {
   "name": "dsh-astroai-brand",
   "version": "0.1.0",
-  "description": "AstroAI Studio brand occupants for the DeepSeek Harness web client (sidebar mark/name, blank-chat hero mark).",
+  "description": "CANFAR Studio brand occupants for the DeepSeek Harness web client (sidebar mark/name, blank-chat hero mark).",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
