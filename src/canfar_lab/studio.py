@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from canfar_lab import studio_profile as sp
-from canfar_lab.dsh_pin import DSH_NPM, DSH_VERSION
+from canfar_lab.dsh_pin import DSH_INSTALL_HINT, DSH_VERSION
 from canfar_lab.errors import LabError
 from canfar_lab.studio_skills import ensure_platform_skills
 
@@ -118,7 +118,7 @@ def dsh_missing_error() -> LabError:
     return LabError(
         "No `dsh` executable found.",
         hint=(
-            f"Install it globally: npm install -g {DSH_NPM}\n"
+            f"Install it: {DSH_INSTALL_HINT}\n"
             "Do not use `npx -y @deepseek-ai/dsh …`: npm swallows the "
             "launcher flags Studio depends on."
         ),
@@ -597,7 +597,6 @@ def skills_onboarding_hint() -> str:
 
 __all__ = [
     "DEFAULT_PORT",
-    "DSH_NPM",
     "DSH_VERSION",
     "StudioProfile",
     "apply_studio_bash_timeout",

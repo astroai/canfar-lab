@@ -153,7 +153,7 @@ def dsh_cmd(*, patch: Path | None, task: str, dsh_bin: str | None = None) -> lis
         raise LabError(
             "No `dsh` executable found.",
             hint=(
-                f"Install it globally: npm install -g {_studio.DSH_NPM}\n"
+                f"Install it: {_studio.DSH_INSTALL_HINT}\n"
                 "Do not use `npx -y @deepseek-ai/dsh …`: npm swallows the "
                 "launcher flags Panel depends on."
             ),

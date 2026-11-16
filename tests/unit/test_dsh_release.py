@@ -27,10 +27,11 @@ def test_resolve_pin_is_offline(monkeypatch):
     assert release.source == "pin"
 
 
-def test_resolve_none_defaults_to_pin():
-    release = dsh_release.resolve(None)
-    assert release.version == studio_mod.DSH_VERSION
-    assert release.source == "pin"
+def test_resolve_none_defaults_to_newest():
+    tags = {"latest": "9.2.0-rc.2", "next": "9.2.1-rc.9"}
+    release = dsh_release.resolve(None, fetcher=lambda: tags)
+    assert release.version == "9.2.1-rc.9"
+    assert release.source == "newest"
 
 
 def test_resolve_tags_and_newest():
@@ -55,13 +56,13 @@ def test_resolve_offline_falls_back_to_pin(monkeypatch):
     assert "unreachable" in release.note
 
 
-def test_resolve_newest_keeps_pin_when_registry_lags(monkeypatch):
+def test_resolve_newest_ignores_the_offline_pin(monkeypatch):
+    """No pin: the registry's newest wins even when the fallback is newer."""
     monkeypatch.setattr(studio_mod, "DSH_VERSION", "9.9.9")
     tags = {"latest": "0.2.0-rc.2", "next": "0.2.1-rc.2"}
     release = dsh_release.resolve("newest", fetcher=lambda: tags)
-    assert release.version == "9.9.9"
-    assert release.source == "pin"
-    assert "registry newest" in release.note
+    assert release.version == "0.2.1-rc.2"
+    assert release.source == "newest"
 
 
 def test_resolve_missing_tag_falls_back_to_pin(monkeypatch):
@@ -122,5 +123,5 @@ def test_install_command_and_has_update(monkeypatch):
 
 
 @pytest.mark.parametrize("value", ["", "   "])
-def test_resolve_blank_spec_means_pin(value):
-    assert dsh_release.resolve(value).source == "pin"
+def test_resolve_blank_spec_means_newest(value):
+    assert dsh_release.resolve(value, fetcher=lambda: {"next": "1.2.3"}).source == "newest"

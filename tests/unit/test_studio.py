@@ -249,8 +249,8 @@ def test_studio_env_routes_stores_off_home_on_canfar(
     assert "npm_config_store_dir" not in laptop
 
 
-def test_dsh_version_pin_matches_agent_yaml() -> None:
-    """Studio pin, review-bench pin, and agent install source must stay aligned."""
+def test_dsh_is_not_pinned() -> None:
+    """The agent catalog installs from a channel, and hints install the newest."""
     from importlib import resources
 
     import yaml
@@ -260,8 +260,8 @@ def test_dsh_version_pin_matches_agent_yaml() -> None:
     )
     data = yaml.safe_load(text)
     source = data["install"]["source"]
-    assert source == f"@deepseek-ai/dsh@{studio_mod.DSH_VERSION}"
-    assert studio_mod.DSH_VERSION in sp.DSH_INSTALL_HINT
+    assert source == "@deepseek-ai/dsh@next"
+    assert "--install-dsh" in sp.DSH_INSTALL_HINT
 
 
 def test_studio_status_command(monkeypatch: pytest.MonkeyPatch) -> None:

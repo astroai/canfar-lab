@@ -740,6 +740,15 @@ def _plugin_commands(
     return tuple(commands)
 
 
+def _running_dsh_version() -> str:
+    """The installed dsh's version, else the newest release (offline: the fallback)."""
+    # studio.py imports this module through studio_profile: import lazily.
+    from canfar_lab import dsh_release
+    from canfar_lab.studio import dsh_binary
+
+    return dsh_release.installed_version(dsh_binary()) or dsh_release.resolve("newest").version
+
+
 def plan_studio_profile(
     home: Path,
     *,
@@ -792,19 +801,18 @@ def plan_studio_profile(
         directory / PROFILE_PATCH_FILENAME,
         directory / PROFILE_WORKSPACE_FILENAME,
     )
-    # studio.py imports this module through studio_profile, so the pin stays local.
-    from canfar_lab.studio import DSH_VERSION
+    # Team bundles must match the dsh that runs them (npm `latest` for the team
+    # profile lags far behind), so they follow the installed dsh.
+    dsh_version = _running_dsh_version()
 
     pins = vendored_dependencies()
     if with_team:
-        # npm `latest` for the team profile is still 0.1.5-alpha.2, which
-        # shadows the pinned dsh CLI. The profile must install that same version.
-        pins.update({name: DSH_VERSION for name in TEAM_BUNDLES})
+        pins.update({name: dsh_version for name in TEAM_BUNDLES})
     commands = _plugin_commands(
         directory,
         uninstalled=uninstalled,
         with_team=with_team,
-        dsh_version=DSH_VERSION,
+        dsh_version=dsh_version,
     )
     return StudioPlan(
         name=STUDIO_PROFILE_NAME,

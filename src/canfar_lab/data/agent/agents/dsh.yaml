@@ -7,7 +7,9 @@ binary: dsh
 tags: [agent, cli]
 install:
   method: npm
-  source: "@deepseek-ai/dsh@0.2.2-rc.3"
+  # Not pinned. `next` is the channel the newest release ships on (npm
+  # `latest` lags it); `canfar lab studio --install-dsh` picks the newest tag.
+  source: "@deepseek-ai/dsh@next"
 config:
   path: "~/.dsh/settings.yaml"
   format: yaml

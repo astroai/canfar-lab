@@ -73,6 +73,23 @@ def _port_free(port: int) -> bool:
         return True
 
 
+def _newest_check(dsh_bin: str) -> Check:
+    """Is the installed dsh the newest release? Never fatal; skipped offline."""
+    from canfar_lab import dsh_release
+
+    installed = dsh_release.installed_version(dsh_bin)
+    newest = dsh_release.resolve("newest")
+    if newest.source == "offline" or not installed:
+        return Check(name="dsh-newest", ok=True, detail="not checked (registry unreachable)")
+    current = not dsh_release.has_update(installed, newest)
+    return Check(
+        name="dsh-newest",
+        ok=current,
+        detail=f"{installed}" + ("" if current else f"; newest is {newest.version}"),
+        hint=None if current else DSH_INSTALL_HINT,
+    )
+
+
 def dsh_version(dsh_bin: str) -> str | None:
     """``dsh --version``, or None when the binary does not answer."""
     try:
@@ -240,7 +257,6 @@ def doctor(
     checks: list[Check] = []
     # Same resolution as launch: ASTROAI_STUDIO_DSH, PATH, then image search paths.
     resolved_dsh = dsh_bin or studio_mod.dsh_binary()
-    pinned = studio_mod.DSH_VERSION
 
     if resolved_dsh is None:
         checks.append(
@@ -255,7 +271,6 @@ def doctor(
         )
     else:
         version = dsh_version(resolved_dsh)
-        pin_ok = version is not None and pinned in version
         checks.append(
             Check(
                 name="dsh",
@@ -266,16 +281,7 @@ def doctor(
             )
         )
         if version is not None:
-            checks.append(
-                Check(
-                    name="dsh-pin",
-                    ok=pin_ok,
-                    detail=f"want {pinned}" + ("" if pin_ok else f", got {version}"),
-                    hint=None
-                    if pin_ok
-                    else f"{DSH_INSTALL_HINT}  (Studio pin; keep containers Dockerfile in sync)",
-                )
-            )
+            checks.append(_newest_check(resolved_dsh))
 
     directory = profile_dir(home)
     bundles = read_bundles(directory)

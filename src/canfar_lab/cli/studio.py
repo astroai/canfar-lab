@@ -301,13 +301,13 @@ def studio_main(
         str | None,
         typer.Option(
             "--dsh-version",
-            help="pin|alpha|next|latest|newest|<version> — reported everywhere, "
+            help="newest (default) | next | latest | alpha | <version>; "
             "installed with --install-dsh.",
         ),
     ] = None,
     install_dsh: Annotated[
         bool,
-        typer.Option("--install-dsh", help="npm-install the resolved dsh when missing/older."),
+        typer.Option("--install-dsh", help="npm-install the newest dsh when missing or older."),
     ] = False,
 ) -> None:
     """Launch AstroAI Studio (dsh web) or prepare/diagnose its configuration.
@@ -325,7 +325,13 @@ def studio_main(
     from canfar_lab.utils.subprocess import run
 
     opts = merge_opts(ctx)
-    dsh_info = _dsh.resolve(dsh_version)
+    resolved: list[_dsh.Release] = []
+
+    def dsh_info() -> _dsh.Release:
+        """Resolve the dsh release only when needed: --prepare (session boot) never waits on npm."""
+        if not resolved:
+            resolved.append(_dsh.resolve(dsh_version))
+        return resolved[0]
 
     if skills:
         text = _studio.skills_onboarding_hint()
@@ -355,15 +361,15 @@ def studio_main(
         dsh_now = _studio.dsh_binary()
         dsh_installed = _dsh.installed_version(dsh_now)
         report["dsh"] = {
-            "spec": dsh_version or "pin",
+            "spec": dsh_version or "newest",
             "release": {
-                "version": dsh_info.version,
-                "source": dsh_info.source,
-                "note": dsh_info.note,
+                "version": dsh_info().version,
+                "source": dsh_info().source,
+                "note": dsh_info().note,
             },
             "binary": dsh_now,
             "installed": dsh_installed,
-            "needs_install": dsh_now is None or _dsh.has_update(dsh_installed, dsh_info),
+            "needs_install": dsh_now is None or _dsh.has_update(dsh_installed, dsh_info()),
         }
         if opts.json:
             ui.print_json(report)
@@ -415,7 +421,7 @@ def studio_main(
         repo_path = _studio.resolve_repo(repo)
         dsh_bin = _studio.dsh_binary()
         dsh_installed = _dsh.installed_version(dsh_bin)
-        dsh_change = (dsh_version or install_dsh) and _dsh.has_update(dsh_installed, dsh_info)
+        dsh_change = (dsh_version or install_dsh) and _dsh.has_update(dsh_installed, dsh_info())
         if dsh_change and install_dsh and not (opts.dry_run or opts.json):
             npm = _dsh.npm_binary()
             if npm is None:
@@ -423,7 +429,7 @@ def studio_main(
                     "npm is needed to install dsh",
                     hint="Install Node.js/npm or drop --install-dsh.",
                 )
-            run([npm, *_dsh.install_command(dsh_info.version)[1:]])
+            run([npm, *_dsh.install_command(dsh_info().version)[1:]])
             dsh_bin = _studio.dsh_binary()
             dsh_installed = _dsh.installed_version(dsh_bin)
         if dsh_bin is None:
@@ -468,11 +474,11 @@ def studio_main(
                 "cmd": cmd,
                 "env": studio_env,
                 "dsh": {
-                    "spec": dsh_version or "pin",
+                    "spec": dsh_version or "newest",
                     "release": {
-                        "version": dsh_info.version,
-                        "source": dsh_info.source,
-                        "note": dsh_info.note,
+                        "version": dsh_info().version,
+                        "source": dsh_info().source,
+                        "note": dsh_info().note,
                     },
                     "installed": dsh_installed,
                 },
@@ -519,8 +525,8 @@ def studio_main(
             root=repo_path,
             settings=get_settings(),
             dsh_bin=dsh_bin,
-            dsh_spec=dsh_version or "pin",
-            release=dsh_info,
+            dsh_spec=dsh_version or "newest",
+            release=dsh_info(),
             opener=None if no_open else _open_browser,
         )
         if code:

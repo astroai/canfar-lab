@@ -499,7 +499,7 @@ def test_doctor_reports_profile_state(home: Path, monkeypatch: pytest.MonkeyPatc
     names = {check["name"] for check in report["checks"]}
     assert {
         "dsh",
-        "dsh-pin",
+        "dsh-newest",
         "profile",
         "profile-layer-order",
         "composition",
@@ -798,3 +798,15 @@ def test_switches_in_a_foreign_layer_are_not_adopted(home: Path) -> None:
     )
     layer = sp.plan_studio_profile(home, profile="laptop").layer_yaml
     assert "web-search" not in layer
+
+
+def test_doctor_flags_an_older_dsh_without_failing(monkeypatch: pytest.MonkeyPatch) -> None:
+    from canfar_lab import dsh_release
+    from canfar_lab import studio_doctor as doctor_mod
+
+    monkeypatch.setattr(dsh_release, "installed_version", lambda *_: "0.2.1-rc.3")
+    monkeypatch.setattr(dsh_release, "fetch_dist_tags", lambda: {"next": "0.2.2-rc.3"})
+    check = doctor_mod._newest_check("/usr/bin/dsh")
+    assert not check.ok and not check.fatal and "newest is 0.2.2-rc.3" in check.detail
+    monkeypatch.setattr(dsh_release, "installed_version", lambda *_: "0.2.2-rc.3")
+    assert doctor_mod._newest_check("/usr/bin/dsh").ok

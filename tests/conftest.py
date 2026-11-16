@@ -81,3 +81,16 @@ def clean_env(
     yield
     os.environ.clear()
     os.environ.update(saved)
+
+
+@pytest.fixture(autouse=True)
+def offline_npm_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests never ask npm for dsh's newest release; they get the offline fallback.
+
+    A test that needs dist-tags passes ``fetcher=`` to ``dsh_release.resolve``.
+    """
+
+    def _offline(*_args: object, **_kwargs: object) -> dict[str, str]:
+        raise OSError("tests are offline")
+
+    monkeypatch.setattr("canfar_lab.dsh_release.fetch_dist_tags", _offline)

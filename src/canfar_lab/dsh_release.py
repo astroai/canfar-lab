@@ -3,14 +3,14 @@
 ``canfar lab studio`` and ``canfar lab desk`` both need to know which harness
 release to use without giving up reproducibility:
 
-* ``pin`` — the version this repo ships and tests (``studio.DSH_VERSION``).
+* ``pin`` — the offline fallback (``dsh_pin.DSH_VERSION``), never the default.
 * ``alpha`` / ``next`` / ``latest`` — the npm dist-tag by that name.
 * ``newest`` — highest semver across every dist-tag, prereleases included.
-  The npm ``latest`` tag can lag a newer channel. The Studio image installs
-  the pinned version, not a floating tag. ``newest`` is the honest "latest".
+  The npm ``latest`` tag can lag a newer channel, so ``newest`` is the
+  honest "latest" and the default. The Studio image installs it too.
 * any exact version string — used as-is.
 
-Resolution needs the network; failures fall back to the pin with
+Resolution needs the network; failures fall back to the offline pin with
 ``source="offline"`` so an offline laptop still boots.
 """
 
@@ -81,20 +81,17 @@ def _try_tags(fetcher) -> dict[str, str] | None:  # noqa: ANN001
         return None
 
 
-def resolve(spec: str | None = None, *, fetcher=fetch_dist_tags) -> Release:  # noqa: ANN001
-    """Resolve a user-facing spec: ``pin|alpha|next|latest|newest|<version>``."""
+def resolve(spec: str | None = None, *, fetcher=None) -> Release:  # noqa: ANN001
+    """Resolve a user-facing spec: ``newest`` (default) ``|pin|alpha|next|latest|<version>``."""
     pinned = _pinned()
-    wanted = (spec or "pin").strip()
-    if wanted in ("", "pin", "pinned"):
+    wanted = (spec or "").strip() or "newest"
+    if wanted in ("pin", "pinned"):
         return Release(pinned, "pin")
     if wanted == "newest":
         tags = _try_tags(fetcher)
         if tags is None:
             return Release(pinned, "offline", note="registry unreachable; using pin")
-        best = max(tags.values(), key=semver_key)
-        if semver_key(best) < semver_key(pinned):
-            return Release(pinned, "pin", note=f"registry newest is {best}")
-        return Release(best, "newest")
+        return Release(max(tags.values(), key=semver_key), "newest")
     if wanted in TAG_SPECS:
         tags = _try_tags(fetcher)
         if tags is None:

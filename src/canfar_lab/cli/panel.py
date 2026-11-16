@@ -9,7 +9,6 @@ import typer
 
 from canfar_lab import ui
 from canfar_lab.cli.context import merge_opts
-from canfar_lab.dsh_pin import DSH_VERSION
 from canfar_lab.errors import LabError
 
 panel_app = typer.Typer(
@@ -139,7 +138,10 @@ def panel_doctor(
     if not keys:
         issues.append("No provider keys found (OPENCODE_API_KEY / DEEPSEEK_API_KEY / …).")
 
+    from canfar_lab.dsh_release import installed_version
+
     dsh_bin = shutil.which("dsh")
+    dsh_version = installed_version(dsh_bin)
     logo = brand_logo_path()
     payload: dict[str, Any] = {
         "product": "AstroAI Panel",
@@ -148,7 +150,7 @@ def panel_doctor(
         "logo": str(logo) if logo else None,
         "dsh_on_path": bool(dsh_bin),
         "dsh_bin": dsh_bin,
-        "dsh_version_pin": DSH_VERSION,
+        "dsh_version": dsh_version,
         "pinned": health["pinned"],
         "keys_present": health["keys_present"],
         "routers": routers_status(keys_present=keys),
@@ -161,7 +163,7 @@ def panel_doctor(
         return
 
     ui.print_hint("AstroAI Panel doctor (keys only — models live in dsh Settings)")
-    ui.print_hint(f"  dsh: {'on PATH' if dsh_bin else 'missing'} (pin {DSH_VERSION})")
+    ui.print_hint(f"  dsh: {dsh_version or 'on PATH' if dsh_bin else 'missing'}")
     if health["pinned"]:
         ui.print_hint(
             f"  dsh Settings provider: {health['pinned']} (yours; canfar lab never changes it)"

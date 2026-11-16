@@ -1,10 +1,12 @@
-"""The dsh release this repo ships and tests.
+"""dsh is not pinned: Studio uses the newest release.
 
-The only place to bump it. ``data/agent/agents/dsh.yaml`` and the
-canfar-containers Dockerfile (``ARG DSH_VERSION``) repeat it; a test keeps the
-YAML in step.
+"Newest" is the highest semver across npm dist-tags (see ``dsh_release``);
+npm's ``latest`` tag can lag ``next``. The Studio image resolves it at every
+build (canfar-containers ``scripts/dsh-newest.sh``).
+
+``DSH_VERSION`` is only the offline fallback: the newest release Studio was
+last tested with, used when the registry cannot be reached.
 """
 
 DSH_VERSION = "0.2.2-rc.3"
-DSH_NPM = f"@deepseek-ai/dsh@{DSH_VERSION}"
-DSH_INSTALL_HINT = f"npm install -g {DSH_NPM}"
+DSH_INSTALL_HINT = "canfar lab studio --install-dsh  (installs the newest dsh)"
