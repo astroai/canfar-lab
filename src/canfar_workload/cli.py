@@ -11,7 +11,7 @@ import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Annotated, Any, NoReturn
+from typing import Annotated, Any, NamedTuple, NoReturn
 
 import typer
 
@@ -254,6 +254,30 @@ def job_list_payload(address: str | None = None) -> dict[str, Any]:
     return {"jobs": RayExecutor(address=address).list_jobs()}
 
 
+class _RootOpts(NamedTuple):
+    json: bool
+    yes: bool
+    dry_run: bool
+
+
+def _root_opts(ctx: typer.Context | None) -> _RootOpts:
+    """The root ``canfar lab --json/--yes/--dry-run`` flags (Click passes ctx.obj down)."""
+    obj = ctx.obj if ctx is not None else None
+    return _RootOpts(
+        bool(getattr(obj, "json", False)),
+        bool(getattr(obj, "yes", False)),
+        bool(getattr(obj, "dry_run", False)),
+    )
+
+
+def _dry_run(action: str, as_json: bool) -> NoReturn:
+    if as_json:
+        _print_json({"dry_run": True, "action": action})
+    else:
+        print(f"dry-run: would {action}")
+    raise typer.Exit(0)
+
+
 def _cli_fail(exc: BaseException) -> NoReturn:
     print(str(exc), file=sys.stderr)
     raise typer.Exit(1)
@@ -322,6 +346,9 @@ def cmd_run(
       canfar lab run train.py --cpus 2
       canfar lab run train.py --gpus 1 --input /arc/projects/g/in --output /arc/projects/g/out
     """
+    as_json = as_json or _root_opts(ctx).json
+    if _root_opts(ctx).dry_run:
+        _dry_run("run", as_json)
     try:
         result = job_run_payload(
             str(script),
@@ -352,6 +379,7 @@ def cmd_run(
 
 @app.command("submit")
 def cmd_submit(
+    ctx: typer.Context,
     cmd: Annotated[
         str | None,
         typer.Option("--cmd", help="Command to run on the cluster, as one string."),
@@ -395,6 +423,9 @@ def cmd_submit(
       canfar lab jobs submit --cmd 'python -m mosaic.stack --in /arc/projects/g/in'
       canfar lab jobs submit --cmd 'python train.py' --wait --cpus 2
     """
+    as_json = as_json or _root_opts(ctx).json
+    if _root_opts(ctx).dry_run:
+        _dry_run("submit", as_json)
     if cmd:
         command = tuple(shlex.split(cmd))
     elif argv:
@@ -435,11 +466,13 @@ def cmd_submit(
 
 @app.command("status")
 def cmd_status(
+    ctx: typer.Context,
     run_id: Annotated[str, typer.Argument(help="Job id from run/submit.")],
     address: Annotated[str | None, typer.Option("--address")] = None,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Show whether one job is still running, succeeded, or failed."""
+    as_json = as_json or _root_opts(ctx).json
     try:
         result = job_status_payload(run_id, address)
     except (RuntimeError, ConnectionError, OSError) as exc:
@@ -466,6 +499,7 @@ def cmd_logs(
 
 @app.command("wait")
 def cmd_wait(
+    ctx: typer.Context,
     run_id: Annotated[str, typer.Argument(help="Job id from run/submit.")],
     address: Annotated[str | None, typer.Option("--address")] = None,
     timeout: Annotated[float | None, typer.Option("--timeout")] = None,
@@ -473,6 +507,7 @@ def cmd_wait(
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Wait until a job finishes, then print its log."""
+    as_json = as_json or _root_opts(ctx).json
     try:
         result = job_wait_payload(
             run_id, address=address, timeout=timeout, poll_interval=poll_interval
@@ -491,10 +526,13 @@ def cmd_wait(
 
 @app.command("cancel")
 def cmd_cancel(
+    ctx: typer.Context,
     run_id: Annotated[str, typer.Argument(help="Job id from run/submit.")],
     address: Annotated[str | None, typer.Option("--address")] = None,
 ) -> None:
     """Ask the cluster to stop a job."""
+    if _root_opts(ctx).dry_run:
+        _dry_run("cancel", False)
     try:
         result = job_cancel_payload(run_id, address)
     except (RuntimeError, ConnectionError, OSError) as exc:
@@ -504,10 +542,12 @@ def cmd_cancel(
 
 @app.command("list")
 def cmd_list(
+    ctx: typer.Context,
     address: Annotated[str | None, typer.Option("--address")] = None,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """List jobs on the current cluster."""
+    as_json = as_json or _root_opts(ctx).json
     try:
         result = job_list_payload(address)
     except (RuntimeError, ConnectionError, OSError) as exc:
@@ -739,7 +779,9 @@ def cluster_cmd_start(
     Example:
       canfar lab cluster start --max-workers 8 --cores 2 --ram 8
     """
-    del ctx  # accepted for CLI symmetry; no legacy aliases remain
+    as_json = as_json or _root_opts(ctx).json
+    if _root_opts(ctx).dry_run:
+        _dry_run("cluster start", as_json)
     try:
         result = cluster_start_payload(
             address=address,
@@ -779,11 +821,16 @@ def cluster_status_payload(address: str | None = None) -> dict[str, Any]:
 
 @cluster_app.command("status")
 def cluster_cmd_status(
+    ctx: typer.Context,
     address: Annotated[str | None, typer.Option("--address")] = None,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """See if the cluster is up, and get the Ray Dashboard URL."""
-    payload = cluster_status_payload(address)
+    as_json = as_json or _root_opts(ctx).json
+    try:
+        payload = cluster_status_payload(address)
+    except (RuntimeError, ConnectionError, OSError) as exc:
+        _cli_fail(exc)
     if as_json:
         _print_json(payload)
         return
@@ -863,10 +910,20 @@ def _cluster_stop_locked(*, address: str | None) -> dict[str, Any]:
 
 @cluster_app.command("stop")
 def cluster_cmd_stop(
+    ctx: typer.Context,
     address: Annotated[str | None, typer.Option("--address")] = None,
+    yes: Annotated[bool, typer.Option("--yes", "-y", help="Do not ask first.")] = False,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Stop the cluster: destroy every worker session and the manager."""
+    as_json = as_json or _root_opts(ctx).json
+    if _root_opts(ctx).dry_run:
+        _dry_run("cluster stop", as_json)
+    if not (yes or _root_opts(ctx).yes):
+        if not sys.stdin.isatty():
+            _cli_fail(RuntimeError("cluster stop destroys all workers and the manager: pass --yes"))
+        if not typer.confirm("Destroy every worker session and the manager?"):
+            raise typer.Exit(1)
     try:
         payload = cluster_stop_payload(address=address)
     except RuntimeError as exc:
@@ -971,10 +1028,12 @@ def dashboard_url_payload(address: str | None = None) -> str:
 
 @dashboard_app.command("url")
 def dashboard_cmd_url(
+    ctx: typer.Context,
     address: Annotated[str | None, typer.Option("--address")] = None,
     as_json: Annotated[bool, typer.Option("--json")] = False,
 ) -> None:
     """Print the Ray Dashboard URL for the current cluster."""
+    as_json = as_json or _root_opts(ctx).json
     try:
         url = dashboard_url_payload(address)
     except RuntimeError as exc:
@@ -1058,7 +1117,7 @@ def dashboard_default(ctx: typer.Context) -> None:
     """Print the Ray Dashboard URL when no subcommand is given."""
     if ctx.invoked_subcommand is not None:
         return
-    dashboard_cmd_url(address=None, as_json=False)
+    dashboard_cmd_url(None, address=None, as_json=False)
 
 
 jobs_app = typer.Typer(
