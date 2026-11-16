@@ -94,3 +94,14 @@ def offline_npm_registry(monkeypatch: pytest.MonkeyPatch) -> None:
         raise OSError("tests are offline")
 
     monkeypatch.setattr("canfar_lab.dsh_release.fetch_dist_tags", _offline)
+
+
+@pytest.fixture(autouse=True)
+def offline_model_catalogs(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests never fetch live provider model lists; routes use their yaml seed.
+
+    A test that needs a catalog patches ``fetch_openai_compat_model_ids`` itself.
+    """
+    monkeypatch.setattr(
+        "canfar_lab.agent.support.fetch_openai_compat_model_ids", lambda *_a, **_k: ()
+    )

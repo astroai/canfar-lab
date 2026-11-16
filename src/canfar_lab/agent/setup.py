@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 from dataclasses import dataclass
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -819,7 +820,7 @@ def agent_setup(
                 record_setup_ok(home, mode=mode)
             else:
                 detail = "; ".join(errors) if errors else "no bundles succeeded"
-                from datetime import datetime, timezone
+                from datetime import datetime
 
                 from canfar_lab.agent.setup_state import lab_state_dir
 
@@ -830,7 +831,7 @@ def agent_setup(
                 if version_file.is_file():
                     ver = version_file.read_text(encoding="utf-8").strip()
                 stamp_path(home).write_text(
-                    datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
                     + f" bundle={ver} mode={mode}\n",
                     encoding="utf-8",
                 )

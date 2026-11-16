@@ -13,6 +13,7 @@ import contextlib
 import errno
 import os
 import shutil
+from datetime import UTC
 from pathlib import Path
 
 LAB_REL = Path(".canfar") / "lab"
@@ -32,9 +33,9 @@ def ray_home(home: Path | None = None) -> Path:
 
 
 def _stamp() -> str:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
 def _mtime(path: Path) -> float:

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 ISO_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 STAMP_FORMAT = "%Y%m%dT%H%M%SZ"
 
 
 def now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def utc_iso() -> str:
@@ -22,7 +22,7 @@ def stamp() -> str:
 
 def parse_iso(value: str) -> datetime | None:
     try:
-        return datetime.strptime(value, ISO_FORMAT).replace(tzinfo=timezone.utc)
+        return datetime.strptime(value, ISO_FORMAT).replace(tzinfo=UTC)
     except (TypeError, ValueError):
         return None
 

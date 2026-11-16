@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import InitVar, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from types import MappingProxyType
 from typing import Any
@@ -254,7 +254,7 @@ class ProvenanceManifest:
     parameters: Mapping[str, Any] = field(default_factory=dict)
     code_revision: str | None = None
     environment: Mapping[str, str] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     schema_version: str = "1.0"
 
     def __post_init__(self) -> None:
@@ -288,7 +288,7 @@ class ProvenanceManifest:
         if isinstance(created, str) and created:
             created_at = datetime.fromisoformat(created)
         else:
-            created_at = datetime.now(timezone.utc)
+            created_at = datetime.now(UTC)
         return cls(
             run_id=data["run_id"],
             inputs=tuple(DataProductRef.from_dict(d) for d in data.get("inputs", ())),

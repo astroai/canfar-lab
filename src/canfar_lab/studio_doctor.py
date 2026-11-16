@@ -539,11 +539,14 @@ def _first_error_line(stderr: str) -> str:
 
 
 def _available_keys(home: Path) -> list[str]:
-    """Provider keys Studio can see (env, shared .env, agent auth files)."""
+    """Provider keys Studio can see: env, shared .env, dsh credentials, auth files."""
     try:
+        from canfar_lab.agent import keys
         from canfar_lab.agent.review_bench import discover_dsh_keys
 
-        return sorted(discover_dsh_keys(home))
+        found = set(discover_dsh_keys(home))
+        found |= {row["key"] for row in keys.status(home) if row["present"]}
+        return sorted(found)
     except Exception:  # noqa: BLE001 — the doctor must never fail on a probe
         return []
 

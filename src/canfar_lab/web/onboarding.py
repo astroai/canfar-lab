@@ -1,4 +1,4 @@
-"""What a person needs to do next in this session, as at most three steps.
+"""What a person needs to do next in this session, as a short checklist.
 
 Pure function of the Lab state, so every case is unit-testable:
 
@@ -6,7 +6,7 @@ Pure function of the Lab state, so every case is unit-testable:
 2. **Agents** — reinstall the ones a returning user had (automatic when the
    server starts with ``--restore``). New Terminal agents are optional.
 3. **Sign in** — an installed agent with neither a login file nor a key.
-3. **Your code** — restore the latest snapshot into an empty ``$SCRATCH/src``,
+4. **Your code** — restore the latest snapshot into an empty ``$SCRATCH/src``,
    start a project, or (once there is code) save it before the session ends.
 
 Each step has ``status`` ``done`` | ``todo`` | ``running`` | ``optional`` and
@@ -16,7 +16,7 @@ the first step still to do; when it is ``None`` the session is ready.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 #: Suggested to someone with no Terminal agent: it runs free models with no key.
@@ -244,13 +244,13 @@ def _code_step(
 def _when(raw: object, now: float | None = None) -> str:
     """'today at 14:05 UTC', 'yesterday at 09:30 UTC', 'on 6 Nov' — not raw ISO."""
     import time
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     try:
-        at = datetime.fromisoformat(str(raw)).astimezone(timezone.utc)
+        at = datetime.fromisoformat(str(raw)).astimezone(UTC)
     except ValueError:
         return str(raw or "?")
-    today = datetime.fromtimestamp(now if now is not None else time.time(), timezone.utc).date()
+    today = datetime.fromtimestamp(now if now is not None else time.time(), UTC).date()
     days = (today - at.date()).days
     clock = at.strftime("%H:%M UTC")
     if days == 0:

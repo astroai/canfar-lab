@@ -1,4 +1,4 @@
-"""``canfar lab web``: the Lab tab of the dsh image (stdlib HTTP, one static page).
+"""``canfar lab web``: the Settings tab of the Studio image (stdlib HTTP, one static page).
 
 Routes (all JSON unless noted)::
 

@@ -1,4 +1,4 @@
-"""``canfar-lab studio``: Unified 5-in-1 development studio (laptop + CANFAR)."""
+"""``canfar-lab studio``: CANFAR Studio, the dsh chat in the browser (laptop + CANFAR)."""
 
 from __future__ import annotations
 
@@ -40,8 +40,8 @@ class _RepoOrSubcommand(TyperGroup):
 studio_app = typer.Typer(
     cls=_RepoOrSubcommand,
     help=(
-        "AstroAI Studio: an AI assistant in the browser, with your terminal, "
-        "JupyterLab and VS Code alongside. On a laptop it adds a bar to sync "
+        "CANFAR Studio: an AI assistant in the browser, with your terminal, "
+        "JupyterLab, marimo and VS Code alongside. On a laptop it adds a bar to sync "
         "code with CANFAR.\n\n"
         "Examples:\n"
         "  canfar lab studio\n"
@@ -53,6 +53,12 @@ studio_app = typer.Typer(
     rich_markup_mode="rich",
     invoke_without_command=True,
 )
+
+
+def _dsh_key_names() -> set[str]:
+    from canfar_lab.agent.support import load_support
+
+    return set(load_support().dsh_keys)
 
 
 def _on_skaha() -> bool:
@@ -188,7 +194,7 @@ def studio_status_cmd(
 
     session_id = str(status_data.get("session_id") or "local")
     prefix = str(status_data.get("prefix") or "")
-    ui.print_ok(f"AstroAI Studio Status (Session: {session_id})")
+    ui.print_ok(f"CANFAR Studio status (session {session_id})")
 
     services_raw = status_data.get("services")
     services_map: dict[str, Any] = services_raw if isinstance(services_raw, dict) else {}
@@ -218,7 +224,7 @@ def studio_status_cmd(
     from rich.table import Table
 
     laptop = bool(status_data.get("laptop"))
-    title = "AstroAI Studio (this computer)" if laptop else "Studio Services (Multiplexed on :5000)"
+    title = "CANFAR Studio (this computer)" if laptop else "Studio services (behind :5000)"
     table = Table(title=title, show_header=True)
     table.add_column("Service", style="bold")
     table.add_column("Internal Port")
@@ -310,7 +316,7 @@ def studio_main(
         typer.Option("--install-dsh", help="npm-install the newest dsh when missing or older."),
     ] = False,
 ) -> None:
-    """Launch AstroAI Studio (dsh web) or prepare/diagnose its configuration.
+    """Launch CANFAR Studio (dsh web) or prepare/diagnose its configuration.
 
     On a Skaha *non-studio* session (e.g. vscode), prefer the dedicated
     ``astroai/studio`` image — ``dsh web`` behind ``/proxy/PORT`` is broken.
@@ -389,6 +395,21 @@ def studio_main(
             raise typer.Exit(1)
         return
 
+    # Install dsh before prepare: the profile's plugin install runs dsh.
+    if install_dsh and not (opts.dry_run or opts.json):
+        try:
+            if _dsh.has_update(_dsh.installed_version(_studio.dsh_binary()), dsh_info()):
+                npm = _dsh.npm_binary()
+                if npm is None:
+                    raise LabError(
+                        "npm is needed to install dsh",
+                        hint="Install Node.js/npm or drop --install-dsh.",
+                    )
+                run([npm, *_dsh.install_command(dsh_info().version)[1:]])
+        except LabError as exc:
+            ui.print_error(str(exc))
+            raise typer.Exit(1) from exc
+
     try:
         prep = _studio.prepare_studio(
             profile=resolved_profile,
@@ -420,18 +441,6 @@ def studio_main(
     try:
         repo_path = _studio.resolve_repo(repo)
         dsh_bin = _studio.dsh_binary()
-        dsh_installed = _dsh.installed_version(dsh_bin)
-        dsh_change = (dsh_version or install_dsh) and _dsh.has_update(dsh_installed, dsh_info())
-        if dsh_change and install_dsh and not (opts.dry_run or opts.json):
-            npm = _dsh.npm_binary()
-            if npm is None:
-                raise LabError(
-                    "npm is needed to install dsh",
-                    hint="Install Node.js/npm or drop --install-dsh.",
-                )
-            run([npm, *_dsh.install_command(dsh_info().version)[1:]])
-            dsh_bin = _studio.dsh_binary()
-            dsh_installed = _dsh.installed_version(dsh_bin)
         if dsh_bin is None:
             raise _studio.dsh_missing_error()
     except LabError as exc:
@@ -450,7 +459,7 @@ def studio_main(
     if _on_skaha():
         ui.print_warn(
             "Studio does not work behind a notebook or VS Code session's /proxy/PORT/. "
-            "Launch a Studio session (image images.canfar.net/astroai/dsh) instead. "
+            "Launch a Studio session (image images.canfar.net/astroai/studio) instead. "
             "Starting anyway, reachable only from inside this session."
         )
 
@@ -463,7 +472,10 @@ def studio_main(
         repo_path, port=dsh_port, profile=resolved_profile, dsh_bin=dsh_bin
     )
     studio_env = _studio.studio_env(profile=resolved_profile)
-    env = {**os.environ, **studio_env}
+    # Keys come from dsh's credentials file (synced with Settings). Inherited
+    # key variables would shadow it, so dsh would ignore key edits.
+    env = {k: v for k, v in os.environ.items() if k not in _dsh_key_names()}
+    env.update(studio_env)
     if opts.dry_run or opts.json:
         ui.print_json(
             {
@@ -480,7 +492,7 @@ def studio_main(
                         "source": dsh_info().source,
                         "note": dsh_info().note,
                     },
-                    "installed": dsh_installed,
+                    "installed": _dsh.installed_version(dsh_bin),
                 },
                 "prepare": prep,
             }
@@ -500,14 +512,12 @@ def studio_main(
                 "Quit that terminal, then run this command again."
             )
             raise typer.Exit(1)
-        ui.print_ok(f"AstroAI Studio is already running → {url}")
+        ui.print_ok(f"CANFAR Studio is already running → {url}")
         if not no_open:
             _open_browser(url)
         return
-    ui.print_hint(f"AstroAI Studio ({resolved_profile}) → {url}  (repo {repo_path})")
-    ui.print_hint(
-        f"  harness profile: {_sp.STUDIO_PROFILE_NAME} — state in {prep.get('state_root')}"
-    )
+    ui.print_hint(f"CANFAR Studio ({resolved_profile}) → {url}  (repo {repo_path})")
+    ui.print_hint(f"  dsh profile: {_sp.STUDIO_PROFILE_NAME} — state in {prep.get('state_root')}")
     if listen["desk"]:
         ui.print_hint("  Click Desk (top right) to sync this repo with CANFAR or launch a session.")
     ui.print_hint("  Team review: New session → preset «AstroAI Studio Team»")
@@ -515,7 +525,7 @@ def studio_main(
         ui.print_hint("  Agent Teams: ask for a team in the chat (roster + shared task board)")
     ui.print_hint("  Skills: canfar lab studio --skills")
     if listen["desk"]:
-        ui.print_ok(f"AstroAI Studio → {url}")
+        ui.print_ok(f"CANFAR Studio → {url}")
         code = serve_mod.serve_with_dock(
             cmd=cmd,
             cwd=repo_path,

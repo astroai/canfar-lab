@@ -1,8 +1,8 @@
-"""AstroAI Studio: dsh web coding portal (laptop + CANFAR profiles).
+"""CANFAR Studio: the dsh web chat (laptop + CANFAR profiles).
 
-Studio is a thin, opinionated launcher around the DeepSeek Harness. It owns a
+Studio is a thin, opinionated launcher around dsh. It owns a
 dsh profile named ``astroai`` (see :mod:`canfar_lab.studio_profile`) instead of
-the shipped ``web`` profile, so AstroAI can add the Agent Teams layers, route
+the shipped ``web`` profile, so Studio can add the Agent Teams layers, route
 session state off a quota-constrained ``/arc`` home, register the managed preset
 root and mount the ``canfar lab mcp serve`` server that gives a chat real CANFAR
 job and cluster tools.
@@ -23,6 +23,7 @@ import contextlib
 import os
 import re
 import shutil
+from datetime import UTC
 from pathlib import Path
 from typing import Any, Literal
 
@@ -57,8 +58,8 @@ def profile_defaults(profile: StudioProfile) -> dict[str, Any]:
     children = sp.PROFILE_MAX_PARALLEL_CHILDREN[profile]
     if profile == "canfar":
         note = (
-            "Interactive session CPU/RAM are capped; use the AstroAI hub "
-            "→ Start batch compute (ray-manager) for heavy/GPU work. "
+            "Interactive session CPU/RAM are capped; use Settings → Cluster "
+            "(ray-manager) or batch jobs for heavy/GPU work. "
             "Session state is on /scratch and dies with the session; /arc is "
             "durable. Export anything that must outlive the session."
         )
@@ -262,7 +263,7 @@ def seed_dsh_workspace(home: Path, path: Path | None) -> str | None:
     """
     import json
     import uuid
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     if path is None:
         return None
@@ -283,7 +284,7 @@ def seed_dsh_workspace(home: Path, path: Path | None) -> str | None:
         if sessions.is_dir() and any(sessions.iterdir()):
             return None
         doc = {"unit": {"name": "workspace", "version": 2}}
-    now = datetime.now(timezone.utc).isoformat(timespec="milliseconds")  # noqa: UP017 — py3.10
+    now = datetime.now(UTC).isoformat(timespec="milliseconds")
     now = now.replace("+00:00", "Z")
     wid = str(uuid.uuid4())
     real = os.path.realpath(path)
@@ -512,7 +513,7 @@ def studio_web_cmd(
 
 
 def studio_env(*, profile: StudioProfile | None = None, home: Path | None = None) -> dict[str, str]:
-    """Environment overrides for the launched harness.
+    """Environment overrides for the launched dsh.
 
     Keeps the pnpm content-addressed store and temp files off the
     quota-constrained home; the profile directory keeps its own
@@ -543,7 +544,7 @@ def ensure_code_workspace(home: Path, code: Path | None = None) -> Path | None:
     """
     import json
     import uuid
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     from canfar_lab.session import workspace
     from canfar_lab.studio_paths import dsh_home
@@ -563,7 +564,7 @@ def ensure_code_workspace(home: Path, code: Path | None = None) -> Path | None:
         return None
     if any(isinstance(row, dict) and row.get("path") == str(code) for row in tables.values()):
         return None
-    now = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")  # noqa: UP017 — py3.10
+    now = datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     key = str(uuid.uuid4())
     tables[key] = {
         "path": str(code),

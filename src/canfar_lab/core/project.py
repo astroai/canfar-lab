@@ -4,7 +4,7 @@ import os
 import shutil
 import subprocess
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from canfar_lab.core.disk_usage import naturalsize
@@ -172,7 +172,7 @@ def save_env(name: str, save_dir: Path, source: Path, *, full: bool = False) -> 
             EnvManifest(
                 name=name,
                 kind=kind,
-                saved_at=datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
+                saved_at=datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ"),
                 saved_from=str(source.resolve()),
                 user=os.environ.get("USER", "").strip() or "unknown",
                 full=full,

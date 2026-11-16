@@ -1,4 +1,4 @@
-"""Session-level Python API for the dsh image's Lab tab.
+"""Session-level Python API for the Studio image's Settings tab.
 
 Plain functions over the existing agent, save, and cluster internals, so a
 web server can call them in-process instead of shelling out to

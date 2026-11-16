@@ -75,7 +75,7 @@ def catalog() -> list[dict[str, Any]]:
                 "signup_url": router.signup_url,
                 "notes": router.notes,
                 "dsh_route": router.provider_id,
-                "used_by": ["AstroAI Assistant", *sorted(used_by.get(router.key, []))],
+                "used_by": ["Chat", *sorted(used_by.get(router.key, []))],
             }
         )
     known = {row["key"] for row in rows}

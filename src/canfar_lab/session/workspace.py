@@ -328,7 +328,7 @@ def describe(home: Path | None = None) -> dict[str, Any]:
 def live_code_dir() -> str:
     """The folder the session's tools run in right now.
 
-    The dsh image writes it to ``$CANFAR_LAB_LIVE_CODE_FILE`` each time it
+    The Studio image writes it to ``$CANFAR_LAB_LIVE_CODE_FILE`` each time it
     (re)starts them; elsewhere the process's own ``$SRCDIR`` is the answer.
     """
     raw = os.environ.get("CANFAR_LAB_LIVE_CODE_FILE", "").strip()

@@ -297,3 +297,16 @@ def test_drop_seeded_default_model_keeps_a_saved_choice(tmp_path: Path) -> None:
     assert rb.drop_seeded_default_model(tmp_path) is False
     doc = yaml.safe_load(settings.read_text(encoding="utf-8"))
     assert doc["agent-default-model"] == chosen
+
+
+def test_ensure_dotenv_does_not_revive_a_synced_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A key removed or rotated in Settings is not brought back from env/auth files."""
+    from canfar_lab.agent import keys
+
+    monkeypatch.setenv("OPENCODE_API_KEY", "old-export")
+    keys._remember_synced(tmp_path, "OPENCODE_API_KEY", "was-synced")
+    assert rb.ensure_dsh_dotenv(tmp_path, dry_run=False) == {}
+    dotenv = tmp_path / ".canfar" / "lab" / ".env"
+    assert not dotenv.exists() or "old-export" not in dotenv.read_text(encoding="utf-8")

@@ -293,33 +293,31 @@ def discover_dsh_keys(home: Path | None = None) -> dict[str, str]:
 
 
 def ensure_dsh_dotenv(home: Path | None = None, *, dry_run: bool = False) -> dict[str, str]:
-    """Persist discovered dsh keys into the shared ``~/.canfar/lab/.env``."""
-    from canfar_lab.agent.setup import _write_dotenv_value, openrouter_dotenv_path
+    """Import dsh keys found elsewhere (env, opencode auth) into ``~/.canfar/lab/.env``.
+
+    Only a key neither store has ever held: once a key was synced, the Settings
+    tab and dsh own it, so a removed or rotated key is not brought back from an
+    old ``export`` or auth file. Returns the keys imported.
+    """
+    from canfar_lab.agent import keys as _keys
+    from canfar_lab.agent.setup import openrouter_dotenv_path
 
     home = home or Path.home()
-    keys = discover_dsh_keys(home)
-    if not keys:
-        return {}
     dotenv = openrouter_dotenv_path(home)
-    for name, value in keys.items():
-        if _read_dotenv_value(dotenv, name) != value:
-            _write_dotenv_value(dotenv, name, value, dry_run=dry_run)
-        if not dry_run:
-            os.environ[name] = value
-    if not dry_run:
-        hook = home / ".canfar" / "lab" / "agent-env.sh"
-        text = hook.read_text(encoding="utf-8") if hook.is_file() else ""
-        if "_astroai_dotenv" not in text:
-            hook.parent.mkdir(parents=True, exist_ok=True)
-            hook.write_text(
-                "# astroai dsh dotenv\n"
-                '_astroai_dotenv="${HOME}/.canfar/lab/.env"\n'
-                'if [[ -f "${_astroai_dotenv}" ]]; then\n  set -a\n'
-                "  # shellcheck disable=SC1090\n"
-                '  source "${_astroai_dotenv}"\n  set +a\nfi\n' + (("\n" + text) if text else ""),
-                encoding="utf-8",
-            )
-    return keys
+    try:
+        held = set(_keys._credential_refs(home)) | set(_keys._load_sync_record(home))
+    except LabError:
+        return {}  # unreadable credentials: sync_keys reports it
+    imported = {
+        name: value
+        for name, value in discover_dsh_keys(home).items()
+        if name not in held and _read_dotenv_value(dotenv, name) is None
+    }
+    if imported and not dry_run:
+        for name, value in imported.items():
+            _keys._write_dotenv(home, name, value)
+        _keys.ensure_shell_hook(home)
+    return imported
 
 
 def read_dsh_pinned_provider(home: Path | None = None) -> str | None:
@@ -394,7 +392,7 @@ def ensure_provider_entry(
     if router.hand_declared and router.base_url:
         from canfar_lab.agent.support import fetch_openai_compat_model_ids
 
-        fetched = fetch_openai_compat_model_ids(router.base_url)
+        fetched = fetch_openai_compat_model_ids(router.base_url, timeout=3.0)
         # Live catalog wins; yaml seed is offline fallback only.
         model_ids = fetched if fetched else router.models
         if not model_ids:

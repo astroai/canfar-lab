@@ -3,7 +3,7 @@ name = "canfar-lab"
 version = "0.8.1"
 description = "In-session workbench and workload CLI extensions for the CANFAR Science Platform"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "Simon Fabbro", email = "simon.fabbro@nrc-cnrc.gc.ca" }]
 keywords = ["astroai", "canfar", "science-platform", "astronomy", "session"]
@@ -16,7 +16,6 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -30,7 +29,6 @@ dependencies = [
     "typer>=0.27.3",
     "httpx>=0.28.1",
     "canfar>=1.5.2",
-    "tomli>=2.5.0; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
@@ -71,11 +69,13 @@ source = ["src/canfar_lab", "src/canfar_workload"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 extend-exclude = ["*.ipynb", "src/canfar_lab/data/notebooks/starter.py", "templates", "skills", "rules", "instructions", "agents"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "BLE", "SIM", "PIE"]
+# (str, Enum) → StrEnum changes str(member); keep the explicit mixin.
+ignore = ["UP042"]
 
 [tool.pixi.workspace]
 channels = ["conda-forge"]

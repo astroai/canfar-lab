@@ -1,4 +1,4 @@
-# Agents offered in the dsh image's Lab tab (astroai/dsh).
+# Agents offered in the Studio image's Settings tab (astroai/studio).
 #
 # Each id must exist in agents/*.yaml (install/config/verify live there).
 # This file only says which agents the Lab shows, in what order, and which

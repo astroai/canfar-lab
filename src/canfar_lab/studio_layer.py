@@ -182,7 +182,9 @@ def mcp_row_yaml(command: tuple[str, ...]) -> str:
 
 def web_app_preset_dir() -> Path | None:
     """Installed ``dsh-web-app`` preset patches, beside the ``dsh`` binary."""
-    binary = shutil.which("dsh")
+    from canfar_lab.studio import dsh_binary  # same lookup as the launcher
+
+    binary = dsh_binary()
     if binary is None:
         return None
     resolved = Path(binary).resolve()

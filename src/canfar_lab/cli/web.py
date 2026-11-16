@@ -32,7 +32,7 @@ def web_cmd(
         ),
     ] = False,
 ) -> None:
-    """Serve the Lab tab on loopback for the dsh image proxy.
+    """Serve the Settings tab on loopback for the Studio image proxy.
 
     The token comes from $CANFAR_LAB_WEB_TOKEN, or is generated and written to
     --token-file. The proxy sends it as a bearer header. On a laptop, open the

@@ -234,7 +234,7 @@
     <div id="projects"></div>
     <div class="save-bar">
       <input type="text" id="snap-name" placeholder="Snapshot name (optional)" aria-label="Snapshot name">
-      <label class="check"><input type="checkbox" id="snap-dsh" checked> assistant history</label>
+      <label class="check"><input type="checkbox" id="snap-dsh" checked> Chat history</label>
       <label class="check" title="Usually rebuilt from lockfiles; including them makes snapshots much larger">
         <input type="checkbox" id="snap-envs"> .pixi / .venv</label>
       <span class="grow"></span>
@@ -565,7 +565,7 @@ function renderCode(st, busy) {
         <span class="acts">
           <button data-op="restore_snapshot" data-name="${esc(s.name)}"${busy ? " disabled" : ""}>Restore</button>
           <button class="link danger" data-op="delete_snapshot" data-name="${esc(s.name)}"${busy ? " disabled" : ""}>Delete</button></span></div>
-      <div class="muted small">${repos || "no git repositories"}${s.dsh_state ? " · assistant history" : ""}</div></div>`;
+      <div class="muted small">${repos || "no git repositories"}${s.dsh_state ? " · Chat history" : ""}</div></div>`;
   }).join("") : '<div class="empty">No snapshots yet. Save one before you leave the session.</div>';
   const step = (st.onboarding.steps || []).find((s) => s.id === "code");
   $("#attn-code").classList.toggle("on", !!(step && step.status !== "done" && projects.length));

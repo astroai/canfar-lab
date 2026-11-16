@@ -7,7 +7,7 @@ import os
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -114,7 +114,7 @@ def record_setup_ok(home: Path | None = None, *, mode: str = "install") -> None:
 
     atomic_write_text(
         stamp_path(home),
-        datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") + f" bundle={ver} mode={mode}\n",
+        datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ") + f" bundle={ver} mode={mode}\n",
     )
     failed_path(home).unlink(missing_ok=True)
 
@@ -129,7 +129,7 @@ def record_setup_failed(
     state = lab_state_dir(home)
     state.mkdir(parents=True, exist_ok=True)
     line = (
-        datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         + f" exit={exit_code}"
         + (f" {detail}" if detail else "")
         + "\n"

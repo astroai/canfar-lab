@@ -22,7 +22,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -102,7 +102,7 @@ def _sweep_staging(root: Path, max_age_sec: float = 3600) -> None:
 
 
 def default_name() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
 # --------------------------------------------------------------------------
@@ -260,7 +260,7 @@ def save(
         manifest = {
             "format": FORMAT_VERSION,
             "name": name,
-            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "user": os.environ.get("USER", "").strip() or "unknown",
             "session_id": session_id(),
             "src": str(src) if has_src else None,
@@ -314,7 +314,7 @@ def delete(name: str, root: Path | None = None) -> dict[str, Any]:
 
 
 def _stamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
 def restore(

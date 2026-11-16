@@ -1,4 +1,4 @@
-"""``canfar lab web``: the Lab tab for the astroai/dsh image.
+"""``canfar lab web``: the Settings tab of the astroai/studio image.
 
 :mod:`canfar_lab.web.server` serves one static page plus a small JSON API over
 :mod:`canfar_lab.session`; :mod:`canfar_lab.web.jobs` runs long actions one

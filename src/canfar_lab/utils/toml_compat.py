@@ -1,12 +1,7 @@
-"""``tomllib`` with a ``tomli`` fallback for Python 3.10."""
+"""``tomllib`` (stdlib since Python 3.11), re-exported for older imports."""
 
 from __future__ import annotations
 
-import sys
-
-if sys.version_info >= (3, 11):
-    import tomllib as tomllib
-else:
-    import tomli as tomllib
+import tomllib as tomllib
 
 __all__ = ["tomllib"]

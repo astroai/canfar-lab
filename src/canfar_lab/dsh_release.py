@@ -1,7 +1,6 @@
-"""dsh release resolution: pin, npm dist-tags, newest-across-tags, install.
+"""dsh release resolution: npm dist-tags, newest-across-tags, install.
 
-``canfar lab studio`` and ``canfar lab desk`` both need to know which harness
-release to use without giving up reproducibility:
+``canfar lab studio`` decides which dsh release to install:
 
 * ``pin`` — the offline fallback (``dsh_pin.DSH_VERSION``), never the default.
 * ``alpha`` / ``next`` / ``latest`` — the npm dist-tag by that name.

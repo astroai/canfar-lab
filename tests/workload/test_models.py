@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -69,7 +69,7 @@ def test_provenance_manifest_is_json_compatible() -> None:
         run_id="run-1",
         inputs=(product,),
         parameters={"seed": 7},
-        created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        created_at=datetime(2026, 1, 2, tzinfo=UTC),
     )
     payload = manifest.to_dict()
     assert payload["created_at"] == "2026-01-02T00:00:00+00:00"

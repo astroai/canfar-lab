@@ -7,7 +7,7 @@ up beside their originals before modification; credentials stay in the shell.
 
 import json
 import shutil
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -17,7 +17,7 @@ HOME = Path.home()
 SOURCE = json.loads((ROOT / "agents/work/models.json").read_text())
 PROVIDER = "azure-responses"
 AZURE = SOURCE["provider"][PROVIDER]
-STAMP = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+STAMP = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
 
 
 def load(path):
