@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 
 from canfar_lab.cli.main import app
 from canfar_lab.config.settings import get_settings
+from canfar_lab.errors import LabError
 
 runner = CliRunner()
 
@@ -455,6 +456,52 @@ def test_resume_yes_replaces_not_merges(lab_env: Path, tmp_path: Path) -> None:
     assert not (dest / "old-pixi.toml").exists()
     assert not (dest / "keep-me-not").exists()
     assert (dest / "pixi.toml").is_file()
+
+
+def _pixi_save(save_dir: Path) -> Path:
+    save_dir.mkdir(parents=True)
+    (save_dir / "pixi.toml").write_text('[project]\nname="p"\n')
+    (save_dir / "pixi.lock").write_text("lock")
+    (save_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "name": "mylab",
+                "kind": "pixi",
+                "saved_at": "t",
+                "saved_from": "/x",
+                "user": "u",
+                "full": False,
+            }
+        )
+    )
+    return save_dir
+
+
+def test_resume_yes_keeps_git_checkout_code(lab_env: Path, tmp_path: Path) -> None:
+    save_dir = _pixi_save(tmp_path / "saves" / "mylab")
+    dest = lab_env / "mylab"
+    (dest / ".git").mkdir(parents=True)
+    (dest / "pixi.toml").write_text("old")
+    (dest / "analysis.py").write_text("uncommitted work")
+    with patch("canfar_lab.core.project.install_project"):
+        result = runner.invoke(app, ["resume", "mylab", "--from", str(save_dir), "--yes"])
+    assert result.exit_code == 0, result.output
+    assert (dest / "analysis.py").read_text() == "uncommitted work"
+    assert (dest / ".git").is_dir()
+    assert (dest / "pixi.toml").read_text() == '[project]\nname="p"\n'
+
+
+def test_resume_yes_restores_old_tree_on_failure(lab_env: Path, tmp_path: Path) -> None:
+    save_dir = _pixi_save(tmp_path / "saves" / "mylab")
+    dest = lab_env / "mylab"
+    dest.mkdir()
+    (dest / "notes.txt").write_text("keep")
+    with patch("canfar_lab.core.project.install_project", side_effect=LabError("install failed")):
+        result = runner.invoke(app, ["resume", "mylab", "--from", str(save_dir), "--yes"])
+    assert result.exit_code == 1
+    assert (dest / "notes.txt").read_text() == "keep"
+    assert not (dest / "pixi.toml").exists()
+    assert not list(lab_env.glob(".mylab.bak-*"))
 
 
 def test_dry_run_save_writes_nothing(lab_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:

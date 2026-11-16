@@ -306,9 +306,30 @@ def restore_env(save_dir: Path, target: Path) -> None:
 
     packed = save_dir / "env.tar.zst"
     if manifest.full and packed.is_file():
+        # Unpacking over an old env would mix two package sets.
+        shutil.rmtree(target / ENV_DIRS[manifest.kind], ignore_errors=True)
         _unpack_env(packed, target)
         return
     install_project(target)
+
+
+def restore_env_replacing(save_dir: Path, target: Path) -> None:
+    """Replace target with the save. The old tree comes back if the restore fails.
+
+    The restore runs in place, not in staging, because pixi and uv envs record
+    their own path.
+    """
+    backup = target.parent / f".{target.name}.bak-{os.getpid()}"
+    if backup.exists():
+        shutil.rmtree(backup)
+    target.rename(backup)
+    try:
+        restore_env(save_dir, target)
+    except BaseException:
+        shutil.rmtree(target, ignore_errors=True)
+        backup.rename(target)
+        raise
+    shutil.rmtree(backup, ignore_errors=True)
 
 
 def _unpack_env(packed: Path, target: Path) -> None:

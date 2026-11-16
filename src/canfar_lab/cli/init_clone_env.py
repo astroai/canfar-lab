@@ -446,7 +446,12 @@ def register(app: typer.Typer) -> None:
             typer.Option("--from", help="Snapshot directory, or a parent of named snapshots."),
         ] = None,
         yes: Annotated[
-            bool, typer.Option("--yes", "-y", help="Replace a non-empty target.")
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="Restore into a non-empty target (a git checkout keeps its code).",
+            ),
         ] = False,
         json_output: Annotated[
             bool, typer.Option("--json", help="Machine-readable output.")
@@ -460,19 +465,29 @@ def register(app: typer.Typer) -> None:
             canfar lab resume mylab --from /arc/projects/group/env-saves
             canfar lab resume mylab --to $SRCDIR/mylab --from /arc/projects/group/env-saves/mylab
         """
-        from canfar_lab.core.project import resolve_save_dir, restore_env
+        from canfar_lab.core.project import (
+            resolve_save_dir,
+            restore_env,
+            restore_env_replacing,
+        )
 
         opts = merge_opts(ctx, yes=yes, json_output=json_output)
         paths = resolve_paths()
         dest = to or paths.work_dir / name
         nonempty = dest.is_dir() and any(dest.iterdir())
+        # A save holds env files only, never source. In a git checkout, restore
+        # those files in place and keep the code.
+        checkout = (dest / ".git").exists()
         if dest.exists() and dest.is_file():
             ui.print_error(f"Target exists and is a file: {dest}")
             raise typer.Exit(1)
         if nonempty:
-            ui.print_warn(f"Target exists and is not empty: {dest}")
+            if checkout:
+                ui.print_warn(f"{dest} is a git checkout: code kept, env files replaced.")
+            else:
+                ui.print_warn(f"Target exists and is not empty: {dest}")
             if not opts.yes and not opts.dry_run:
-                ui.print_hint("  Use --yes to overwrite, or pass a different --to.")
+                ui.print_hint("  Use --yes to continue, or pass a different --to.")
                 raise typer.Exit(1)
         try:
             save_dir = resolve_save_dir(name, paths.save_dir, from_path)
@@ -484,18 +499,22 @@ def register(app: typer.Typer) -> None:
                             "name": name,
                             "from": str(save_dir),
                             "path": str(dest),
-                            "replace": nonempty,
+                            "replace": nonempty and not checkout,
+                            "in_place": nonempty and checkout,
                         }
                     )
                 else:
                     ui.print_ok(f"dry-run: would restore '{name}' -> {dest}")
-                    if nonempty:
+                    if nonempty and checkout:
+                        ui.print_hint(f"  would replace env files in {dest} (code kept)")
+                    elif nonempty:
                         ui.print_hint(f"  would replace {dest}")
                 return
-            if nonempty:
-                shutil.rmtree(dest)
             with ui.progress_task("Restoring environment...", quiet=opts.quiet):
-                restore_env(save_dir, dest)
+                if nonempty and not checkout:
+                    restore_env_replacing(save_dir, dest)
+                else:
+                    restore_env(save_dir, dest)
         except (LabError, OSError) as exc:
             ui.print_error(str(exc))
             raise typer.Exit(1) from exc
