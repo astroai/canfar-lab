@@ -269,9 +269,19 @@ def startup_job(*, restore_code: bool) -> Any:
             print(f"Made {len(locked['changed'])} agent config path(s) private.", flush=True)
         pending = agents.pending_restore()
         if pending:
-            print(f"Reinstalling {', '.join(pending)} …", flush=True)
+            # Agent programs live on $SCRATCH; logins and settings stay in $HOME.
+            print(f"Getting {agents.agent_names(pending)} ready (latest version) …", flush=True)
             out["agents"] = agents.restore()
             out["ok"] = bool(out["agents"]["ok"])
+            results = out["agents"]["results"]
+            ready = [r["agent"] for r in results if r["ok"]]
+            if ready:
+                print(f"{agents.agent_names(ready)} ready.", flush=True)
+            for r in results:
+                if not r["ok"]:
+                    why = "; ".join(r["errors"]) or "unknown error"
+                    name = agents.agent_names([r["agent"]])
+                    print(f"Could not install {name}: {why}", flush=True)
         if restore_code and workspace.load().restore_at_start == "latest":
             code = code_state(with_repos=False)
             snaps = snapshots.list_snapshots()
@@ -299,7 +309,7 @@ def start_action(runner: JobRunner, op: str, **kw: Any) -> Job:
     from canfar_lab.session import agents, cluster, snapshots
 
     if op == "restore_agents":
-        return runner.start("restore", "Reinstall agents", lambda _j: agents.restore())
+        return runner.start("restore", "Get agents ready", lambda _j: agents.restore())
     if op == "agent":
         agent_id, verb = kw["agent"], kw["verb"]
         spec = agents.get_lab_agent(agent_id)

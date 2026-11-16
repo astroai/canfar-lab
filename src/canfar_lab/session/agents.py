@@ -360,6 +360,13 @@ def pending_restore(home: Path | None = None) -> list[str]:
     return [row["id"] for row in status(home)["agents"] if row["needs_restore"]]
 
 
+def agent_names(agent_ids: list[str]) -> str:
+    """``Claude Code``, ``Claude Code and Codex``, ``A, B and C`` for log lines."""
+    labels = {a.id: a.label for a in lab_agents()}
+    names = [labels.get(i, i) for i in agent_ids]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + f" and {names[-1]}"
+
+
 def restore(home: Path | None = None, *, dry_run: bool = False) -> dict[str, Any]:
     """Reinstall every remembered Lab agent missing from this session.
 

@@ -74,7 +74,9 @@ def _agents_step(agents: list[dict[str, Any]], running: str) -> dict[str, Any]:
         return {
             **step,
             "status": "running",
-            "detail": f"Reinstalling {_names(missing)}…" if missing else "Reinstalling…",
+            "detail": f"Getting {_names(missing)} ready (latest version)…"
+            if missing
+            else "Getting your agents ready…",
         }
     if running.startswith("agent:"):
         verb = running.split(":", 1)[1]
@@ -84,9 +86,9 @@ def _agents_step(agents: list[dict[str, Any]], running: str) -> dict[str, Any]:
         return {
             **step,
             "status": "todo",
-            "detail": f"You used {_names(missing)} last time. They need reinstalling "
-            "in this session (your settings are kept).",
-            "action": {"label": "Reinstall", "op": "restore_agents"},
+            "detail": f"You used {_names(missing)} last time. Get the latest version for "
+            "this session; your logins and settings are kept.",
+            "action": {"label": "Get ready", "op": "restore_agents"},
         }
     if installed:
         return {**step, "status": "done", "detail": f"{_names(installed)} installed."}

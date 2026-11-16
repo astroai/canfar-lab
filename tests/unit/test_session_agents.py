@@ -247,3 +247,8 @@ def test_rehome_removes_home_copies_then_installs(
     result = agents.rehome("opencode", home)
     assert result["ok"] and order == ["install"]
     assert result["removed"] == ["~/.opencode/bin"] and result["freed"] == 10
+
+
+def test_agent_names_use_labels() -> None:
+    assert agents.agent_names(["claude"]) == "Claude Code"
+    assert agents.agent_names(["claude", "codex", "opencode"]) == "Claude Code, Codex and OpenCode"

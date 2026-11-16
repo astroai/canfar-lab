@@ -470,7 +470,7 @@ function renderAgents(agents, busy) {
     // Not installed but copies in home: the installer refuses until they are gone,
     // so the one action is "move": remove them and install on $SCRATCH.
     const acts = a.installed ? btn("update", "Update") + btn("remove", "Remove", "link danger")
-      : copies.length ? "" : btn("install", a.needs_restore ? "Reinstall" : "Install", "primary");
+      : copies.length ? "" : btn("install", a.needs_restore ? "Get latest" : "Install", "primary");
     const keyNames = a.keys.map((k) => `<code>${esc(k.key)}</code>`).join(" or ");
     const signin = a.installed && !a.ready ? `
       <div class="callout info"><span class="grow">Run <code class="copy" tabindex="0" role="button" title="Click to copy">${esc(a.login)}</code>

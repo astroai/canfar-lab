@@ -166,3 +166,12 @@ def test_code_step_names_the_projects() -> None:
     assert detail.startswith("torchfits, zensus and pensus in /scratch/src")
     many = {**code, "entries": [f"p{i}" for i in range(7)]}
     assert "p0, p1, p2, p3 and 3 more" in _step(_build(code=many), "code")["detail"]
+
+
+def test_returning_agents_are_got_ready_not_reinstalled() -> None:
+    agents = [_agent("claude", remembered=True, needs_restore=True)]
+    step = _step(_build(agents), "agents")
+    assert step["action"] == {"label": "Get ready", "op": "restore_agents"}
+    assert "latest version" in step["detail"] and "reinstall" not in step["detail"].lower()
+    running = _step(_build(agents, job={"state": "running", "kind": "startup"}), "agents")
+    assert running["detail"] == "Getting Claude ready (latest version)…"
