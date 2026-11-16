@@ -45,7 +45,8 @@ def test_command_paths_include_nested() -> None:
 def test_top_level_commands_sorted() -> None:
     tops = help_cmd.top_level_commands(app)
     assert "agent" in tops
-    assert "env" in tops
+    assert "studio" in tops
+    assert not {"env", "kernel", "web", "desk", "panel", "workspace", "help"} & set(tops)
     assert "cluster" in tops
     assert "jobs" in tops
     assert "run" in tops
@@ -123,8 +124,8 @@ def test_completer_offers_top_level_and_nested() -> None:
     offered = complete(None, "")
     assert "agent" in offered
     assert "agent list" in offered
-    assert "env export" in offered
-    assert "help" in offered
+    assert "studio review run" in offered
+    assert "config workspace show" in offered
 
 
 def test_completer_excludes_hidden_alias() -> None:
@@ -140,8 +141,8 @@ def test_completer_filters_by_incomplete_prefix() -> None:
     assert "agent list" in agent_offered
     # Completions are prefix matches of registered paths only.
     assert all(p.startswith("agent") for p in agent_offered)
-    assert "env export" not in agent_offered
-    assert all(p.startswith("env") for p in complete(None, "env"))
+    assert "studio review run" not in agent_offered
+    assert all(p.startswith("studio") for p in complete(None, "studio"))
 
 
 def test_help_command_option_has_shell_complete_wired() -> None:
@@ -162,7 +163,7 @@ def test_command_inventory_covers_all_visible_paths() -> None:
     assert "init" in paths
     assert "status" in paths
     assert "agent list" in paths
-    assert "env export" in paths
+    assert "studio review run" in paths
     assert "save" in paths
     assert "resume" in paths
     assert "cluster start" in paths

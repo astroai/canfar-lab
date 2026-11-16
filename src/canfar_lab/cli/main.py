@@ -36,18 +36,22 @@ app = typer.Typer(
 init_clone_env.register(app)
 status_mod.register(app)
 clean_mod.register(app)
-app.add_typer(env_app, name="env")
 app.add_typer(config_app, name="config")
-app.add_typer(kernel_app, name="kernel")
 app.add_typer(agent_app, name="agent")
 app.add_typer(studio_app, name="studio")
 open_cmd.register(app)
-web.register(app)
-app.add_typer(panel_app, name="panel")
 app.add_typer(sync_app, name="sync")
-app.add_typer(desk_app, name="desk")
-app.add_typer(workspace_app, name="workspace")
 register_workload(app, jobs_as="jobs")
+
+# Plumbing and old names: they still work but stay out of `--help`.
+config_app.add_typer(workspace_app, name="workspace")
+studio_app.add_typer(panel_app, name="review")
+web.register(app)
+app.add_typer(env_app, name="env", hidden=True)
+app.add_typer(kernel_app, name="kernel", hidden=True)
+app.add_typer(desk_app, name="desk", hidden=True)  # now `studio` on a laptop
+app.add_typer(panel_app, name="panel", hidden=True)  # now `studio review`
+app.add_typer(workspace_app, name="workspace", hidden=True)  # now `config workspace`
 
 lab_app = app
 
@@ -87,7 +91,7 @@ def main(
         raise typer.Exit()
 
 
-@app.command("help")
+@app.command("help", hidden=True)
 def help_cmd(
     ctx: typer.Context,
     command: Annotated[

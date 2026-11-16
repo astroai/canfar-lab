@@ -1,4 +1,4 @@
-# AstroAI Panel / Studio Team (`canfar lab panel`)
+# AstroAI Panel / Studio Team (`canfar lab studio review`)
 
 ![AstroAI](../src/canfar_lab/data/brand/astroai-logo.png)
 
@@ -19,8 +19,8 @@ Skaha proxy notes:
 ```bash
 pip install canfar-lab
 canfar-lab agent setup --recommended   # recommended agents + dsh / review-bench
-canfar-lab panel doctor                # dsh presence + keys (no model choice)
-canfar-lab panel run /scratch/src/zensus "C1: 90% intervals cover 90% on 2024 split; C2: bias slope |.|<0.01" smoke
+canfar-lab studio review doctor                # dsh presence + keys (no model choice)
+canfar-lab studio review run /scratch/src/zensus "C1: 90% intervals cover 90% on 2024 split; C2: bias slope |.|<0.01" smoke
 ```
 
 `--dry-run` prints the resolved repo,
@@ -39,8 +39,8 @@ canfar lab studio --skills             # agentskills / skills.sh hint
 
 | Command | Behavior |
 |---------|----------|
-| `canfar lab panel doctor` | dsh presence + keys present + provider refs (read-only pin) |
-| `canfar lab panel routers` | supported router key catalog + key presence |
+| `canfar lab studio review doctor` | dsh presence + keys present + provider refs (read-only pin) |
+| `canfar lab studio review routers` | supported router key catalog + key presence |
 | `canfar lab agent routers` | same router catalog |
 | `canfar lab agent list --supported` | filter to recommended agents |
 | `canfar lab agent setup --recommended` | install+setup recommended set (+ panel/dsh) |
@@ -52,7 +52,7 @@ Models live in dsh Settings → Models.
 
 ## Surfaces
 
-- Terminal everywhere: `canfar lab panel run` — headless Team one-shot. If OpenCode Go rejects
+- Terminal everywhere: `canfar lab studio review run` — headless Team one-shot. If OpenCode Go rejects
   headless (`MissingSessionID`/session errors), switch provider in dsh Settings → Models
   (`canfar lab` never retargets `agent-default-model`) and re-run.
 - Laptop browser coding: `canfar lab studio`. On Skaha use the **`astroai/studio`** contributed image —

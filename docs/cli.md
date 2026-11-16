@@ -221,14 +221,11 @@ passed to dsh; the harness profile is always `astroai`. See
 [docs/studio.md](studio.md) for the storage split, the teams, the provider
 seeding, and the CANFAR proxy.
 
-### `canfar lab desk`
+### `canfar lab desk` (old name)
 
-Browser cockpit for a laptop: the **latest dsh** (resolved through npm
-dist-tags, default spec `newest`; offline falls back to the repo pin) served on
-loopback behind a small stdlib proxy. The desk bar starts collapsed; click
-**Desk** (top right) for Sync to CANFAR and Launch Studio, or set
-`CANFAR_LAB_DESK=1` (or `desk: true`) to open it at boot. Design and protocol:
-[desk-sync.md](desk-sync.md).
+Use `canfar lab studio`: on a laptop it serves the same sync bar. `desk` still
+works for one release and differs only in installing the newest dsh by default.
+Design and protocol: [desk-sync.md](desk-sync.md).
 
 | Flag | What it does |
 |------|----------------|
@@ -285,7 +282,7 @@ The image sets `CANFAR_LAB_RESTART_FILE` (Settings writes it to restart the
 tools in a new code/cache folder) and `CANFAR_LAB_LIVE_CODE_FILE` (the folder
 the running tools use).
 
-### `canfar lab workspace show|path|set`
+### `canfar lab config workspace show|path|set`
 
 Where code lives, kept across sessions in `~/.canfar/lab/workspace.json`
 (0600). Same settings as the Settings tab.
@@ -297,10 +294,10 @@ Where code lives, kept across sessions in `~/.canfar/lab/workspace.json`
 | `custom PATH` | any absolute writable folder | e.g. `/arc/projects/<group>/<you>`; not `$HOME` itself, not a hidden folder in `$HOME`, not system dirs |
 
 ```bash
-canfar lab workspace show            # code folder, automatic saves, cache folder
-canfar lab workspace path --ensure   # print (and create) the code folder: the session's $SRCDIR
-canfar lab workspace set home
-canfar lab workspace set custom /arc/projects/mygroup/me
+canfar lab config workspace show            # code folder, automatic saves, cache folder
+canfar lab config workspace path --ensure   # print (and create) the code folder: the session's $SRCDIR
+canfar lab config workspace set home
+canfar lab config workspace set custom /arc/projects/mygroup/me
 ```
 
 `$SRCDIR` set explicitly still wins; otherwise the saved folder is used by

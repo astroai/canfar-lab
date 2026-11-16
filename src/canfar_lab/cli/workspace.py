@@ -1,4 +1,4 @@
-"""``canfar lab workspace``: where code and caches live (kept across sessions)."""
+"""``canfar lab config workspace``: where code and caches live (kept across sessions)."""
 
 from __future__ import annotations
 

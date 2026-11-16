@@ -57,7 +57,7 @@ canfar lab agent setup
 is whether the Ray cluster is up. `canfar lab cluster stop` tears down workers
 and the manager.
 
-Help: `canfar lab help` · one command: `canfar lab help -c cluster` · cheat sheet:
+Help: `canfar lab --help` · one command: `canfar lab cluster --help` · cheat sheet:
 [docs/help.md](docs/help.md)
 
 ## Install

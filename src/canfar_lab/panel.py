@@ -1,4 +1,4 @@
-"""Headless review-bench panels (``canfar lab panel``).
+"""Headless review-bench panels (``canfar lab studio review``).
 
 Same freeze → blind-parallel → audit protocol as ``~/dsh/panel.sh``, but
 resolved through the vendored bench (``data/review-bench``) and the shared
@@ -190,7 +190,7 @@ def run_panel(
     if not repo_path.is_dir():
         raise LabError(
             f"Repo not found: {repo_path}",
-            hint="Pass an existing checkout, e.g. canfar lab panel run /scratch/src/torchsky ...",
+            hint="Pass an existing checkout, e.g. canfar lab studio review run ~/src/myproject",
         )
     patch = repo_path / ".dsh" / "cordis.patch.yml"
     if not patch.is_file() and not dry_run:

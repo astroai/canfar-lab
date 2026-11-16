@@ -34,7 +34,7 @@ pixi install
 ```bash
 ./scripts/ci.sh                 # lint, format, typecheck, CLI audit, pytest
 canfar lab studio --doctor      # Studio pre-flight (needs dsh on PATH)
-canfar lab panel doctor         # headless Team / review-bench
+canfar lab studio review doctor  # headless review panel
 ```
 
 Harness verify tasks in `.cursor/harness/config.json` map to the same gate.

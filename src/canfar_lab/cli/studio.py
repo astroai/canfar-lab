@@ -12,6 +12,7 @@ from typing import Annotated, Any, Literal
 
 import httpx
 import typer
+from typer.core import TyperGroup
 
 from canfar_lab import ui
 from canfar_lab.cli.context import merge_opts
@@ -19,17 +20,35 @@ from canfar_lab.config.settings import get_settings
 from canfar_lab.desk import serve as serve_mod
 from canfar_lab.errors import LabError
 
+
+class _RepoOrSubcommand(TyperGroup):
+    """``studio [REPO]`` and ``studio <subcommand>`` share the first position.
+
+    Without this the optional REPO argument swallows ``status`` or ``review``,
+    and options after a REPO (``studio . --doctor``) are rejected.
+    """
+
+    def parse_args(self, ctx: Any, args: list[str]) -> list[str]:
+        if args and self.get_command(ctx, args[0]) is not None:
+            super().parse_args(ctx, [])
+            ctx._protected_args, ctx.args = args[:1], args[1:]
+            return ctx.args
+        ctx.allow_interspersed_args = True
+        return super().parse_args(ctx, args)
+
+
 studio_app = typer.Typer(
+    cls=_RepoOrSubcommand,
     help=(
-        "AstroAI Studio — Unified 5-in-1 developer workbench "
-        "(Agents, Terminal, JupyterLab, Marimo, VS Code).\n\n"
+        "AstroAI Studio: an AI assistant in the browser, with your terminal, "
+        "JupyterLab and VS Code alongside. On a laptop it adds a bar to sync "
+        "code with CANFAR.\n\n"
         "Examples:\n"
         "  canfar lab studio\n"
+        "  canfar lab studio ~/src/myproject\n"
         "  canfar lab studio status\n"
-        "  canfar lab studio ~/src/astroai/torchfits --port 3080\n"
-        "  canfar lab studio --prepare\n"
-        "  canfar lab studio --doctor\n"
-        "  canfar lab studio --profile canfar --prepare"
+        '  canfar lab studio review run . "C1: coverage >= 0.9 on holdout"\n'
+        "  canfar lab studio --doctor"
     ),
     rich_markup_mode="rich",
     invoke_without_command=True,
@@ -315,10 +334,6 @@ def studio_main(
 
     opts = merge_opts(ctx)
     dsh_info = _dsh.resolve(dsh_version)
-
-    if repo == "status":
-        studio_status_cmd(ctx, json_output=opts.json)
-        return
 
     if skills:
         text = _studio.skills_onboarding_hint()

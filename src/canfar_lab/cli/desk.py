@@ -33,14 +33,7 @@ from canfar_lab.utils.subprocess import run_cmd
 
 desk_app = typer.Typer(
     name="desk",
-    help=(
-        "Local browser dsh. The desk bar starts collapsed; click Desk for Sync "
-        "to CANFAR and Launch Studio, or set CANFAR_LAB_DESK=1 to open it.\n\n"
-        "Examples:\n"
-        "  canfar lab desk\n"
-        "  canfar lab desk ~/src --dsh-version newest\n"
-        "  canfar lab desk --doctor"
-    ),
+    help="Old name: use `canfar lab studio`, which adds the same sync bar on a laptop.",
     rich_markup_mode="rich",
     invoke_without_command=True,
 )
@@ -80,6 +73,7 @@ def desk_main(
     doctor: Annotated[bool, typer.Option("--doctor", help="Pre-flight report, then exit.")] = False,
 ) -> None:
     """Serve the latest dsh locally with the Desk dock wired to CANFAR."""
+    ui.print_hint("`canfar lab desk` is now `canfar lab studio`.")
     opts = merge_opts(ctx)
     settings = get_settings()
     ws_root = resolve_repo(repo)

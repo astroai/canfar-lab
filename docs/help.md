@@ -55,7 +55,7 @@ canfar lab sync watch --session --interval 30   # polls requests (no inotify on 
 canfar lab sync exchange --to desktop           # push, then tell the desk
 ```
 
-Laptop side: `canfar lab desk` (newest dsh + dock buttons; `docs/desk-sync.md`).
+Laptop side: `canfar lab studio` (adds the sync bar; `docs/desk-sync.md`).
 
 ## Commands
 

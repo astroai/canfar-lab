@@ -171,7 +171,7 @@ def agent_routers_cmd(ctx: typer.Context) -> None:
         ui.print_hint(f"  {row['id']:<18}  {row['key']:<20}  {present:<7}  {row['dsh_route']}")
         if row.get("notes"):
             ui.print_hint(f"        {row['notes']}")
-    ui.print_hint("  Same catalog: canfar lab panel routers | doctor")
+    ui.print_hint("  Same catalog: canfar lab studio review routers | doctor")
 
 
 @agent_app.command("layout")

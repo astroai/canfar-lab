@@ -116,7 +116,7 @@ def _init_impl(
 
         for path in scaffold_repo_dsh(target):
             ui.print_ok(f"dsh scaffold: {path}")
-        ui.print_hint('  `canfar lab panel run . "C1: ...; C2: ..." my-slug`')
+        ui.print_hint('  `canfar lab studio review run . "C1: ...; C2: ..." my-slug`')
     ui.print_hint(f"  `cd {target}`")
     ui.print_hint("  `pixi add python numpy`" if kind.value == "pixi" else "  `uv add numpy`")
     if not no_gh and shutil.which("gh") and not no_git:
@@ -240,8 +240,8 @@ def register(app: typer.Typer) -> None:
 
         Examples:
             canfar lab clone myproject
-            canfar lab clone sfabbro/torchsky --update
-            canfar lab clone sfabbro/torchsky --ref topic
+            canfar lab clone you/myproject --update
+            canfar lab clone you/myproject --ref topic
             canfar lab clone --from-env ml-base myorg/myproject
             canfar lab clone owner/repo --to $WORK/custom
         """

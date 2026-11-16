@@ -50,4 +50,4 @@ def web_cmd(
 
 
 def register(app: typer.Typer) -> None:
-    app.command("web")(web_cmd)
+    app.command("web", hidden=True)(web_cmd)

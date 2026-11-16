@@ -381,7 +381,7 @@ canfar lab agent install kilo      # or goose, claude, opencode, codex, qoder
 canfar lab agent update
 ```
 
-Full reference: `canfar-lab help` · [astroai docs](https://github.com/astroai/canfar-lab)
+Full reference: `canfar-lab --help` · [astroai docs](https://github.com/astroai/canfar-lab)
 """
     )
     return

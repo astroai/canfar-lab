@@ -73,4 +73,4 @@ def show_banner(*, json_output: bool = False) -> None:
         ui.print_hint("  notebook path: `canfar lab kernel ensure` then open starter.ipynb")
         ui.print_hint("  project path:  `canfar lab init mylab`  ·  `canfar lab clone owner/repo`")
     ui.print_hint("  cluster: `canfar lab cluster start`  ·  `canfar lab run train.py --cpus 2`")
-    ui.print_hint("  help: `canfar lab help`  ·  overview: `canfar lab status`")
+    ui.print_hint("  help: `canfar lab --help`  ·  overview: `canfar lab status`")

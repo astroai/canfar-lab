@@ -1,4 +1,4 @@
-"""`canfar lab panel`: headless AstroAI Studio Team review."""
+"""`canfar lab studio review`: headless AstroAI Studio Team review."""
 
 from __future__ import annotations
 
@@ -14,11 +14,11 @@ from canfar_lab.errors import LabError
 
 panel_app = typer.Typer(
     help=(
-        "AstroAI Studio Team — chaired multi-persona review (headless).\n\n"
+        "A panel of AI reviewers checks claims about your repo, without the browser.\n\n"
         "Examples:\n"
-        '  canfar lab panel run ~/src/astroai/torchsky "C1: …" smoke\n'
-        "  canfar lab panel doctor\n"
-        "  canfar lab panel routers"
+        '  canfar lab studio review run ~/src/myproject "C1: …" smoke\n'
+        "  canfar lab studio review doctor\n"
+        "  canfar lab studio review routers"
     ),
     rich_markup_mode="rich",
 )
@@ -35,16 +35,18 @@ def panel_root(ctx: typer.Context) -> None:
         ui.print_json(
             {
                 "product": "AstroAI Panel",
-                "help": "canfar lab panel --help",
+                "help": "canfar lab studio review --help",
                 "try": ["run", "doctor", "routers"],
                 "logo": str(brand_logo_path()) if brand_logo_path() else None,
             }
         )
         return
     ui.print_hint("AstroAI Studio Team — chaired multi-persona review.")
-    ui.print_hint('  canfar lab panel run <repo> "C1: metric ≥ threshold on split" [slug]')
-    ui.print_hint("  canfar lab panel doctor          # keys + provider refs (no model choice)")
-    ui.print_hint("  canfar lab panel routers         # key catalog")
+    ui.print_hint('  canfar lab studio review run <repo> "C1: metric ≥ threshold on split" [slug]')
+    ui.print_hint(
+        "  canfar lab studio review doctor          # keys + provider refs (no model choice)"
+    )
+    ui.print_hint("  canfar lab studio review routers         # key catalog")
 
 
 @panel_app.command("run")
@@ -66,15 +68,15 @@ def panel_run(
     credential references.
 
     Examples:
-      canfar lab panel run . "C1: coverage ≥ 0.9 on 2024 holdout" smoke
-      canfar lab panel run . "C1: …" --dry-run
+      canfar lab studio review run . "C1: coverage ≥ 0.9 on 2024 holdout" smoke
+      canfar lab studio review run . "C1: …" --dry-run
     """
     from canfar_lab import panel as _panel
 
     opts = merge_opts(ctx, dry_run=dry_run)
     if not claims:
         ui.print_error('panel run needs CLAIMS, e.g. "C1: coverage ≥ 0.9 on holdout"')
-        ui.print_hint('  canfar lab panel run <repo> "C1: …" [slug]')
+        ui.print_hint('  canfar lab studio review run <repo> "C1: …" [slug]')
         raise typer.Exit(1)
     try:
         result = _panel.run_panel(repo, claims, slug, dry_run=opts.dry_run)
@@ -85,7 +87,7 @@ def panel_run(
         ui.print_json(result)
         return
     ui.print_ok(f"Panel {result['panel_id']} → {result['report_dir']}")
-    ui.print_hint(f"  canfar lab panel status {result['report_dir']}")
+    ui.print_hint(f"  canfar lab studio review status {result['report_dir']}")
 
 
 @panel_app.command("status")
@@ -96,14 +98,14 @@ def panel_status_cmd(
     """Print the verdict table from a finished panel report.
 
     Example:
-      canfar lab panel status panel/2026-09-11-smoke
+      canfar lab studio review status panel/2026-09-11-smoke
     """
     from canfar_lab import panel as _panel
 
     opts = merge_opts(ctx)
     if not target:
         ui.print_error("panel status needs a panel dir")
-        ui.print_hint("  canfar lab panel status panel/2026-09-11-smoke")
+        ui.print_hint("  canfar lab studio review status panel/2026-09-11-smoke")
         raise typer.Exit(1)
     try:
         table = _panel.panel_status(target)
@@ -123,7 +125,7 @@ def panel_doctor(
     """Check dsh, keys, and provider credential refs (no model choice).
 
     Examples:
-      canfar lab panel doctor
+      canfar lab studio review doctor
       canfar lab --json panel doctor
     """
     from canfar_lab.agent import review_bench as _rb
@@ -170,7 +172,7 @@ def panel_doctor(
         ui.print_error("  No keys — run `opencode auth login` or export DEEPSEEK_API_KEY")
         raise typer.Exit(1)
     ui.print_ok("  Keys present; provider refs ensured by `agent setup`")
-    ui.print_hint("  More: canfar lab panel routers | canfar lab agent env --with-dsh")
+    ui.print_hint("  More: canfar lab studio review routers | canfar lab agent env --with-dsh")
 
 
 @panel_app.command("routers")
@@ -178,7 +180,7 @@ def panel_routers(ctx: typer.Context) -> None:
     """Supported routers from support.yaml + key presence (no model choice).
 
     Example:
-      canfar lab panel routers
+      canfar lab studio review routers
     """
     from canfar_lab.agent import review_bench as _rb
     from canfar_lab.agent.support import routers_status

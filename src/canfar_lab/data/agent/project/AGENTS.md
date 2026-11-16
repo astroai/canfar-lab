@@ -29,7 +29,7 @@ pixi install    # env under $WORK — never $HOME/.local
 pixi run …      # prefer over bare python3
 git push -u origin HEAD          # before another session/job needs this tip
 canfar lab save                     # env/lockfiles only — not your .py tree
-canfar lab clone sfabbro/<repo> --update   # next session: latest fork tip + SHA
+canfar lab clone <you>/<repo> --update   # next session: latest fork tip + SHA
 canfar lab cluster start
 canfar lab run train.py --cpus 2
 ```
@@ -59,6 +59,6 @@ Platform CLIs (`canfar`, `cadcget`, `canfar-lab`) live in `/opt/canfar`; upgrade
 | Contributed web UI port | **5000** |
 
 Search: `rg`, `fd`, `sg` (`canfar lab agent plugins install ast-grep-cli`). View files: `peek <path>` or `bat`/`less`.
-Help: `canfar lab help`, `canfar lab cluster status`, `canfar lab status --json`.
+Help: `canfar lab --help`, `canfar lab cluster status`, `canfar lab status --json`.
 
 In terminal, prefer `peek` when pointing the user at generated plans, logs, or archives.

@@ -282,7 +282,7 @@ Ports view, open `…/proxy/3080/`.
 
 ## canfar-lab integration (canonical entrypoint)
 
-This bench now ships inside `canfar-lab` (`canfar-lab panel --help`): one install
+This bench now ships inside `canfar-lab` (`canfar-lab studio review --help`): one install
 (`pip install canfar-lab`) provisions
 the preset, skill, and credentials on laptop, any contributed session, marimo,
 or plain CLI. `~/dsh` remains the dev source; the pip package carries a
@@ -290,5 +290,5 @@ build-time copy (`scripts/sync-review-bench.sh`).
 
 ```sh
 canfar lab agent setup
-canfar lab panel run /scratch/src/torchregress "C1: ...; C2: ..." my-slug
+canfar lab studio review run /scratch/src/torchregress "C1: ...; C2: ..." my-slug
 ```
