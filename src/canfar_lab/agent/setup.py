@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from canfar_lab.agent import owned_files
 from canfar_lab.agent.bundle_path import bundle_root
 from canfar_lab.agent.inventory import list_bundles, verify_setup
 from canfar_lab.errors import LabError
@@ -192,15 +193,7 @@ def ensure_openrouter_dotenv(home: Path, *, dry_run: bool = False) -> str | None
 
 
 def install_file(src: Path, dst: Path, *, force: bool, dry_run: bool) -> bool:
-    if not src.is_file():
-        return False
-    if dst.is_file() and not force:
-        return False
-    if dry_run:
-        return True
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(src, dst)
-    return True
+    return owned_files.copy_file(src, dst, force=force, dry_run=dry_run)
 
 
 def install_tree(src_dir: Path, dst_dir: Path, *, force: bool, dry_run: bool) -> int:
@@ -210,16 +203,9 @@ def install_tree(src_dir: Path, dst_dir: Path, *, force: bool, dry_run: bool) ->
     for src in src_dir.rglob("*"):
         if not src.is_file() or src.name == ".DS_Store":
             continue
-        rel = src.relative_to(src_dir)
-        dst = dst_dir / rel
-        if dst.is_file() and not force:
-            continue
-        if dry_run:
+        dst = dst_dir / src.relative_to(src_dir)
+        if owned_files.copy_file(src, dst, force=force, dry_run=dry_run):
             count += 1
-            continue
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
-        count += 1
     return count
 
 
@@ -436,12 +422,8 @@ def _merge_marimo_openrouter(cfg: Path, *, force: bool, dry_run: bool) -> None:
 def install_goose_config(root: Path, home: Path, *, force: bool, dry_run: bool) -> None:
     src = root / "goose" / "extensions.yaml"
     dst = home / ".config" / "goose" / "config.yaml"
-    if dst.is_file() and not force:
-        return
-    if dry_run:
-        return
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    dst.write_text(f"# AstroAI lab — run: goose configure\n{src.read_text()}", encoding="utf-8")
+    text = f"# AstroAI lab — run: goose configure\n{src.read_text()}"
+    owned_files.write_bytes(dst, text.encode("utf-8"), force=force, dry_run=dry_run)
 
 
 def default_bundle_names(root: Path) -> list[str]:
@@ -880,8 +862,11 @@ def agent_setup(
         return _run()
 
 
-def agent_sync(*, dry_run: bool = False) -> None:
-    """Refresh bundled agent MCP, rules, and configs."""
+def agent_sync(*, dry_run: bool = False) -> list[Path]:
+    """Refresh bundled agent MCP, rules, and configs.
+
+    Files the user edited (model choice, keys, settings) are kept. Returns them.
+    """
     from canfar_lab.agent.setup_state import (
         agent_setup_lock,
         record_setup_ok,
@@ -904,11 +889,13 @@ def agent_sync(*, dry_run: bool = False) -> None:
         if not dry_run:
             record_setup_ok(home, mode="sync")
 
-    if dry_run:
-        _run()
-        return
-    with agent_setup_lock(home):
-        _run()
+    with owned_files.keeping_user_edits() as kept:
+        if dry_run:
+            _run()
+        else:
+            with agent_setup_lock(home):
+                _run()
+    return kept
 
 
 def agent_verify() -> None:

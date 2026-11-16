@@ -312,7 +312,7 @@ def _run_registry_agent_update(ctx: typer.Context, agent: str, *, reinstall: boo
 def _run_agent_sync(ctx: typer.Context) -> None:
     opts = get_opts(ctx)
     try:
-        agent_setup_mod.agent_sync(dry_run=opts.dry_run)
+        kept = agent_setup_mod.agent_sync(dry_run=opts.dry_run)
     except LabError as exc:
         ui.print_error(str(exc))
         raise typer.Exit(1) from exc
@@ -326,6 +326,11 @@ def _run_agent_sync(ctx: typer.Context) -> None:
             from canfar_lab.agent.setup_state import record_setup_failed
 
             record_setup_failed(exit_code=2, detail=str(exc)[:500])
+    if kept:
+        ui.print_warn("Kept your edits (not refreshed):")
+        for path in kept:
+            ui.print_hint(f"  {path}")
+        ui.print_hint("  To reset them (a .bak copy is kept): canfar lab agent setup --force")
     if opts.dry_run:
         ui.print_ok("dry-run: would refresh agent configs")
         return
