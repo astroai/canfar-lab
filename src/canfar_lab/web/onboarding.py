@@ -2,9 +2,10 @@
 
 Pure function of the Lab state, so every case is unit-testable:
 
-1. **Agents** — reinstall the ones a returning user had (automatic when the
-   server starts with ``--restore``), or pick one.
-2. **Sign in** — an installed agent with neither a login file nor a key.
+1. **Studio** — a model key, so the Studio tab can answer.
+2. **Agents** — reinstall the ones a returning user had (automatic when the
+   server starts with ``--restore``). New Terminal agents are optional.
+3. **Sign in** — an installed agent with neither a login file nor a key.
 3. **Your code** — restore the latest snapshot into an empty ``$SCRATCH/src``,
    start a project, or (once there is code) save it before the session ends.
 
@@ -18,8 +19,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-#: Shown first to someone with no agent yet. OpenCode can run on the free
-#: OpenCode Zen model, so it is the cheapest way to a working agent.
+#: Suggested to someone with no Terminal agent: it runs free models with no key.
 SUGGESTED_AGENT = "opencode"
 
 
@@ -43,6 +43,27 @@ def _job_kind(job: dict[str, Any] | None) -> str:
     if job and job.get("state") == "running":
         return str(job.get("kind") or "")
     return ""
+
+
+def _studio_step(keys: list[dict[str, Any]]) -> dict[str, Any]:
+    step: dict[str, Any] = {"id": "studio", "title": "Studio"}
+    usable = [k for k in keys if k.get("studio")]
+    have = [str(k["label"]) for k in usable if k["present"]]
+    if have:
+        return {
+            **step,
+            "status": "done",
+            "detail": f"Studio can use your {_list(have)} key. Pick the model at the "
+            "bottom of the chat box.",
+        }
+    labels = _list([str(k["label"]) for k in usable], limit=6)
+    return {
+        **step,
+        "status": "todo",
+        "detail": f"Studio needs an API key from one model provider: {labels}. "
+        "DeepSeek is the cheapest to start with.",
+        "action": {"label": "Add a key", "focus": "keys"},
+    }
 
 
 def _agents_step(agents: list[dict[str, Any]], running: str) -> dict[str, Any]:
@@ -72,9 +93,9 @@ def _agents_step(agents: list[dict[str, Any]], running: str) -> dict[str, Any]:
     suggested = next((a for a in agents if a["id"] == SUGGESTED_AGENT), agents[0])
     return {
         **step,
-        "status": "todo",
-        "detail": "Install a coding agent to run in the Terminal tab. "
-        f"Not sure? {suggested['label']} is a good start.",
+        "status": "optional",
+        "detail": "Prefer Claude Code, Codex or another agent? Install it to run in the "
+        f"Terminal tab with your own subscription. {suggested['label']} works without one.",
         "action": {
             "label": f"Install {suggested['label']}",
             "op": "install_agent",
@@ -274,7 +295,7 @@ def build(
     running = _job_kind(job)
     if returning is None:
         returning = is_returning(agents=agents, keys=keys, snapshots=snapshots)
-    steps = [_agents_step(agents, running)]
+    steps = [_studio_step(keys), _agents_step(agents, running)]
     signin = _signin_step(agents)
     if signin:
         steps.append(signin)
@@ -287,7 +308,7 @@ def build(
             "id": "restart",
             "title": "Open your new code folder",
             "status": "todo",
-            "detail": f"Terminal, JupyterLab, VS Code and the Harness still use {live}.",
+            "detail": f"Studio, Terminal, JupyterLab and VS Code still use {live}.",
         }
         if code.get("restart_supported"):
             restart["action"] = {"label": "Restart tools now", "op": "restart_tools"}
@@ -302,7 +323,7 @@ def build(
     if ready and unsaved:
         headline = "You're all set. Save your code here before you leave."
     elif ready:
-        headline = "You're all set. Switch to the Harness tab to start."
+        headline = "You're all set. Switch to the Studio tab to start."
     elif returning:
         headline = "Welcome back. A couple of things to get this session ready."
     else:

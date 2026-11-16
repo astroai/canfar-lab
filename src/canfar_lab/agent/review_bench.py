@@ -19,7 +19,7 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import TypedDict
 
 import yaml
 
@@ -488,16 +488,14 @@ def ensure_dsh_settings(
 
 
 FREE_ZEN_ROUTE = "opencode-zen"
-FREE_ZEN_MODEL = "deepseek-v4.1-flash-free"
-FREE_ZEN_FALLBACK = "big-pickle"
+#: Defaults older Studio releases wrote. Zen's free models answer only the
+#: OpenCode client, so in dsh they fail every turn; dsh's own DeepSeek default
+#: is the right fallback.
+_OLD_SEEDED_DEFAULTS = {
+    (FREE_ZEN_ROUTE, "deepseek-v4.1-flash-free"),
+    (FREE_ZEN_ROUTE, "big-pickle"),
+}
 DEFAULT_MODEL_ROW = "agent-default-model"
-
-
-def choose_free_zen_model(model_ids: tuple[str, ...] | None) -> str:
-    """Prefer zero-retention DeepSeek. ``big-pickle`` only if a live list lacks it."""
-    if model_ids and FREE_ZEN_MODEL not in model_ids and FREE_ZEN_FALLBACK in model_ids:
-        return FREE_ZEN_FALLBACK
-    return FREE_ZEN_MODEL
 
 
 def _complete_selection(raw: object) -> tuple[str, str] | None:
@@ -510,127 +508,28 @@ def _complete_selection(raw: object) -> tuple[str, str] | None:
     return None
 
 
-def chosen_default_model(home: Path) -> tuple[str, str] | None:
-    """A saved provider and model, from the profile patch or ``settings.yaml``."""
-    from canfar_lab.studio_layer import config_row, dsh_home, studio_patch_path
+def drop_seeded_default_model(home: Path | None = None, *, dry_run: bool = False) -> bool:
+    """Remove the free-Zen default an older Studio wrote; keep any real choice."""
+    from canfar_lab.studio_layer import config_row, dsh_home, remove_patch_row, studio_patch_path
 
-    chosen = _complete_selection(config_row(studio_patch_path(home), DEFAULT_MODEL_ROW))
-    if chosen:
-        return chosen
-    settings = dsh_home(home) / "settings.yaml"
-    if not settings.is_file():
-        return None
-    try:
-        loaded = yaml.safe_load(settings.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
-        return None
-    if not isinstance(loaded, dict):
-        return None
-    return _complete_selection(loaded.get(DEFAULT_MODEL_ROW))
-
-
-def ensure_default_model(home: Path | None = None, *, dry_run: bool = False) -> str | None:
-    """Write the free Zen model when the user has not chosen a provider and model."""
     home = home or Path.home()
-    if chosen_default_model(home):
-        return None
-    router = load_support().router_by_id(FREE_ZEN_ROUTE)
-    provider = router.provider_id if router is not None else FREE_ZEN_ROUTE
-    fetched: tuple[str, ...] = ()
-    if router is not None and router.base_url:
-        from canfar_lab.agent.support import fetch_openai_compat_model_ids
-
-        fetched = fetch_openai_compat_model_ids(router.base_url)
-    model = choose_free_zen_model(fetched or None)
-    if not dry_run:
-        _write_default_model(home, provider, model)
-    return f"{provider}/{model}"
-
-
-def _write_default_model(home: Path, provider: str, model: str) -> None:
-    from canfar_lab.studio_layer import (
-        dsh_home,
-        merge_patch_field,
-        settings_yaml_imported,
-        studio_patch_path,
-    )
-
+    dropped = False
     patch = studio_patch_path(home)
-    merge_patch_field(patch, DEFAULT_MODEL_ROW, "provider", provider)
-    merge_patch_field(patch, DEFAULT_MODEL_ROW, "model", model)
-    _include_listed_model(home, provider, model)
-    if settings_yaml_imported(home):
-        return
+    if _complete_selection(config_row(patch, DEFAULT_MODEL_ROW)) in _OLD_SEEDED_DEFAULTS:
+        dropped = dry_run or remove_patch_row(patch, DEFAULT_MODEL_ROW)
     settings = dsh_home(home) / "settings.yaml"
-    doc: dict[str, Any] = {}
-    if settings.is_file():
-        try:
-            loaded = yaml.safe_load(settings.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                doc = loaded
-        except (OSError, yaml.YAMLError):
-            doc = {}
-    current = doc.get(DEFAULT_MODEL_ROW)
-    if (
-        isinstance(current, dict)
-        and current.get("provider") == provider
-        and current.get("model") == model
-    ):
-        return
-    doc[DEFAULT_MODEL_ROW] = {"provider": provider, "model": model}
-    _write_settings(settings, doc)
-
-
-def _include_listed_model(home: Path, provider: str, model: str) -> None:
-    """Keep the seeded model id on the Zen provider so dsh can select it."""
-    from canfar_lab.studio_layer import (
-        config_row,
-        dsh_home,
-        merge_llm_provider,
-        settings_yaml_imported,
-        studio_patch_path,
-    )
-
-    def _with_model(entry: dict[str, Any]) -> dict[str, Any] | None:
-        models = entry.get("models")
-        if not isinstance(models, list):
-            return None
-        if any(isinstance(item, dict) and item.get("id") == model for item in models):
-            return None
-        updated = dict(entry)
-        updated["models"] = [*models, {"id": model}]
-        return updated
-
-    if settings_yaml_imported(home):
-        row = config_row(studio_patch_path(home), "llm-pi-ai") or {}
-        providers = row.get("providers")
-        entry = providers.get(provider) if isinstance(providers, dict) else None
-        if isinstance(entry, dict):
-            updated = _with_model(entry)
-            if updated is not None:
-                merge_llm_provider(studio_patch_path(home), provider, updated)
-        return
-    settings = dsh_home(home) / "settings.yaml"
-    if not settings.is_file():
-        return
     try:
-        loaded = yaml.safe_load(settings.read_text(encoding="utf-8"))
+        doc = yaml.safe_load(settings.read_text(encoding="utf-8")) if settings.is_file() else None
     except (OSError, yaml.YAMLError):
-        return
-    if not isinstance(loaded, dict):
-        return
-    llm = loaded.get("llm-pi-ai")
-    providers = llm.get("providers") if isinstance(llm, dict) else None
-    if not isinstance(providers, dict):
-        return
-    entry = providers.get(provider)
-    if not isinstance(entry, dict):
-        return
-    updated = _with_model(entry)
-    if updated is None:
-        return
-    providers[provider] = updated
-    _write_settings(settings, loaded)
+        doc = None
+    if isinstance(doc, dict) and _complete_selection(doc.get(DEFAULT_MODEL_ROW)) in (
+        _OLD_SEEDED_DEFAULTS
+    ):
+        if not dry_run:
+            del doc[DEFAULT_MODEL_ROW]
+            _write_settings(settings, doc)
+        dropped = True
+    return dropped
 
 
 def next_fallback_provider(

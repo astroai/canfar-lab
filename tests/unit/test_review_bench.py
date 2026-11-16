@@ -278,42 +278,22 @@ def test_native_deepseek_route_is_removed_from_llm_pi_ai(tmp_path: Path) -> None
     assert settings.with_suffix(".yaml.pre-astroai.bak").is_file()
 
 
-def test_choose_free_zen_model_prefers_deepseek() -> None:
-    assert rb.choose_free_zen_model(None) == "deepseek-v4.1-flash-free"
-    assert rb.choose_free_zen_model(("big-pickle", "other")) == "big-pickle"
-    both = ("deepseek-v4.1-flash-free", "big-pickle")
-    assert rb.choose_free_zen_model(both) == "deepseek-v4.1-flash-free"
-
-
-def test_ensure_default_model_seeds_when_empty(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(
-        "canfar_lab.agent.support.fetch_openai_compat_model_ids",
-        lambda *_args, **_kwargs: (),
-    )
-    assert rb.ensure_default_model(tmp_path) == "opencode-zen/deepseek-v4.1-flash-free"
-    doc = yaml.safe_load((tmp_path / ".dsh" / "settings.yaml").read_text(encoding="utf-8"))
-    assert doc["agent-default-model"] == {
-        "provider": "opencode-zen",
-        "model": "deepseek-v4.1-flash-free",
-    }
-    assert rb.ensure_default_model(tmp_path) is None
-
-
-def test_ensure_default_model_keeps_a_saved_choice(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(
-        "canfar_lab.agent.support.fetch_openai_compat_model_ids",
-        lambda *_args, **_kwargs: ("big-pickle",),
-    )
+def test_drop_seeded_default_model_removes_only_the_old_zen_default(tmp_path: Path) -> None:
     settings = tmp_path / ".dsh" / "settings.yaml"
     settings.parent.mkdir(parents=True)
-    settings.write_text(
-        yaml.safe_dump({"agent-default-model": {"provider": "google", "model": "custom-1"}}),
-        encoding="utf-8",
-    )
-    assert rb.ensure_default_model(tmp_path) is None
+    zen = {"provider": "opencode-zen", "model": "deepseek-v4.1-flash-free"}
+    settings.write_text(yaml.safe_dump({"agent-default-model": zen, "x": 1}), encoding="utf-8")
+    assert rb.drop_seeded_default_model(tmp_path) is True
     doc = yaml.safe_load(settings.read_text(encoding="utf-8"))
-    assert doc["agent-default-model"] == {"provider": "google", "model": "custom-1"}
+    assert doc == {"x": 1}
+    assert rb.drop_seeded_default_model(tmp_path) is False
+
+
+def test_drop_seeded_default_model_keeps_a_saved_choice(tmp_path: Path) -> None:
+    settings = tmp_path / ".dsh" / "settings.yaml"
+    settings.parent.mkdir(parents=True)
+    chosen = {"provider": "opencode-zen", "model": "claude-fable-5"}
+    settings.write_text(yaml.safe_dump({"agent-default-model": chosen}), encoding="utf-8")
+    assert rb.drop_seeded_default_model(tmp_path) is False
+    doc = yaml.safe_load(settings.read_text(encoding="utf-8"))
+    assert doc["agent-default-model"] == chosen

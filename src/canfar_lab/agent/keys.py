@@ -180,8 +180,11 @@ def _read_credentials(path: Path) -> dict[str, Any]:
     try:
         doc = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:
+        # Never the parser's message: it can quote the offending line, i.e. a key.
+        mark = getattr(exc, "problem_mark", None)
+        where = f" (line {mark.line + 1})" if mark is not None else ""
         raise LabError(
-            f"Cannot parse {path}: {exc}",
+            f"Cannot parse {path}{where}.",
             hint="Fix or remove the file; dsh refuses to start with it broken too.",
         ) from exc
     if doc is None:
@@ -295,6 +298,7 @@ def set_key(home: Path | None, name: str, value: str) -> dict[str, Any]:
     changed = _write_dotenv(home, name, value)
     if name in _dsh_keys():
         changed = _write_credential_ref(home, name, value) or changed
+        _remember_synced(home, name, value)
     ensure_shell_hook(home)
     return {"key": name, "present": True, "changed": changed}
 
@@ -305,34 +309,92 @@ def unset_key(home: Path | None, name: str) -> dict[str, Any]:
     changed = _write_dotenv(home, name, None)
     if name in _dsh_keys():
         changed = _write_credential_ref(home, name, None) or changed
+        _remember_synced(home, name, None)
     return {"key": name, "present": False, "changed": changed}
+
+
+def _sync_record_path(home: Path) -> Path:
+    return home / ".canfar" / "lab" / "key-sync.json"
+
+
+def _digest(value: str | None) -> str | None:
+    import hashlib
+
+    return hashlib.sha256(value.encode()).hexdigest() if value else None
+
+
+def _load_sync_record(home: Path) -> dict[str, str]:
+    import json
+
+    try:
+        data = json.loads(_sync_record_path(home).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+
+
+def _save_sync_record(home: Path, record: dict[str, str]) -> None:
+    import json
+
+    _write_private(_sync_record_path(home), json.dumps(record, indent=2, sort_keys=True) + "\n")
+
+
+def _remember_synced(home: Path, name: str, value: str | None) -> None:
+    record = _load_sync_record(home)
+    digest = _digest(value)
+    if record.get(name) == digest:
+        return
+    if digest:
+        record[name] = digest
+    else:
+        record.pop(name, None)
+    _save_sync_record(home, record)
 
 
 def sync_keys(home: Path | None = None) -> list[str]:
     """Reconcile dsh-route keys between the shared dotenv and dsh credentials.
 
-    A key present in one store only is copied to the other; a key set to
-    different values in both takes the value from the more recently modified
-    file. Returns the key names that changed.
+    A three-way merge against the value both stores last agreed on (kept as a
+    hash in ``key-sync.json``): a key added or changed in one store is copied
+    to the other, and a key deleted from one store is deleted from the other.
+    Only when both changed does the more recently modified file win. Returns
+    the key names that changed.
     """
     home = home or Path.home()
     dotenv = openrouter_dotenv_path(home)
     creds = credentials_path(home)
     refs = _credential_refs(home)
+    record = _load_sync_record(home)
     dotenv_newer = dotenv.is_file() and (
         not creds.is_file() or dotenv.stat().st_mtime >= creds.stat().st_mtime
     )
     changed: list[str] = []
     for name in sorted(_dsh_keys()):
-        env_val = _read_dotenv_value(dotenv, name)
-        ref_val = refs.get(name)
-        if env_val == ref_val or not (env_val or ref_val):
+        env_val = _read_dotenv_value(dotenv, name) or None
+        ref_val = refs.get(name) or None
+        last = record.get(name)
+        if env_val == ref_val:
+            agreed = _digest(env_val)
+            if agreed:
+                record[name] = agreed
+            else:
+                record.pop(name, None)
             continue
-        if env_val and (not ref_val or dotenv_newer):
-            if KEY_VALUE_RE.match(env_val):
-                _write_credential_ref(home, name, env_val)
-                changed.append(name)
-        elif ref_val and KEY_VALUE_RE.match(ref_val):
-            _write_dotenv(home, name, ref_val)
-            changed.append(name)
+        env_changed = _digest(env_val) != last
+        ref_changed = _digest(ref_val) != last
+        take_env = env_changed and (not ref_changed or dotenv_newer)
+        value = env_val if take_env else ref_val
+        if value is not None and not KEY_VALUE_RE.match(value):
+            continue
+        if take_env:
+            _write_credential_ref(home, name, value)
+        else:
+            _write_dotenv(home, name, value)
+        if value:
+            record[name] = _digest(value) or ""
+        else:
+            record.pop(name, None)
+        changed.append(name)
+    if record != _load_sync_record(home):
+        _save_sync_record(home, record)
     return changed

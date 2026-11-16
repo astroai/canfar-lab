@@ -110,7 +110,7 @@ def test_prepare_studio_writes_profile(tmp_path: Path, monkeypatch: pytest.Monke
     assert "timeoutMs: 600000" not in patch_text2
     profile_patch = sp.profile_dir(home) / "cordis.patch.yml"
     patch_body = profile_patch.read_text(encoding="utf-8")
-    assert "deepseek-v4.1-flash-free" in patch_body
+    assert "agent-default-model" not in patch_body  # dsh picks its own default
     assert "canfar-session" in patch_body
     session_skill = home / ".agents" / "skills" / "canfar-session" / "SKILL.md"
     assert "images.canfar.net/astroai" in session_skill.read_text(encoding="utf-8")
@@ -303,3 +303,32 @@ def test_open_command(monkeypatch: pytest.MonkeyPatch) -> None:
     data_code = json.loads(res_code.output)
     assert data_code["tool"] == "vscode"
     assert "sess123/vscode/" in data_code["url"]
+
+
+def test_studio_keeps_sessions_private_by_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("DSH_HOME", raising=False)
+    _stub_bench(monkeypatch)
+    studio_mod.prepare_studio(home=home, profile="canfar", install_bundles=False)
+    patch = sp.profile_dir(home) / "cordis.patch.yml"
+    assert config_row(patch, "session-log-deepseek") == {"enabled": False}
+    body = patch.read_text(encoding="utf-8")
+    assert "{{cwd}}" not in body  # dsh 0.2.1 fails every turn on unknown variables
+    assert studio_mod.studio_env(profile="laptop", home=home)["DSH_TELEMETRY_DISABLED"] == "1"
+
+
+def test_code_folder_is_a_studio_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import json
+
+    monkeypatch.delenv("DSH_HOME", raising=False)
+    home, code = tmp_path / "home", tmp_path / "scratch" / "src"
+    assert studio_mod.ensure_code_workspace(home, code) == code
+    doc = json.loads((home / ".dsh" / "storages" / "workspace.json").read_text())
+    (key,) = doc["global"]["workspaceIds"]
+    assert doc["tables"]["workspaces"][key]["path"] == str(code)
+    assert code.is_dir()
+    assert studio_mod.ensure_code_workspace(home, code) is None  # once only

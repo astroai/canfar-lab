@@ -91,7 +91,7 @@ def test_state_has_onboarding_and_six_agents(lab: server_mod.LabServer) -> None:
     status, state, _ = _req(lab, "GET", "/api/state")
     assert status == 200
     assert [a["id"] for a in state["agents"]] == ["claude", "codex", "agy", "opencode", "pi", "omp"]
-    assert state["onboarding"]["steps"][0]["id"] == "agents"
+    assert state["onboarding"]["steps"][0]["id"] == "studio"
     status, summary, _ = _req(lab, "GET", "/api/onboarding")
     assert "steps" not in summary and "pending" in summary
 

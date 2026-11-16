@@ -128,12 +128,15 @@ def test_onboarding_respects_start_empty_and_asks_for_restart() -> None:
     snap = {"name": "s", "created_at": "2026-11-06T17:00:00+00:00", "repos": []}
     code = {"src": "/s/src", "entries": [], "repos": [], "ephemeral": True}
     never = onboarding.build(
-        agents=[_agent()], keys=[], snapshots=[snap], code={**code, "restore_at_start": "never"}
+        agents=[_agent()],
+        keys=[{"key": "DEEPSEEK_API_KEY", "label": "DeepSeek", "present": True, "studio": True}],
+        snapshots=[snap],
+        code={**code, "restore_at_start": "never"},
     )
     assert never["ready"] and never["steps"][-1]["status"] == "optional"
     moved = onboarding.build(
         agents=[_agent()],
-        keys=[],
+        keys=[{"key": "DEEPSEEK_API_KEY", "label": "DeepSeek", "present": True, "studio": True}],
         snapshots=[],
         code={**code, "restart_needed": True, "live_src": "/old", "restart_supported": True},
     )

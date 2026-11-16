@@ -198,10 +198,19 @@ def _key_rows(home: Path) -> dict[str, dict[str, Any]]:
     return rows
 
 
+def studio_keys() -> list[str]:
+    """Keys Studio itself can use (catalog routes dsh serves), DeepSeek first."""
+    from canfar_lab.agent.support import load_support
+
+    names = dict.fromkeys(r.key for r in load_support().routers if r.dsh_route)
+    return sorted(names, key=lambda k: k != "DEEPSEEK_API_KEY")
+
+
 def lab_keys(home: Path | None = None) -> list[dict[str, Any]]:
-    """Keys any Lab agent reads: name, label, signup URL, presence, sources."""
+    """Keys Studio or a Lab agent reads: name, label, signup URL, presence, sources."""
     rows = _key_rows(_home(home))
-    names = dict.fromkeys(k for agent in lab_agents() for k in agent.keys)
+    studio = studio_keys()
+    names = dict.fromkeys([*studio, *(k for agent in lab_agents() for k in agent.keys)])
     return [
         {
             "key": name,
@@ -209,7 +218,9 @@ def lab_keys(home: Path | None = None) -> list[dict[str, Any]]:
             "signup_url": rows[name].get("signup_url") or "",
             "present": bool(rows[name]["present"]),
             "sources": list(rows[name].get("sources") or []),
-            "used_by": [a.label for a in lab_agents() if name in a.keys],
+            "studio": name in studio,
+            "used_by": (["Studio"] if name in studio else [])
+            + [a.label for a in lab_agents() if name in a.keys],
         }
         for name in names
         if name in rows
@@ -371,8 +382,8 @@ def restore(home: Path | None = None, *, dry_run: bool = False) -> dict[str, Any
 
 
 def _check_lab_key(name: str) -> None:
-    if not any(name in agent.keys for agent in lab_agents()):
-        raise LabError(f"{name!r} is not a key any Lab agent reads.")
+    if name not in studio_keys() and not any(name in agent.keys for agent in lab_agents()):
+        raise LabError(f"{name!r} is not a key Studio or any Lab agent reads.")
 
 
 def set_key(name: str, value: str, home: Path | None = None) -> dict[str, Any]:

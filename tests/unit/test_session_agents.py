@@ -165,7 +165,7 @@ def test_restore_keeps_going_after_a_failure(
 def test_keys_limited_to_lab_agents(home: Path) -> None:
     assert agents.set_key("ANTHROPIC_API_KEY", SECRET, home)["present"]
     assert agents.unset_key("ANTHROPIC_API_KEY", home)["present"] is False
-    with pytest.raises(LabError, match="not a key any Lab agent reads"):
+    with pytest.raises(LabError, match="not a key Studio or any Lab agent reads"):
         agents.set_key("FACTORY_API_KEY", SECRET, home)
 
 

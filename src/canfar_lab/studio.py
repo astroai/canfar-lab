@@ -386,11 +386,13 @@ def prepare_studio(
     applied = sp.apply_studio_profile(plan, install_bundles=install_bundles, force=force)
     actions.extend(applied["actions"])
     degraded = bool(applied["degraded"])
-    seeded = rb.ensure_default_model(home)
-    if seeded:
-        actions.append(f"default model: {seeded}")
+    if rb.drop_seeded_default_model(home):
+        actions.append("removed the old free-Zen default model; dsh picks its own")
     if profile == "canfar":
         actions.extend(ensure_platform_skills(home))
+        added = ensure_code_workspace(home)
+        if added:
+            actions.append(f"workspace: {added}")
     actions.append(f"MCP row: {' '.join(plan.mcp_command)}")
 
     return {
@@ -516,7 +518,11 @@ def studio_env(*, profile: StudioProfile | None = None, home: Path | None = None
     ``node_modules``, which is where the launcher looks for bundles.
     """
     resolved_profile = profile or detect_profile()
-    env: dict[str, str] = {"ASTROAI_STUDIO_PROFILE": resolved_profile}
+    env: dict[str, str] = {
+        "ASTROAI_STUDIO_PROFILE": resolved_profile,
+        # No session-log export to DeepSeek on thumbs up/down (see studio_layer).
+        "DSH_TELEMETRY_DISABLED": "1",
+    }
     state = sp.resolve_state_root(home or Path.home(), profile=resolved_profile)
     if not state.durable:
         store = state.path / "pnpm-store"
@@ -525,6 +531,57 @@ def studio_env(*, profile: StudioProfile | None = None, home: Path | None = None
         env.setdefault("TMPDIR", str(state.path / "tmp"))
     env["ASTROAI_STUDIO_STATE"] = str(state.path)
     return env
+
+
+def ensure_code_workspace(home: Path, code: Path | None = None) -> Path | None:
+    """List the session's code folder in Studio's workspaces, so a new user can
+    start typing at once instead of browsing an empty home for a folder.
+
+    Runs before dsh starts (dsh owns the file while it runs). Returns the folder
+    when it was added.
+    """
+    import json
+    import uuid
+    from datetime import datetime, timezone
+
+    from canfar_lab.session import workspace
+    from canfar_lab.studio_paths import dsh_home
+
+    code = code or workspace.code_dir(home)
+    store = dsh_home(home) / "storages" / "workspace.json"
+    try:
+        doc = json.loads(store.read_text(encoding="utf-8")) if store.is_file() else {}
+    except (OSError, ValueError):
+        return None  # unreadable: leave it to dsh
+    if not isinstance(doc, dict):
+        return None
+    doc.setdefault("unit", {"name": "workspace", "version": 2})
+    glob = doc.setdefault("global", {})
+    tables = doc.setdefault("tables", {}).setdefault("workspaces", {})
+    if not (isinstance(glob, dict) and isinstance(tables, dict)):
+        return None
+    if any(isinstance(row, dict) and row.get("path") == str(code) for row in tables.values()):
+        return None
+    now = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")  # noqa: UP017 — py3.10
+    key = str(uuid.uuid4())
+    tables[key] = {
+        "path": str(code),
+        "title": "Your code",
+        "sessionIds": [],
+        "createdAt": now,
+        "updatedAt": now,
+    }
+    glob.setdefault("initialized", True)
+    for field in ("archivedSessionIds", "pinnedSessionIds"):
+        glob.setdefault(field, [])
+    glob["workspaceIds"] = [key, *(glob.get("workspaceIds") or [])]
+    try:
+        code.mkdir(parents=True, exist_ok=True)
+        store.parent.mkdir(parents=True, exist_ok=True)
+        store.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        return None
+    return code
 
 
 def skills_onboarding_hint() -> str:

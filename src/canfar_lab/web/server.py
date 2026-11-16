@@ -209,7 +209,7 @@ def request_tool_restart() -> dict[str, Any]:
     """Ask the image's startup script to restart its tools (new code/cache dir).
 
     The image sets ``CANFAR_LAB_RESTART_FILE``; its supervisor watches for the
-    file, restarts the Harness, Terminal, JupyterLab and VS Code with fresh
+    file, restarts Studio, Terminal, JupyterLab and VS Code with fresh
     paths, then removes it. Without the variable (a laptop) there is nothing
     to restart: new terminals pick the change up.
     """

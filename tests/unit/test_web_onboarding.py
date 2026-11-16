@@ -25,13 +25,16 @@ def _agent(agent_id: str, **kw: Any) -> dict[str, Any]:
 AGENTS = ["claude", "codex", "opencode"]
 NO_CODE = {"src": "/scratch/src", "entries": [], "repos": []}
 SOME_CODE = {"src": "/scratch/src", "entries": ["proj"], "repos": []}
+#: A Studio key, so tests about agents and code start past the Studio step.
+STUDIO_KEY = {"key": "DEEPSEEK_API_KEY", "label": "DeepSeek", "present": True, "studio": True}
+NO_STUDIO_KEY = {**STUDIO_KEY, "present": False}
 SNAP = {"name": "friday", "created_at": "2026-11-06T17:00:00+00:00", "repos": [{"path": "proj"}]}
 
 
 def _build(agents: list[dict[str, Any]] | None = None, **kw: Any) -> dict[str, Any]:
     return onboarding.build(
         agents=agents if agents is not None else [_agent(a) for a in AGENTS],
-        keys=kw.pop("keys", []),
+        keys=kw.pop("keys", [STUDIO_KEY]),
         snapshots=kw.pop("snapshots", []),
         code=kw.pop("code", NO_CODE),
         job=kw.pop("job", None),
@@ -43,16 +46,20 @@ def _step(result: dict[str, Any], step_id: str) -> dict[str, Any]:
     return next(s for s in result["steps"] if s["id"] == step_id)
 
 
-def test_new_user_gets_one_click_suggested_agent() -> None:
-    result = _build()
-    assert result["kind"] == "new" and result["next"] == "agents"
+def test_new_user_is_asked_for_a_studio_key_first() -> None:
+    result = _build(keys=[NO_STUDIO_KEY])
+    assert result["kind"] == "new" and result["next"] == "studio"
+    studio = _step(result, "studio")
+    assert studio["action"] == {"label": "Add a key", "focus": "keys"}
+    assert "DeepSeek" in studio["detail"]
     agents = _step(result, "agents")
+    assert agents["status"] == "optional"  # Terminal agents never block
     assert agents["action"] == {
         "label": "Install Opencode",
         "op": "install_agent",
         "agent": "opencode",
     }
-    assert [s["id"] for s in result["steps"]] == ["agents", "code"]  # no sign-in yet
+    assert [s["id"] for s in result["steps"]] == ["studio", "agents", "code"]  # no sign-in yet
     assert _step(result, "code")["status"] == "optional"
     assert "Welcome to AstroAI" in result["headline"]
 
@@ -84,7 +91,7 @@ def test_startup_job_shows_running_steps() -> None:
 def test_first_install_keeps_new_user_greeting() -> None:
     """kind is fixed at server start: installing an agent is not "welcome back"."""
     agents = [_agent("opencode", installed=True, remembered=True)]
-    assert _build(agents)["kind"] == "returning"  # inferred from state alone
+    assert _build(agents, keys=[NO_STUDIO_KEY])["kind"] == "returning"  # inferred from state
     result = _build(agents, returning=False)
     assert result["kind"] == "new" and "Welcome to AstroAI" in result["headline"]
     assert result["next"] == "signin"
@@ -115,7 +122,7 @@ def test_code_counts_as_saved_only_by_a_snapshot_from_this_session() -> None:
     ready_agent = [_agent("opencode", installed=True, remembered=True, ready=True)]
     started = 1_800_000_000.0  # 2027-01-15; SNAP is from 2026-11-06
     old = onboarding.build(
-        agents=ready_agent, keys=[], snapshots=[SNAP], code=SOME_CODE, started_at=started
+        agents=ready_agent, keys=[STUDIO_KEY], snapshots=[SNAP], code=SOME_CODE, started_at=started
     )
     code = _step(old, "code")
     assert code["status"] == "optional" and code["action"]["op"] == "save_snapshot"
@@ -123,10 +130,14 @@ def test_code_counts_as_saved_only_by_a_snapshot_from_this_session() -> None:
     assert old["ready"] and "Save your code" in old["headline"]
     fresh = {**SNAP, "created_at": "2027-01-15T08:00:00+00:00"}
     new = onboarding.build(
-        agents=ready_agent, keys=[], snapshots=[fresh], code=SOME_CODE, started_at=started
+        agents=ready_agent,
+        keys=[STUDIO_KEY],
+        snapshots=[fresh],
+        code=SOME_CODE,
+        started_at=started,
     )
     assert _step(new, "code")["status"] == "done"
-    assert "Switch to the Harness tab" in new["headline"]
+    assert "Switch to the Studio tab" in new["headline"]
 
 
 def test_running_job_labels_match_the_action() -> None:

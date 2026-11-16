@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import os
 import shutil
 from dataclasses import dataclass
@@ -66,9 +65,9 @@ def _write_dotenv_value(path: Path, name: str, value: str, *, dry_run: bool) -> 
         if out and out[-1].strip():
             out.append("")
         out.append(f"{name}={value}")
-    path.write_text("\n".join(out) + "\n", encoding="utf-8")
-    with contextlib.suppress(OSError):
-        path.chmod(0o600)
+    from canfar_lab.agent.keys import _write_private  # born 0600, never wider
+
+    _write_private(path, "\n".join(out) + "\n")
 
 
 def _key_from_marimo_toml(cfg: Path) -> str | None:

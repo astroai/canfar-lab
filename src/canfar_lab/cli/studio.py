@@ -107,7 +107,7 @@ def studio_status_cmd(
     ctx: typer.Context,
     json_output: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
 ) -> None:
-    """Show live status of all Studio services (Agents, Terminal, JupyterLab, Marimo, VS Code)."""
+    """Show live status of Studio's services (Studio, Terminal, JupyterLab, VS Code, Settings)."""
     opts = merge_opts(ctx)
     is_json = json_output or opts.json
 
@@ -126,7 +126,7 @@ def studio_status_cmd(
         # Fallback to direct port checks
         services = {
             "agent": {
-                "name": "Agents (DSH)",
+                "name": "Studio",
                 "port": 3080,
                 "path": "/",
                 "up": _check_port_open("127.0.0.1", 3080),
@@ -143,12 +143,6 @@ def studio_status_cmd(
                 "path": "/jupyter/",
                 "up": _check_port_open("127.0.0.1", 8888),
             },
-            "marimo": {
-                "name": "Marimo",
-                "port": 2718,
-                "path": "/marimo/",
-                "up": _check_port_open("127.0.0.1", 2718),
-            },
             "vscode": {
                 "name": "VS Code",
                 "port": 8080,
@@ -156,9 +150,9 @@ def studio_status_cmd(
                 "up": _check_port_open("127.0.0.1", 8080),
             },
             "hub": {
-                "name": "Compute Hub",
+                "name": "Settings",
                 "port": 4792,
-                "path": "/hub/",
+                "path": "/lab/",
                 "up": _check_port_open("127.0.0.1", 4792),
             },
         }
@@ -241,10 +235,8 @@ def studio_status_cmd(
     scratch_free = res.get("scratch_free_gb", 0)
     cpus = res.get("cpus", 1)
     if laptop:
-        ui.print_hint("Agents listen on http://127.0.0.1:3080.")
-        ui.print_hint(
-            "Terminal, Jupyter, Marimo, VS Code, and the hub run in the CANFAR studio image."
-        )
+        ui.print_hint("Studio listens on http://127.0.0.1:3080.")
+        ui.print_hint("Terminal, JupyterLab, VS Code and Settings run in a CANFAR Studio session.")
     else:
         ui.print_hint(f"Resources: {cpus} CPU cores | Scratch free: {scratch_free} GB")
 
@@ -445,13 +437,15 @@ def studio_main(
     if not patch.is_file():
         _panel.scaffold_repo_dsh(repo_path)
 
-    # Warn on Skaha when not already inside the studio image / dedicated session.
-    if _on_skaha() and os.environ.get("ASTROAI_SESSION_KIND", "").lower() != "studio":
+    session_kind = os.environ.get("ASTROAI_SESSION_KIND", "").lower()
+    if _on_skaha() and session_kind in ("dsh", "studio"):
+        ui.print_ok("Studio is already running in this session: open the Studio tab.")
+        return
+    if _on_skaha():
         ui.print_warn(
-            "On Skaha, use the contributed `astroai/studio` image (Connect URL). "
-            "`dsh web` behind vscode/notebook `/proxy/PORT/` is not supported — "
-            "see https://github.com/astroai/canfar-containers/blob/main/docs/STUDIO.md "
-            "(or docs/studio.md in this repo). Launching anyway for loopback-only use."
+            "Studio does not work behind a notebook or VS Code session's /proxy/PORT/. "
+            "Launch a Studio session (image images.canfar.net/astroai/dsh) instead. "
+            "Starting anyway, reachable only from inside this session."
         )
 
     listen = studio_listen_plan(resolved_profile, port)
@@ -509,14 +503,11 @@ def studio_main(
         f"  harness profile: {_sp.STUDIO_PROFILE_NAME} — state in {prep.get('state_root')}"
     )
     if listen["desk"]:
-        ui.print_hint(
-            "  Desk starts collapsed — click Desk (top right) for Sync / Launch, "
-            "or set CANFAR_LAB_DESK=1 to open the bar."
-        )
+        ui.print_hint("  Click Desk (top right) to sync this repo with CANFAR or launch a session.")
     ui.print_hint("  Team review: New session → preset «AstroAI Studio Team»")
     if with_team:
         ui.print_hint("  Agent Teams: ask for a team in the chat (roster + shared task board)")
-    ui.print_hint(f"  {_studio.skills_onboarding_hint().splitlines()[1].strip()}")
+    ui.print_hint("  Skills: canfar lab studio --skills")
     if listen["desk"]:
         ui.print_ok(f"AstroAI Studio → {url}")
         code = serve_mod.serve_with_dock(

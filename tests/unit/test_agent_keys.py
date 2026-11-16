@@ -251,3 +251,33 @@ def test_cli_set_invalid_value_is_a_clean_error(home: Path) -> None:
     )
     assert result.exit_code == 1
     assert json.loads(result.stdout)["ok"] is False
+
+
+def test_sync_deletes_a_key_removed_in_one_store(home: Path) -> None:
+    keys.set_key(home, "DEEPSEEK_API_KEY", SECRET)
+    keys.sync_keys(home)
+    # The user deletes it in Studio's own Models page.
+    creds = home / ".dsh" / ".credentials.yaml"
+    creds.write_text("version: 1\n")
+    assert keys.sync_keys(home) == ["DEEPSEEK_API_KEY"]
+    assert "DEEPSEEK_API_KEY" not in _dotenv(home)
+    assert keys.sync_keys(home) == []
+
+
+def test_sync_keeps_the_store_that_changed_even_if_older(home: Path) -> None:
+    keys.set_key(home, "DEEPSEEK_API_KEY", SECRET)
+    creds = home / ".dsh" / ".credentials.yaml"
+    creds.write_text("version: 1\nrefs:\n  DEEPSEEK_API_KEY: sk-new-0000000009\n")
+    dotenv = home / ".canfar" / "lab" / ".env"
+    dotenv.write_text(dotenv.read_text() + "# touched later\n")  # newer, value unchanged
+    assert keys.sync_keys(home) == ["DEEPSEEK_API_KEY"]
+    assert "DEEPSEEK_API_KEY=sk-new-0000000009" in _dotenv(home)
+
+
+def test_parse_error_never_quotes_the_file(home: Path) -> None:
+    creds = home / ".dsh" / ".credentials.yaml"
+    creds.parent.mkdir()
+    creds.write_text(f"version: 1\nrefs:\n  OPENAI_API_KEY: {SECRET}\n bad: [\n")
+    with pytest.raises(LabError) as excinfo:
+        keys.sync_keys(home)
+    assert SECRET not in str(excinfo.value) and "line" in str(excinfo.value)

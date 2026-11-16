@@ -318,17 +318,27 @@ def studio_layer_yaml(
         "    default: standard",
         "",
         "# Identity lives here. The preset persona row collides with this section",
-        "# on dsh 0.2.1-rc.3, so the overrides below remove that row.",
+        "# on dsh 0.2.1-rc.3, so the overrides below remove that row. Only",
+        "# {{provider}} and {{model}} exist here: any other variable fails every turn.",
         "- id: system-prompt",
         "  config:",
         '    personaPrefix: "You are a coding agent powered by the {{model}} model."',
         "    personaSuffix: "
         + (
-            '"Your working directory is {{cwd}}. Before launching a job, moving data, '
-            'or choosing a path, read the canfar and canfar-session skills."'
+            '"Before launching a job, moving data, or choosing a path, read the canfar '
+            'and canfar-session skills."'
             if profile == "canfar"
-            else '"Your working directory is {{cwd}}."'
+            else '"Work inside the workspace folder this session opened."'
         ),
+        "",
+        "# ── privacy ────────────────────────────────────────────────────────────",
+        "# dsh uploads the whole session log (prompts, tool output, file contents)",
+        "# with every official DeepSeek API request by default. Research code and",
+        "# unpublished data stay here. Feedback telemetry is off via the",
+        "# launcher's DSH_TELEMETRY_DISABLED (a config row cannot disable it).",
+        "- id: session-log-deepseek",
+        "  config:",
+        "    enabled: false",
         "",
         "# ── session storage ────────────────────────────────────────────────────",
         "# Session logs and the full-text index are append-heavy and unbounded, so",
@@ -569,6 +579,24 @@ def merge_patch_field(path: Path, row_id: str, field: str, value: str) -> bool:
     if new == text:
         return False
     path.write_text(new, encoding="utf-8")
+    return True
+
+
+def remove_patch_row(path: Path, row_id: str) -> bool:
+    """Delete one row from a Studio-owned patch. False when absent or user-owned."""
+    if not path.is_file():
+        return False
+    text = path.read_text(encoding="utf-8")
+    if LAYER_MARK not in text:
+        return False
+    preamble, blocks = _split_patch(text)
+    kept = [block for block in blocks if _block_id(block) != row_id]
+    if len(kept) == len(blocks):
+        return False
+    path.write_text(
+        preamble + "".join(block if block.endswith("\n") else block + "\n" for block in kept),
+        encoding="utf-8",
+    )
     return True
 
 
