@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Literal
 
 from canfar_lab.core.session_common import user_tag
+from canfar_lab.dsh_pin import DSH_INSTALL_HINT as DSH_INSTALL_HINT
 
 StudioProfile = Literal["laptop", "canfar"]
 
@@ -123,9 +124,6 @@ LAYER_MARK = "# AstroAI Studio"
 PROFILE_PATCH_FILENAME = "cordis.patch.yml"
 PROFILE_MANIFEST_FILENAME = "package.json"
 PROFILE_WORKSPACE_FILENAME = "pnpm-workspace.yaml"
-
-# Pin stays in sync with studio.DSH_VERSION / agents/dsh.yaml.
-DSH_INSTALL_HINT = "npm install -g @deepseek-ai/dsh@0.2.1-rc.3"
 
 
 # ---------------------------------------------------------------------------

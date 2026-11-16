@@ -27,8 +27,6 @@ from canfar_lab.agent.bundle_path import review_bench_root as _vendored_root
 from canfar_lab.agent.support import load_support
 from canfar_lab.errors import LabError
 
-DSH_VERSION = "0.2.1-rc.3"
-
 
 class PanelRouteHealth(TypedDict):
     pinned: str | None

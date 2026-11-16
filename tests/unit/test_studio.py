@@ -256,15 +256,12 @@ def test_dsh_version_pin_matches_agent_yaml() -> None:
 
     import yaml
 
-    from canfar_lab.agent import review_bench as rb
-
     text = (resources.files("canfar_lab") / "data" / "agent" / "agents" / "dsh.yaml").read_text(
         encoding="utf-8"
     )
     data = yaml.safe_load(text)
     source = data["install"]["source"]
     assert source == f"@deepseek-ai/dsh@{studio_mod.DSH_VERSION}"
-    assert rb.DSH_VERSION == studio_mod.DSH_VERSION
     assert studio_mod.DSH_VERSION in sp.DSH_INSTALL_HINT
 
 

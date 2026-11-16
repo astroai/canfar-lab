@@ -27,19 +27,12 @@ from pathlib import Path
 from typing import Any, Literal
 
 from canfar_lab import studio_profile as sp
+from canfar_lab.dsh_pin import DSH_NPM, DSH_VERSION
 from canfar_lab.errors import LabError
 from canfar_lab.studio_skills import ensure_platform_skills
 
 StudioProfile = Literal["laptop", "canfar"]
 
-#: Pinned harness snapshot (fallback for offline resolution). canfar-containers
-#: installs this exact version (``ARG DSH_VERSION``). ``canfar_lab.dsh_release``
-#: resolves ``newest`` across npm dist-tags; this pin is what ``studio``/``desk``
-#: fall back to without network. Keep the string in sync with
-#: ``agent/review_bench.py``, ``studio_paths.DSH_INSTALL_HINT`` and
-#: ``data/agent/agents/dsh.yaml``.
-DSH_VERSION = "0.2.1-rc.3"
-DSH_NPM = f"@deepseek-ai/dsh@{DSH_VERSION}"
 
 DEFAULT_PORT = 3080
 
