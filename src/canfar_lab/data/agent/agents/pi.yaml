@@ -2,7 +2,7 @@
 id: pi
 name: Pi Coding Agent
 homepage: https://github.com/earendil-works/pi
-summary: Pi coding agent CLI (earendil-works); distinct from omp
+summary: Minimal, extensible coding agent CLI (pi)
 binary: pi
 tags:
   - agent

@@ -4,7 +4,7 @@
 id: codex
 name: Codex CLI
 homepage: https://github.com/openai/codex
-summary: Lightweight OpenAI Codex & OpenRouter coding assistant
+summary: OpenAI's coding agent CLI (codex)
 binary: codex
 tags: [agent, cli]
 install:

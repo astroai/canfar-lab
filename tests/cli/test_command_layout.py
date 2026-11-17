@@ -19,7 +19,7 @@ def test_studio_review_reaches_the_review_group() -> None:
 def test_studio_status_is_a_subcommand_not_a_repo() -> None:
     result = runner.invoke(app, ["studio", "status", "--help"])
     assert result.exit_code == 0, result.output
-    assert "Show live status" in result.output
+    assert "Show which Studio tabs are running" in result.output
 
 
 def test_old_names_still_work() -> None:

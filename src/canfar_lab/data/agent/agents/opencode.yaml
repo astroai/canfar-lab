@@ -1,8 +1,8 @@
 # OpenCode (sst/opencode) — registry entry.
 id: opencode
-name: OpenCode Interpreter
+name: OpenCode
 homepage: https://github.com/sst/opencode
-summary: Terminal AI coding assistant supporting local & cloud LLMs
+summary: Open-source coding agent CLI (opencode); free models available
 binary: opencode
 tags: [agent, cli, open]
 install:

@@ -1,16 +1,16 @@
 ---
 name: review-panel
-description: AstroAI Studio Team — chaired multi-persona review protocol for code, analyses, and papers — freeze the artefact, run a blind parallel panel with mandatory probes, audit the evidence, replicate the headline number independently, cross-examine only contested findings, gate every verdict on evidence, then land fixes and label claim strength. Use when asked to review, referee, audit, validate, or stress-test a result, a pipeline, or a manuscript.
+description: CANFAR Studio Team — chaired multi-persona review protocol for code, analyses, and papers — freeze the artefact, run a blind parallel panel with mandatory probes, audit the evidence, replicate the headline number independently, cross-examine only contested findings, gate every verdict on evidence, then land fixes and label claim strength. Use when asked to review, referee, audit, validate, or stress-test a result, a pipeline, or a manuscript.
 whenToUse: The user asks for a rigorous review, panel, audit, red-team, or referee report on a repository, analysis, result, or paper; or a claim is about to be published and needs an adversarial pass.
 metadata:
   domains: review, statistics, peer-review, reproducibility
   panel: review-bench preset
 ---
 
-# Review panel protocol (AstroAI Studio Team)
+# Review panel protocol (CANFAR Studio Team)
 
 Specialist reviewers, each reachable through its own delegation tool in the
-`review-bench` / AstroAI Studio Team preset. Scale the dispatched set to the
+`review-bench` / CANFAR Studio Team preset. Scale the dispatched set to the
 artefact (phase 0); a full Team is fourteen lenses:
 
 | Tool | Lens | Effort |

@@ -278,7 +278,7 @@ try {
       const bench = presets.find((preset) => preset.id === 'review-bench')
       if (bench === undefined) fail('discovery', `roster does not offer review-bench: ${presets.map((p) => p.id).join(', ') || '(empty)'}`)
       else if (bench.broken !== undefined) fail('discovery', `harness marks review-bench broken: ${bench.broken}`)
-      else if (bench.name !== 'AstroAI Studio Team') fail('discovery', `display name is ${JSON.stringify(bench.name)}, expected "AstroAI Studio Team"`)
+      else if (bench.name !== 'CANFAR Studio Team') fail('discovery', `display name is ${JSON.stringify(bench.name)}, expected "CANFAR Studio Team"`)
       else ok(`discovery: harness roster offers ${bench.id} as ${JSON.stringify(bench.name)} with no broken reason`)
       for (const preset of presets) {
         if (preset.id !== 'review-bench') fail('discovery', `unexpected preset in root: ${preset.id}`)
@@ -303,7 +303,7 @@ for (const doc of ['HOWTO.md', 'README.md']) {
   ok(`docs: ${doc} (${mentions.size} internal paths checked)`)
 }
 const howto = readFileSync(join(root, 'HOWTO.md'), 'utf8')
-for (const required of ['install.sh', 'AstroAI Studio Team', 'panel/', 'DEEPSEEK_API_KEY']) {
+for (const required of ['install.sh', 'CANFAR Studio Team', 'panel/', 'DEEPSEEK_API_KEY']) {
   if (!howto.includes(required)) fail('docs', `HOWTO.md does not mention ${required}`)
 }
 

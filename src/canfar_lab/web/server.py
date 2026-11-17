@@ -505,7 +505,7 @@ class LabHandler(BaseHTTPRequestHandler):
             self._error(HTTPStatus.FORBIDDEN, "Loopback only.")
             return False
         if not self._token_ok():
-            self._error(HTTPStatus.UNAUTHORIZED, "Missing or wrong Lab token.")
+            self._error(HTTPStatus.UNAUTHORIZED, "Missing or wrong Settings token.")
             return False
         if write and self.headers.get(WRITE_HEADER) != "1":
             self._error(HTTPStatus.FORBIDDEN, f"Writes need the {WRITE_HEADER} header.")
@@ -562,7 +562,7 @@ class LabHandler(BaseHTTPRequestHandler):
 
     def _token_login(self, token: str) -> None:
         if self.client_address[0] not in LOOPBACK or not hmac.compare_digest(token, self.lab.token):
-            self._error(HTTPStatus.UNAUTHORIZED, "Wrong Lab token.")
+            self._error(HTTPStatus.UNAUTHORIZED, "Wrong Settings token.")
             return
         cookie = f"{COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict"
         self._send(

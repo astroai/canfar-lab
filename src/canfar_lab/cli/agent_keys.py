@@ -79,7 +79,7 @@ def keys_set_cmd(
     if opts.json:
         ui.print_json(result)
         return
-    ui.print_ok(f"{name} saved (new terminals and the assistant pick it up)")
+    ui.print_ok(f"{name} saved (Chat and new terminals pick it up)")
 
 
 @keys_app.command("unset")

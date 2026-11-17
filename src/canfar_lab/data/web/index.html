@@ -180,30 +180,30 @@
   </section>
 
   <nav class="tabs" role="tablist" aria-label="Settings sections">
-    <button role="tab" id="tab-agents" aria-controls="panel-agents" data-tab="agents" aria-selected="true">Agents<span class="attn" id="attn-agents"><span class="sr-only">needs attention</span></span></button>
-    <button role="tab" id="tab-keys" aria-controls="panel-keys" data-tab="keys" aria-selected="false">Keys</button>
+    <button role="tab" id="tab-keys" aria-controls="panel-keys" data-tab="keys" aria-selected="true">Keys</button>
+    <button role="tab" id="tab-agents" aria-controls="panel-agents" data-tab="agents" aria-selected="false">Agents<span class="attn" id="attn-agents"><span class="sr-only">needs attention</span></span></button>
     <button role="tab" id="tab-code" aria-controls="panel-code" data-tab="code" aria-selected="false">Code<span class="attn" id="attn-code"><span class="sr-only">needs attention</span></span></button>
     <button role="tab" id="tab-cluster" aria-controls="panel-cluster" data-tab="cluster" aria-selected="false">Cluster</button>
   </nav>
 
   <section id="panel-agents" data-panel="agents" role="tabpanel" aria-labelledby="tab-agents">
-    <p class="intro">Use coding agents in the Terminal tab. Their programs live on the session's fast disk
-      (<code>$SCRATCH</code>, wiped when the session ends) and the newest
-      version is installed for you at every session start. Logins and settings stay in your home.</p>
+    <p class="intro">Coding agents for the Terminal tab. They install on <code>$SCRATCH</code> (wiped at
+      session end); the ones you installed come back at the latest version each session. Logins and settings
+      stay in your home.</p>
     <div class="list" id="agents"></div>
   </section>
 
   <section id="panel-keys" data-panel="keys" role="tabpanel" aria-labelledby="tab-keys" hidden>
-    <p class="intro">Chat needs one of these keys. Terminal agents use them too, unless you sign in there
-      instead. Keys are stored privately in your home, used by everything that reads them, and never shown
-      again: only whether one is set.</p>
+    <p class="intro">Chat needs one of the keys “used by Chat”. Terminal agents use these too, or their own login.
+      Stored owner-only in <code>~/.canfar/lab/.env</code> and <code>~/.dsh/.credentials.yaml</code>; a saved
+      key is never shown again.</p>
     <div class="list" id="keys" data-editable></div>
   </section>
 
   <section id="panel-code" data-panel="code" role="tabpanel" aria-labelledby="tab-code" hidden>
     <div class="card" id="workspace-card" data-item="where">
       <h2>Where your code lives</h2>
-      <p class="intro">Kept for your next sessions. Chat, Terminal, JupyterLab and VS Code open here.</p>
+      <p class="intro">Kept for your next sessions. Every tab opens here.</p>
       <form id="where-form" class="where">
         <label class="opt"><input type="radio" name="mode" value="scratch">
           <span class="opt-title">Session scratch <code id="where-scratch">$SCRATCH/src</code></span>
@@ -225,7 +225,7 @@
     </div>
 
     <div class="card" id="autosave-card" data-item="autosave">
-      <h2>Saving to /arc</h2>
+      <h2>Snapshots</h2>
       <div id="autosave-body" data-editable></div>
     </div>
 
@@ -235,10 +235,10 @@
     <div class="save-bar">
       <input type="text" id="snap-name" placeholder="Snapshot name (optional)" aria-label="Snapshot name">
       <label class="check"><input type="checkbox" id="snap-dsh" checked> Chat history</label>
-      <label class="check" title="Usually rebuilt from lockfiles; including them makes snapshots much larger">
+      <label class="check" title="Usually recreated with pixi install / uv sync; including them makes snapshots much larger">
         <input type="checkbox" id="snap-envs"> .pixi / .venv</label>
       <span class="grow"></span>
-      <button class="primary" data-op="save_snapshot">Save to /arc</button>
+      <button class="primary" data-op="save_snapshot">Save snapshot</button>
     </div>
     <h3>Saved snapshots</h3>
     <div class="list" id="snapshots"></div>
@@ -361,7 +361,7 @@ async function run(op, data = {}) {
     else if (op === "cluster_start" || op === "cluster_stop") reply = await api("POST", `cluster/${op.slice(8)}`);
     else if (op === "restart_tools") {
       await api("POST", "workspace/restart");
-      toast("Restarting Chat, Terminal, JupyterLab and VS Code in the new folder…",
+      toast("Restarting all tabs in the new folder…",
         "Their tabs reload in a few seconds. Unsaved editor buffers are lost.");
     }
     else if (op === "make_private") { await api("POST", "workspace/private"); toast("Only you can open this folder now."); }
@@ -409,7 +409,7 @@ document.addEventListener("click", (ev) => {
   if (d.op === "agent" && d.verb === "remove" && !confirm(`Remove ${d.label} from this session? Your login and settings stay in your home.`)) return;
   if (d.op === "agent" && (d.verb === "clean-home" || d.verb === "rehome") && !confirm(`Delete these ${d.label} program copies from your home?\n\n${d.paths}\n\nYour login, settings and history are not touched.`)) return;
   if (d.op === "cluster_stop" && !confirm("Stop the cluster? Running jobs are cancelled.")) return;
-  if (d.op === "restart_tools" && !confirm("Restart Chat, Terminal, JupyterLab and VS Code now?\n\nOpen terminals close and unsaved editor changes are lost. Agent chats are kept.")) return;
+  if (d.op === "restart_tools" && !confirm("Restart all tabs now?\n\nOpen terminals close and unsaved editor changes are lost. Chats are kept.")) return;
   run(d.op, { ...d });
 });
 
@@ -456,7 +456,7 @@ function renderStatus(o, busy) {
 
 function agentStatus(a) {
   if (a.installed) return a.ready ? '<span class="pill ok">Ready</span>' : '<span class="pill warn">Sign in</span>';
-  if (a.needs_restore) return '<span class="pill warn">Not reinstalled yet</span>';
+  if (a.needs_restore) return '<span class="pill warn">Not ready this session</span>';
   return '<span class="pill">Not installed</span>';
 }
 
@@ -470,7 +470,7 @@ function renderAgents(agents, busy) {
     // Not installed but copies in home: the installer refuses until they are gone,
     // so the one action is "move": remove them and install on $SCRATCH.
     const acts = a.installed ? btn("update", "Update") + btn("remove", "Remove", "link danger")
-      : copies.length ? "" : btn("install", a.needs_restore ? "Get latest" : "Install", "primary");
+      : copies.length ? "" : btn("install", a.needs_restore ? "Get ready" : "Install", "primary");
     const keyNames = a.keys.map((k) => `<code>${esc(k.key)}</code>`).join(" or ");
     const signin = a.installed && !a.ready ? `
       <div class="callout info"><span class="grow">Run <code class="copy" tabindex="0" role="button" title="Click to copy">${esc(a.login)}</code>
@@ -479,11 +479,11 @@ function renderAgents(agents, busy) {
     const paths = copies.map((c) => `<code>${esc(c.path)}</code>`).join(", ");
     const home = !copies.length ? "" : a.installed ? `
       <div class="callout warn"><span class="grow">Older copies in your home${total ? ` (${esc(size(total))})` : ""}:
-        ${paths}. They come from self-updates or manual installs, can override the copy installed for you, and slow your home.</span>
+        ${paths}. They come from self-updates or manual installs, can shadow the <code>$SCRATCH</code> copy, and use home quota.</span>
         <button data-op="agent" data-agent="${esc(a.id)}" data-verb="clean-home" data-label="${esc(a.label)}"
           data-paths="${esc(copies.map((c) => c.path).join("\n"))}"${dis}>Remove them</button></div>` : `
       <div class="callout warn"><span class="grow">Found in your home${total ? ` (${esc(size(total))})` : ""}: ${paths}.
-        In this image agents run from <code>$SCRATCH</code>, which is fast and reinstalled every session; copies in your
+        In Studio, agents run from <code>$SCRATCH</code>, which is fast and reinstalled every session; copies in your
         home are slow and are not used.</span>
         <button class="primary" data-op="agent" data-agent="${esc(a.id)}" data-verb="rehome" data-label="${esc(a.label)}"
           data-paths="${esc(copies.map((c) => c.path).join("\n"))}"${dis}>Move to $SCRATCH</button></div>`;
@@ -566,7 +566,7 @@ function renderCode(st, busy) {
           <button data-op="restore_snapshot" data-name="${esc(s.name)}"${busy ? " disabled" : ""}>Restore</button>
           <button class="link danger" data-op="delete_snapshot" data-name="${esc(s.name)}"${busy ? " disabled" : ""}>Delete</button></span></div>
       <div class="muted small">${repos || "no git repositories"}${s.dsh_state ? " · Chat history" : ""}</div></div>`;
-  }).join("") : '<div class="empty">No snapshots yet. Save one before you leave the session.</div>';
+  }).join("") : `<div class="empty">No snapshots yet.${st.workspace && st.workspace.ephemeral && st.workspace.autosave && st.workspace.autosave.enabled ? " The first automatic one is taken within " + esc(st.workspace.autosave.interval_min) + " min." : " Save one before you leave the session."}</div>`;
   const step = (st.onboarding.steps || []).find((s) => s.id === "code");
   $("#attn-code").classList.toggle("on", !!(step && step.status !== "done" && projects.length));
 }
@@ -601,7 +601,7 @@ function renderWorkspace(st, busy) {
   $("#where-note").innerHTML = w.code_path ? `Now: <code>${esc(w.code_path)}</code>` : "";
 
   if (w.restart_needed) {
-    callouts.push(`<div class="callout warn"><span class="grow">Chat, Terminal, JupyterLab and VS Code are still
+    callouts.push(`<div class="callout warn"><span class="grow">Open tabs are still
       using <code>${esc(w.live_code_path)}</code>. Restart them to open <code>${esc(w.code_path)}</code>.</span>` +
       (w.restart_supported
         ? `<button class="primary" data-op="restart_tools"${busy ? " disabled" : ""}>Restart tools now</button>`
@@ -634,10 +634,10 @@ function renderWorkspace(st, busy) {
             <option value="ask"${w.restore_at_start === "ask" ? " selected" : ""}>ask me</option>
             <option value="never"${w.restore_at_start === "never" ? " selected" : ""}>start empty</option>
           </select>
-          <span class="grow"></span><button type="submit">Save settings</button></div>
+          <span class="grow"></span><button type="submit">Apply</button></div>
       </form>
-      <p class="muted small" style="margin:8px 0 0">Saves skip Python environments (<code>.pixi</code>, <code>.venv</code>);
-        they are rebuilt from your project files. Snapshots you take by hand are never deleted automatically.</p>`
+      <p class="muted small" style="margin:8px 0 0">Saves skip <code>.pixi</code> and <code>.venv</code>: after a restore, run
+        <code>pixi install</code> or <code>uv sync</code>. Snapshots you take by hand are never deleted automatically.</p>`
       : `<p class="intro" style="margin:0">${w.on_arc
           ? "Your code folder is on /arc, so it is already kept between sessions."
           : "Your code folder is not on the session's scratch disk, so nothing is saved automatically."}
@@ -664,7 +664,7 @@ function renderWorkspace(st, busy) {
         ${w.cache_default ? "" : '<button type="button" class="link" id="cache-reset">Back to the default</button>'}
       </form>
       <p class="muted small" style="margin:8px 0 0">Caches never go to your /arc home. A change applies to tools started
-        after it (restart them above, or in the next session).</p>`;
+        from now on, or in the next session.</p>`;
   }
 }
 
@@ -699,8 +699,8 @@ $("#where-form").addEventListener("submit", (ev) => {
   const projects = (state && state.code && state.code.entries) || [];
   if (!projects.length) { applyWhere(false); return; }
   $("#where-confirm").innerHTML = `<div class="callout info"><span class="grow">Copy your
-    ${esc(plural(projects.length, "project"))} to the new folder? Your originals stay where they are; Python
-    environments are rebuilt there.</span>
+    ${esc(plural(projects.length, "project"))} to the new folder? Your originals stay where they are.
+    Environments are not copied: run <code>pixi install</code> or <code>uv sync</code> there.</span>
     <button class="primary" data-where="copy">Copy and switch</button>
     <button data-where="switch">Switch only</button>
     <button class="link" data-where="cancel">Cancel</button></div>`;
@@ -777,7 +777,7 @@ async function refreshCluster() {
         ${j.start_time ? `<span class="muted">${esc(ago(j.start_time / 1000))}</span>` : ""}</div></div>`).join("")
       : '<div class="empty">No jobs yet. Submit one from the Terminal tab with <code class="copy" tabindex="0" role="button" title="Click to copy">canfar lab run script.py</code>.</div>';
     el.innerHTML = `<div class="card"><div class="item-head"><h2>Ray cluster</h2><span class="pill ok">${esc(c.phase)}</span>
-        ${c.authenticated ? "" : '<span class="pill warn">CANFAR login missing</span>'}
+        ${c.authenticated ? "" : '<span class="pill warn" title="Run canfar login in the Terminal tab">CANFAR login missing: run <code>canfar login</code></span>'}
         <span class="acts">${safeUrl(c.dashboard_url) ? `<a href="${esc(safeUrl(c.dashboard_url))}" target="_blank" rel="noopener">Ray dashboard ↗</a>` : ""}
           <button class="link danger" data-op="cluster_stop"${dis}>Stop</button></span></div>
       <div class="stats">
@@ -913,9 +913,9 @@ async function refresh() {
   if (state.job) follow(state.job); else $("#activity").hidden = true;
 }
 
-let saved = store.get("lab.tab", "agents");
+let saved = store.get("lab.tab", "keys");
 if (saved === "save") saved = "code";  // renamed tab
-selectTab(["agents", "keys", "code", "cluster"].includes(saved) ? saved : "agents");
+selectTab(["agents", "keys", "code", "cluster"].includes(saved) ? saved : "keys");
 refresh();
 setInterval(() => { if (!document.hidden && !streaming) refresh(); }, 15000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });

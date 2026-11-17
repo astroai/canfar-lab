@@ -89,8 +89,8 @@ reminds you with the resolved state path.
 
 Two delegation mechanisms, deliberately layered — pick one per task.
 
-**Specialist consults — the `AstroAI Studio Team` preset.** New session → preset
-**AstroAI Studio Team** gives a chaired team of fourteen personas, each reachable
+**Specialist consults — the `CANFAR Studio Team` preset.** New session → preset
+**CANFAR Studio Team** gives a chaired team of fourteen personas, each reachable
 through its own tool (`ask_statistician`, `ask_canfar_expert`, `ask_plot_master`,
 `ask_devils_advocate`, …) with a research-and-run tool
 view (models inherit your session route; never pinned). Use it for a review, a referee report, or an adversarial pass. The protocol

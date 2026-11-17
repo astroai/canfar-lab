@@ -1,4 +1,4 @@
-"""`canfar lab studio review`: headless AstroAI Studio Team review."""
+"""`canfar lab studio review`: headless CANFAR Studio Team review."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def panel_root(ctx: typer.Context) -> None:
             }
         )
         return
-    ui.print_hint("AstroAI Studio Team — chaired multi-persona review.")
+    ui.print_hint("CANFAR Studio Team — chaired multi-persona review.")
     ui.print_hint('  canfar lab studio review run <repo> "C1: metric ≥ threshold on split" [slug]')
     ui.print_hint(
         "  canfar lab studio review doctor          # keys + provider refs (no model choice)"

@@ -69,7 +69,7 @@ def set_cmd(
     path: Annotated[str | None, typer.Argument(help="Folder, for custom.")] = None,
     json_output: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
 ) -> None:
-    """Choose where code lives. Takes effect for new terminals and the next session."""
+    """Choose where code lives. Applies after Settings → Code → Restart tools, or next session."""
     from canfar_lab.session import workspace
 
     opts = merge_opts(ctx, json_output=json_output)
@@ -83,4 +83,6 @@ def set_cmd(
         return
     ui.print_ok(f"Code folder: {result['new']}")
     if result["changed"]:
-        ui.print_hint(f"  projects in {result['old']} were not moved")
+        ui.print_hint(
+            f"  projects in {result['old']} were not moved (Settings → Code can copy them)"
+        )

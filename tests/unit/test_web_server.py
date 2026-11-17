@@ -100,7 +100,7 @@ def test_unknown_routes_and_methods(lab: server_mod.LabServer) -> None:
     assert _req(lab, "GET", "/api/nope")[0] == 404
     assert _req(lab, "DELETE", "/api/state")[0] == 405
     status, body, _ = _req(lab, "POST", "/api/agents/cursor/install")
-    assert status == 400 and "not a Lab agent" in body["error"]
+    assert status == 400 and "not an agent Settings offers" in body["error"]
     assert _req(lab, "POST", "/api/agents/claude/explode")[0] == 400
 
 

@@ -1,4 +1,4 @@
-"""The six Lab agents: status, install/update/remove, setup, keys, restore.
+"""The six Settings agents: status, install/update/remove, setup, keys, restore.
 
 The list lives in ``data/agent/lab-agents.yaml``; install, config and verify
 details come from the agent registry (``data/agent/agents/*.yaml``).
@@ -179,8 +179,8 @@ def get_lab_agent(agent_id: str) -> LabAgent:
         if agent.id == agent_id:
             return agent
     raise LabError(
-        f"{agent_id!r} is not a Lab agent.",
-        hint="Lab agents: " + ", ".join(a.id for a in lab_agents()),
+        f"{agent_id!r} is not an agent Settings offers.",
+        hint="Agents: " + ", ".join(a.id for a in lab_agents()),
     )
 
 
@@ -390,7 +390,7 @@ def restore(home: Path | None = None, *, dry_run: bool = False) -> dict[str, Any
 
 def _check_lab_key(name: str) -> None:
     if name not in studio_keys() and not any(name in agent.keys for agent in lab_agents()):
-        raise LabError(f"{name!r} is not a key Chat or any Lab agent reads.")
+        raise LabError(f"{name!r} is not a key Chat or the Settings agents read.")
 
 
 def set_key(name: str, value: str, home: Path | None = None) -> dict[str, Any]:

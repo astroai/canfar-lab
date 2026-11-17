@@ -232,7 +232,7 @@ def register(app: typer.Typer) -> None:
             ),
         ] = False,
     ) -> None:
-        """Clone GitHub repo(s) into $WORK ($SCRATCH/src on CANFAR) and install deps.
+        """Clone GitHub repo(s) into your code folder ($WORK, default $SCRATCH/src); install deps.
 
         Prefers your GitHub user fork when given a bare name. Use ``--update`` so
         jobs/sessions refresh to the latest pushed tip on origin. ``--ref`` pins a

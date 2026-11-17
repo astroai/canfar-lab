@@ -47,7 +47,7 @@ def _dotenv(home: Path) -> str:
 def test_catalog_lists_openrouter_and_dsh_routes() -> None:
     rows = {row["key"]: row for row in keys.catalog()}
     assert rows["OPENROUTER_API_KEY"]["dsh_route"] is None
-    assert "OpenCode Interpreter" in rows["OPENROUTER_API_KEY"]["used_by"]
+    assert "OpenCode" in rows["OPENROUTER_API_KEY"]["used_by"]
     assert rows["ANTHROPIC_API_KEY"]["dsh_route"] == "anthropic"
     assert rows["ANTHROPIC_API_KEY"]["signup_url"].startswith("https://")
     assert all(row["label"] for row in rows.values())

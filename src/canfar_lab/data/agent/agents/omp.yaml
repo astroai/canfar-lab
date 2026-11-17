@@ -3,7 +3,7 @@
 id: omp
 name: Oh My Pi
 homepage: https://github.com/can1357/oh-my-pi
-summary: Coding agent CLI (omp) — sessions, subagents, slash commands; fork of Pi
+summary: Pi fork with subagents and slash commands (omp)
 binary: omp
 tags: [agent, cli, open]
 install:

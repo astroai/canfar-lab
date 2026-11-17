@@ -33,7 +33,7 @@ open(p, "w").write(text.replace(old, new))
 print("patched customSkillDirs -> managed bench + ~/dsh fallback")
 PY
 
-# 2. AstroAI Studio Team branding (preset name only; never model pins)
+# 2. CANFAR Studio Team branding (preset name only; never model pins)
 # Keep in sync with canfar-lab Studio Team expansion; do not revert to eight-only.
 python3 - "$DST" <<'PY'
 from pathlib import Path
@@ -42,7 +42,7 @@ import sys
 dst = Path(sys.argv[1])
 preset = dst / "presets" / "review-bench" / "preset.yml"
 preset.write_text(
-    "name: AstroAI Studio Team\n"
+    "name: CANFAR Studio Team\n"
     "description: >-\n"
     "  AstroAI Studio chaired multi-persona team — science reviewers plus CANFAR\n"
     "  expert, devops, plot master, desloper, innovator, and devil's advocate —\n"
@@ -52,7 +52,7 @@ preset.write_text(
     "order: 10\n",
     encoding="utf-8",
 )
-print("rewrote preset.yml -> AstroAI Studio Team")
+print("rewrote preset.yml -> CANFAR Studio Team")
 
 cordis = dst / "presets" / "review-bench" / "agent.cordis.yml"
 text = cordis.read_text(encoding="utf-8")

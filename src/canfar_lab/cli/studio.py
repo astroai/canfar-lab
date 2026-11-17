@@ -113,7 +113,7 @@ def studio_status_cmd(
     ctx: typer.Context,
     json_output: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
 ) -> None:
-    """Show live status of Studio's services (Studio, Terminal, JupyterLab, VS Code, Settings)."""
+    """Show which Studio tabs are running (Chat, Terminal, JupyterLab, marimo, VS Code)."""
     opts = merge_opts(ctx)
     is_json = json_output or opts.json
 
@@ -132,13 +132,13 @@ def studio_status_cmd(
         # Fallback to direct port checks
         services = {
             "agent": {
-                "name": "Studio",
+                "name": "Chat",
                 "port": 3080,
                 "path": "/",
                 "up": _check_port_open("127.0.0.1", 3080),
             },
             "terminal": {
-                "name": "Terminal (Ghostty)",
+                "name": "Terminal",
                 "port": 4793,
                 "path": "/terminal/",
                 "up": _check_port_open("127.0.0.1", 4793),
@@ -148,6 +148,12 @@ def studio_status_cmd(
                 "port": 8888,
                 "path": "/jupyter/",
                 "up": _check_port_open("127.0.0.1", 8888),
+            },
+            "marimo": {
+                "name": "marimo",
+                "port": 2718,
+                "path": "/marimo/",
+                "up": _check_port_open("127.0.0.1", 2718),
             },
             "vscode": {
                 "name": "VS Code",
@@ -206,9 +212,9 @@ def studio_status_cmd(
         if s_info.get("session_only") and not is_up:
             status_badge = "[dim]session only[/dim]"
         elif is_up:
-            status_badge = "[bold green]ONLINE[/bold green]"
+            status_badge = "[green]running[/green]"
         else:
-            status_badge = "[dim]STOPPED[/dim]"
+            status_badge = "[dim]not started (starts when opened)[/dim]"
         svc_path = str(s_info.get("path", ""))
         path_str = f"{prefix}{svc_path}" if prefix else svc_path
         rows.append(
@@ -226,9 +232,9 @@ def studio_status_cmd(
     laptop = bool(status_data.get("laptop"))
     title = "CANFAR Studio (this computer)" if laptop else "Studio services (behind :5000)"
     table = Table(title=title, show_header=True)
-    table.add_column("Service", style="bold")
-    table.add_column("Internal Port")
-    table.add_column("Public Path")
+    table.add_column("Tab", style="bold")
+    table.add_column("Port")
+    table.add_column("Path")
     table.add_column("Status")
 
     for r in rows:
@@ -241,8 +247,9 @@ def studio_status_cmd(
     scratch_free = res.get("scratch_free_gb", 0)
     cpus = res.get("cpus", 1)
     if laptop:
-        ui.print_hint("Studio listens on http://127.0.0.1:3080.")
-        ui.print_hint("Terminal, JupyterLab, VS Code and Settings run in a CANFAR Studio session.")
+        agent_svc = services_map.get("agent") or {}
+        ui.print_hint(f"Chat: http://127.0.0.1:{agent_svc.get('port', 3080)}/")
+        ui.print_hint("The other tabs exist only in a CANFAR Studio session.")
     else:
         ui.print_hint(f"Resources: {cpus} CPU cores | Scratch free: {scratch_free} GB")
 
@@ -252,36 +259,38 @@ def studio_main(
     ctx: typer.Context,
     repo: Annotated[
         str | None,
-        typer.Argument(help="Repo / workspace directory (default: cwd)."),
+        typer.Argument(help="Project folder to open (default: current directory)."),
     ] = None,
-    port: Annotated[int, typer.Option("--port", help="dsh web port.")] = 3080,
+    port: Annotated[int, typer.Option("--port", help="Chat (dsh) web port.")] = 3080,
     profile: Annotated[
         Literal["laptop", "canfar"] | None,
-        typer.Option("--profile", help="Resource profile (default: auto-detect)."),
+        typer.Option(
+            "--profile", help="Where Studio runs: laptop or canfar (default: auto-detect)."
+        ),
     ] = None,
     prepare: Annotated[
         bool,
         typer.Option(
             "--prepare",
-            help="Only provision review-bench, dotenv, dsh settings, the Studio profile.",
+            help="Write dsh settings, keys and the Studio profile, then exit.",
         ),
     ] = False,
     doctor: Annotated[
         bool,
-        typer.Option("--doctor", help="Pre-flight dsh, profile, skills, providers, MCP; exit."),
+        typer.Option("--doctor", help="Check dsh, profile, keys, providers and MCP, then exit."),
     ] = False,
     no_team: Annotated[
         bool,
         typer.Option(
             "--no-team",
-            help="Skip the experimental Agent Teams layers (stock web composition).",
+            help="Plain dsh, without the experimental agent-team add-ons.",
         ),
     ] = False,
     no_install: Annotated[
         bool,
         typer.Option(
             "--no-install",
-            help="Never install missing bundles (offline / image-baked setups).",
+            help="Never install missing dsh plugins (offline or image-baked setups).",
         ),
     ] = False,
     mcp_bin: Annotated[
@@ -293,7 +302,7 @@ def studio_main(
     ] = None,
     force: Annotated[
         bool,
-        typer.Option("--force", help="Overwrite managed studio/dsh scaffolding."),
+        typer.Option("--force", help="Rewrite the files Studio manages, even if edited."),
     ] = False,
     no_open: Annotated[
         bool,
@@ -301,7 +310,7 @@ def studio_main(
     ] = False,
     skills: Annotated[
         bool,
-        typer.Option("--skills", help="Print skills.sh / agentskills onboarding and exit."),
+        typer.Option("--skills", help="Print how to add agent skills, then exit."),
     ] = False,
     dsh_version: Annotated[
         str | None,
@@ -520,7 +529,7 @@ def studio_main(
     ui.print_hint(f"  dsh profile: {_sp.STUDIO_PROFILE_NAME} — state in {prep.get('state_root')}")
     if listen["desk"]:
         ui.print_hint("  Click Desk (top right) to sync this repo with CANFAR or launch a session.")
-    ui.print_hint("  Team review: New session → preset «AstroAI Studio Team»")
+    ui.print_hint("  Team review: New session → preset «CANFAR Studio Team»")
     if with_team:
         ui.print_hint("  Agent Teams: ask for a team in the chat (roster + shared task board)")
     ui.print_hint("  Skills: canfar lab studio --skills")

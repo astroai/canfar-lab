@@ -105,7 +105,7 @@ def test_install_sets_up_and_remembers(
 
 
 def test_install_refuses_non_lab_agent(home: Path) -> None:
-    with pytest.raises(LabError, match="not a Lab agent"):
+    with pytest.raises(LabError, match="not an agent Settings offers"):
         agents.install("cursor")
 
 
@@ -165,7 +165,7 @@ def test_restore_keeps_going_after_a_failure(
 def test_keys_limited_to_lab_agents(home: Path) -> None:
     assert agents.set_key("ANTHROPIC_API_KEY", SECRET, home)["present"]
     assert agents.unset_key("ANTHROPIC_API_KEY", home)["present"] is False
-    with pytest.raises(LabError, match="not a key Chat or any Lab agent reads"):
+    with pytest.raises(LabError, match="not a key Chat or the Settings agents read"):
         agents.set_key("FACTORY_API_KEY", SECRET, home)
 
 

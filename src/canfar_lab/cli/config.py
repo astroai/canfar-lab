@@ -36,7 +36,7 @@ def config_show(
     ctx: typer.Context,
     json_output: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
 ) -> None:
-    """Display current lab settings.
+    """Show your canfar-lab settings.
 
     Examples:
         canfar lab config show

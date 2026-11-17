@@ -30,13 +30,13 @@ def _names(rows: list[dict[str, Any]]) -> str:
     return ", ".join(labels[:-1]) + f" and {labels[-1]}"
 
 
-def _list(names: list[str], limit: int = 4) -> str:
-    """``a``, ``a and b``, ``a, b and c``, ``a, b, c, d and 3 more``."""
+def _list(names: list[str], limit: int = 4, *, conj: str = "and") -> str:
+    """``a``, ``a and b``, ``a, b and c``, ``a, b, c, d and 3 more`` (or ``or``)."""
     if len(names) > limit:
         return ", ".join(names[:limit]) + f" and {len(names) - limit} more"
     if len(names) <= 2:
-        return " and ".join(names)
-    return ", ".join(names[:-1]) + f" and {names[-1]}"
+        return f" {conj} ".join(names)
+    return ", ".join(names[:-1]) + f" {conj} {names[-1]}"
 
 
 def _job_kind(job: dict[str, Any] | None) -> str:
@@ -56,12 +56,11 @@ def _studio_step(keys: list[dict[str, Any]]) -> dict[str, Any]:
             "detail": f"Chat can use your {_list(have)} key. Pick the model at the "
             "bottom of the chat box.",
         }
-    labels = _list([str(k["label"]) for k in usable], limit=6)
+    labels = _list([str(k["label"]) for k in usable], limit=6, conj="or")
     return {
         **step,
         "status": "todo",
-        "detail": f"Chat needs an API key from one model provider: {labels}. "
-        "DeepSeek is the cheapest to start with.",
+        "detail": f"Chat needs one API key: {labels}. DeepSeek is the cheapest to start with.",
         "action": {"label": "Add a key", "focus": "keys"},
     }
 
@@ -86,8 +85,8 @@ def _agents_step(agents: list[dict[str, Any]], running: str) -> dict[str, Any]:
         return {
             **step,
             "status": "todo",
-            "detail": f"You used {_names(missing)} last time. Get the latest version for "
-            "this session; your logins and settings are kept.",
+            "detail": f"You used {_names(missing)} last time. Get them ready at the latest "
+            "version; logins and settings are kept.",
             "action": {"label": "Get ready", "op": "restore_agents"},
         }
     if installed:
@@ -96,8 +95,8 @@ def _agents_step(agents: list[dict[str, Any]], running: str) -> dict[str, Any]:
     return {
         **step,
         "status": "optional",
-        "detail": "Prefer Claude Code, Codex or another agent? Install it to run in the "
-        f"Terminal tab with your own subscription. {suggested['label']} works without one.",
+        "detail": "Optional: a coding agent for the Terminal tab (Claude Code, Codex, …) "
+        f"with your own subscription or key. {suggested['label']} has free models.",
         "action": {
             "label": f"Install {suggested['label']}",
             "op": "install_agent",
@@ -171,7 +170,7 @@ def _code_step(
             **step,
             "status": "optional",
             "detail": f"Your code lives in {code['src']} and is kept between sessions. "
-            "Start from a repository: run `canfar lab clone OWNER/REPO` in the terminal, "
+            "Start from a repository: run `canfar lab clone OWNER/REPO` in the Terminal tab, "
             "or `canfar lab init NAME` for a new project.",
             "command": "canfar lab clone OWNER/REPO",
             "more": where_more,
@@ -191,8 +190,8 @@ def _code_step(
             return {
                 **step,
                 "status": "done",
-                "detail": f"{where}. Saved to /arc automatically every {every} min and when "
-                f"the session ends.{last}",
+                "detail": f"{where}. Saved to /arc every {every} min and, time "
+                f"allowing, when the session ends.{last}",
                 "action": {"label": "Save now", "op": "save_snapshot"},
                 "more": where_more,
             }
@@ -235,7 +234,7 @@ def _code_step(
         "status": "optional",
         "detail": f"Code lives in {code['src'] or '$SCRATCH/src'} (fast; wiped when the "
         "session ends). Start from a repository: run `canfar lab clone OWNER/REPO` in the "
-        f"terminal, or `canfar lab init NAME` for a new project.{saves}",
+        f"Terminal tab, or `canfar lab init NAME` for a new project.{saves}",
         "command": "canfar lab clone OWNER/REPO",
         "more": where_more,
     }
@@ -310,7 +309,7 @@ def build(
             "id": "restart",
             "title": "Open your new code folder",
             "status": "todo",
-            "detail": f"Chat, Terminal, JupyterLab and VS Code still use {live}.",
+            "detail": f"Open tabs still use {live}.",
         }
         if code.get("restart_supported"):
             restart["action"] = {"label": "Restart tools now", "op": "restart_tools"}

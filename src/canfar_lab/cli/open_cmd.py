@@ -1,4 +1,4 @@
-"""``canfar-lab open``: Open files or tools in Studio browser interfaces."""
+"""``canfar-lab open``: print the Studio URL for a tab or file."""
 
 from __future__ import annotations
 
@@ -41,10 +41,10 @@ def run_open(
             file_path = path
         elif low in ("terminal", "term"):
             tool = "terminal"
-        elif low in ("agent", "dsh"):
+        elif low in ("chat", "agent", "dsh"):
             tool = "agent"
-        elif low in ("hub", "compute"):
-            tool = "hub"
+        elif low in ("settings", "hub", "compute"):
+            tool = "settings"
         else:
             file_path = target
             ext = Path(target).suffix.lower()
@@ -73,8 +73,8 @@ def run_open(
         url = f"{base_url}/marimo/"
     elif tool == "terminal":
         url = f"{base_url}/terminal/"
-    elif tool == "hub":
-        url = f"{base_url}/hub/"
+    elif tool == "settings":
+        url = f"{base_url}/lab/"
     else:
         url = f"{base_url}/"
 
@@ -83,17 +83,20 @@ def run_open(
         ui.print_json(payload)
         return
 
-    ui.print_ok(f"Studio {tool.title()} URL:")
+    names = {"agent": "Chat", "jupyter": "JupyterLab", "vscode": "VS Code"}
+    ui.print_ok(f"{names.get(tool, tool.title())} tab:")
     typer.echo(f"  {url}")
 
 
 def register(app: typer.Typer) -> None:
-    @app.command("open", help="Open files, notebooks, or interfaces in Studio browser tabs.")
+    @app.command("open", help="Print the Studio URL for a tab or file.")
     def open_cli(
         ctx: typer.Context,
         target: Annotated[
             str | None,
-            typer.Argument(help="Tool name (jupyter, vscode, marimo, terminal) or file path."),
+            typer.Argument(
+                help="Tab (chat, terminal, jupyter, marimo, vscode, settings) or file path."
+            ),
         ] = None,
         path: Annotated[
             str | None,
@@ -113,7 +116,7 @@ def register(app: typer.Typer) -> None:
 
 
 open_app = typer.Typer(
-    help="Open files, notebooks, or interfaces in Studio browser tabs.",
+    help="Print the Studio URL for a tab or file.",
     rich_markup_mode="rich",
     invoke_without_command=True,
 )
@@ -124,7 +127,7 @@ def open_entry(
     ctx: typer.Context,
     target: Annotated[
         str | None,
-        typer.Argument(help="Tool name or file path."),
+        typer.Argument(help="Tab or file path."),
     ] = None,
     path: Annotated[
         str | None,
